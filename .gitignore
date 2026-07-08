@@ -7,6 +7,20 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 
+# Node generated files
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+**/coverage/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Build outputs
 build/
 **/build/

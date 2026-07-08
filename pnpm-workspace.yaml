@@ -1,0 +1,16 @@
+packages:
+  - backend
+  - admin
+
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@scarf/scarf'
+  - esbuild
+  - prisma
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  esbuild: true
+  prisma: true

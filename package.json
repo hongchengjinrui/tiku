@@ -1,0 +1,14 @@
+{
+  "name": "tiku",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev:backend": "pnpm --dir backend dev",
+    "dev:admin": "pnpm --dir admin dev",
+    "dev:client": "cd client && flutter run",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

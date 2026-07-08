@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppPlatform {
+  ios
+  android
+}
+
+enum CatalogNodeType {
+  category
+  chapter
+  section
+  paper
+}
+
+enum QuestionType {
+  single_choice
+  multiple_choice
+  true_false
+  fill_blank
+  short_answer
+  material
+}
+
+enum MaterialAccessType {
+  free
+  vip
+}
+
+model App {
+  id          String      @id @default(cuid())
+  appKey      String      @unique
+  name        String
+  platform    AppPlatform
+  packageName String?
+  bankId      String
+  bank        QuestionBank @relation(fields: [bankId], references: [id])
+  config      Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model QuestionBank {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  version       String?
+  questionCount Int           @default(0)
+  subjects      Subject[]
+  apps          App[]
+  materials     MaterialResource[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Subject {
+  id        String       @id @default(cuid())
+  bankId    String
+  bank      QuestionBank @relation(fields: [bankId], references: [id])
+  name      String
+  sortOrder Int          @default(0)
+  isDefault Boolean      @default(false)
+  catalogs  CatalogNode[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([bankId, sortOrder])
+}
+
+model CatalogNode {
+  id            String          @id @default(cuid())
+  subjectId     String
+  subject       Subject         @relation(fields: [subjectId], references: [id])
+  parentId      String?
+  parent        CatalogNode?    @relation("CatalogTree", fields: [parentId], references: [id])
+  children      CatalogNode[]   @relation("CatalogTree")
+  type          CatalogNodeType
+  name          String
+  sourcePath    String?
+  questionCount Int             @default(0)
+  sortOrder     Int             @default(0)
+  questions     Question[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([subjectId, parentId, sortOrder])
+}
+
+model Question {
+  id          String       @id
+  catalogId   String
+  catalog     CatalogNode  @relation(fields: [catalogId], references: [id])
+  type        QuestionType
+  stem        Json
+  options     Json?
+  answer      Json
+  analysis    Json?
+  sourceRef   Json?
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([catalogId, sortOrder])
+  @@index([type])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String?  @unique
+  nickname  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PracticeRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  appKey    String
+  questionId String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId, appKey, createdAt])
+}
+
+model ExamRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  appKey    String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId, appKey, createdAt])
+}
+
+model MaterialResource {
+  id          String             @id @default(cuid())
+  bankId      String
+  bank        QuestionBank        @relation(fields: [bankId], references: [id])
+  title       String
+  accessType  MaterialAccessType  @default(free)
+  coverUrl    String?
+  fileUrl     String?
+  previewMeta Json?
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([bankId, accessType, sortOrder])
+}

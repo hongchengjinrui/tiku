@@ -1,0 +1,116 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tiku_muban/main.dart';
+import 'package:tiku_muban/routes/app_router.dart';
+
+void main() {
+  const staticRoutes = [
+    '/splash',
+    '/practice',
+    '/practice/switch-subject',
+    '/practice/catalog',
+    '/practice/reset',
+    '/practice/reset/all',
+    '/practice/reset/level2',
+    '/practice/reset/custom',
+    '/practice/reset/confirm',
+    '/practice/sections',
+    '/practice/sections/reset-confirm',
+    '/practice/papers',
+    '/practice/papers/reset-confirm',
+    '/practice/quiz',
+    '/practice/random',
+    '/practice/random/custom',
+    '/practice/favorite',
+    '/practice/wrong',
+    '/practice/wrong/clear-confirm',
+    '/practice/wrong/quiz',
+    '/exam',
+    '/exam/rules',
+    '/exam/catalog',
+    '/exam/sections',
+    '/exam/retake-confirm',
+    '/exam/papers',
+    '/exam/reset',
+    '/exam/reset/all',
+    '/exam/reset/level2',
+    '/exam/reset/custom',
+    '/exam/reset/confirm',
+    '/exam/assemble',
+    '/exam/assemble/all',
+    '/exam/answer',
+    '/exam/card',
+    '/exam/submit-confirm',
+    '/exam/submit-confirm/all-answered',
+    '/exam/analysis',
+    '/exam/analysis/unanswered',
+    '/exam/analysis/wrong',
+    '/exam/analysis/correct',
+    '/resources',
+    '/resources/free',
+    '/resources/free/toast',
+    '/resources/paid',
+    '/resources/unlocked',
+    '/vip',
+    '/vip/success',
+    '/profile',
+    '/profile/practice-records',
+    '/profile/practice-records/delete',
+    '/profile/practice-records/delete-all',
+    '/profile/exam-records',
+    '/profile/exam-records/delete',
+    '/profile/exam-records/delete-all',
+    '/profile/wrong',
+    '/profile/upload',
+    '/profile/correction',
+    '/profile/feedback',
+    '/profile/about',
+    '/profile/vip',
+    '/login',
+    '/login/quick',
+    '/agreement/member',
+    '/agreement/user',
+    '/agreement/privacy',
+    '/empty/practice',
+    '/empty/wrong',
+    '/empty/favorite',
+    '/empty/exam',
+    '/qt/single',
+    '/qt/multiple',
+    '/qt/truefalse',
+    '/qt/fillblank',
+    '/qt/short',
+    '/qt/material',
+    '/qt/image',
+    '/qt/image-error',
+    '/qt/single/result',
+    '/qt/multiple/result',
+    '/qt/truefalse/result',
+    '/qt/fillblank/result',
+    '/qt/short/result',
+    '/qt/material/result',
+    '/qt/image/result',
+    '/qt/multi-image/result',
+    '/qt/analysis-images/result',
+  ];
+
+  testWidgets('all static routes build', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    for (final route in staticRoutes) {
+      appRouter.go(route);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final exception = tester.takeException();
+      if (exception is FlutterError) {
+        fail('$route\n${exception.toStringDeep()}');
+      }
+      expect(exception, isNull, reason: route);
+      expect(find.byType(MaterialApp), findsOneWidget, reason: route);
+    }
+
+    await tester.binding.setSurfaceSize(null);
+  });
+}
