@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tiku_muban/data/mock/mock_app_store.dart';
 import 'package:tiku_muban/data/mock/models.dart';
+import 'package:tiku_muban/data/repositories/mock_tiku_repository.dart';
 
 void main() {
   test('practice session records answers and updates section progress', () {
-    final store = MockAppStore();
+    final store = AppStore(repository: MockTikuRepository());
     final section = store.chapters.first.sections.first;
     final beforeDone = section.done;
     final beforeRecords = store.practiceRecords.length;
@@ -27,7 +28,7 @@ void main() {
   });
 
   test('exam session supports answer card state and submit result', () {
-    final store = MockAppStore();
+    final store = AppStore(repository: MockTikuRepository());
     final section = store.examChapters.first.sections.first;
     final beforeDone = section.done;
     final beforeRecords = store.examRecords.length;
