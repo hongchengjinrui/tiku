@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -29,37 +31,43 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
 
           // 内容区
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-
-                  // ===== 选中学科数据面板 - 渐变背景 =====
-                  _buildSubjectPanel(),
-
-                  const SizedBox(height: 12),
-
-                  // ===== 二级目录独立列表 =====
-                  Column(
+            child: AnimatedBuilder(
+              animation: mockStore,
+              builder: (context, _) {
+                return SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 章节练习 - 可展开/收起
-                      _buildChapterCard(),
+                      const SizedBox(height: 12),
 
-                      const SizedBox(height: 10),
+                      // ===== 选中学科数据面板 - 渐变背景 =====
+                      _buildSubjectPanel(mockStore),
 
-                      // 模拟真题 - 独立收起状态
-                      _buildMockExamRow(),
+                      const SizedBox(height: 12),
+
+                      // ===== 二级目录独立列表 =====
+                      Column(
+                        children: [
+                          // 章节练习 - 可展开/收起
+                          _buildChapterCard(mockStore),
+
+                          const SizedBox(height: 10),
+
+                          // 模拟真题 - 独立收起状态
+                          _buildMockExamRow(mockStore),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ===== 跳转说明 =====
+                      _buildHintBox(),
                     ],
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // ===== 跳转说明 =====
-                  _buildHintBox(),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -68,7 +76,8 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
   }
 
   /// 选中学科数据面板 - 渐变背景，含标题、统计和进度条
-  Widget _buildSubjectPanel() {
+  Widget _buildSubjectPanel(MockAppStore store) {
+    final stat = store.practiceStat;
     return Container(
       width: double.infinity,
       height: 109,
@@ -93,7 +102,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
               children: [
                 // 学科名称
                 Text(
-                  '小学教师',
+                  store.selectedSubject.name,
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
@@ -102,29 +111,32 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                   ),
                 ),
                 // 重置进度入口
-                Container(
-                  width: 61,
-                  height: 24,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.refresh, size: 13, color: Colors.white),
-                      const SizedBox(width: 4),
-                      Text(
-                        '重置',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                GestureDetector(
+                  onTap: () => context.go('/practice/reset'),
+                  child: Container(
+                    width: 61,
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.refresh, size: 13, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          '重置',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -144,7 +156,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '练习进度 328/1200',
+                      '练习进度 ${stat.done}/${stat.total}',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
@@ -159,7 +171,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      '正确率 78%',
+                      '正确率 ${stat.accuracy}%',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
@@ -175,7 +187,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
                     child: Text(
-                      '错题量 88',
+                      '错题量 ${stat.wrong}',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
@@ -197,7 +209,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: 328 / 1200,
+                value: stat.progress,
                 minHeight: 8,
                 backgroundColor: Colors.white.withValues(alpha: 0.25),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -210,7 +222,8 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
   }
 
   /// 章节练习卡片 - 可展开/收起，含三级目录列表
-  Widget _buildChapterCard() {
+  Widget _buildChapterCard(MockAppStore store) {
+    final stat = store.practiceChapterStat;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -247,7 +260,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                 // 标题
                 Expanded(
                   child: Text(
-                    '章节练习（共5章）',
+                    '章节练习（共${store.chapters.length}章）',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 15,
@@ -265,7 +278,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
-                    '328/1200',
+                    '${stat.done}/${stat.total}',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
@@ -290,7 +303,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
           // 三级目录列表（展开时显示）
           if (_chapterExpanded) ...[
             const SizedBox(height: 10),
-            ..._buildChapterItems(),
+            ..._buildChapterItems(store),
           ],
         ],
       ),
@@ -298,56 +311,20 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
   }
 
   /// 构建三级章节目录列表
-  List<Widget> _buildChapterItems() {
-    final chapters = [
-      {
-        'name': '第一章：教育基础',
-        'progress': '42/84',
-        'fillWidth': 154.0,
-        'fillColor': const Color(0xFFEAF3FF),
-        'textColor': AppColors.textPrimary,
-        'progressColor': AppColors.textSecondary,
-        'isCompleted': false
-      },
-      {
-        'name': '第二章：班级管理',
-        'progress': '24/72',
-        'fillWidth': 96.0,
-        'fillColor': const Color(0xFFEAF3FF),
-        'textColor': AppColors.textPrimary,
-        'progressColor': AppColors.textSecondary,
-        'isCompleted': false
-      },
-      {
-        'name': '第三章：学生发展',
-        'progress': '60/96',
-        'fillWidth': 188.0,
-        'fillColor': const Color(0xFFEAF3FF),
-        'textColor': AppColors.textPrimary,
-        'progressColor': AppColors.textSecondary,
-        'isCompleted': false
-      },
-      {
-        'name': '第四章：打分考评',
-        'progress': '80/80',
-        'fillWidth': 0.0,
-        'fillColor': const Color(0xFFECFDF5),
-        'textColor': const Color(0xFF064E3B),
-        'progressColor': const Color(0xFF047857),
-        'isCompleted': true
-      },
-    ];
-
-    return chapters.map((ch) {
+  List<Widget> _buildChapterItems(MockAppStore store) {
+    return store.chapters.map((chapter) {
+      final isCompleted = chapter.done >= chapter.total;
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: _buildChapterItem(
-          name: ch['name'] as String,
-          progress: ch['progress'] as String,
-          fillColor: ch['fillColor'] as Color,
-          textColor: ch['textColor'] as Color,
-          progressColor: ch['progressColor'] as Color,
-          isCompleted: ch['isCompleted'] as bool,
+          chapter: chapter,
+          fillColor:
+              isCompleted ? const Color(0xFFECFDF5) : const Color(0xFFEAF3FF),
+          textColor:
+              isCompleted ? const Color(0xFF064E3B) : AppColors.textPrimary,
+          progressColor:
+              isCompleted ? const Color(0xFF047857) : AppColors.textSecondary,
+          isCompleted: isCompleted,
         ),
       );
     }).toList();
@@ -355,15 +332,17 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
 
   /// 单个三级章节项
   Widget _buildChapterItem({
-    required String name,
-    required String progress,
+    required Chapter chapter,
     required Color fillColor,
     required Color textColor,
     required Color progressColor,
     required bool isCompleted,
   }) {
     return GestureDetector(
-      onTap: () => context.go('/practice/sections'),
+      onTap: () {
+        mockStore.selectChapter(chapter.id);
+        context.go('/practice/sections');
+      },
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 40,
@@ -384,7 +363,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                 top: 0,
                 bottom: 0,
                 child: Container(
-                  width: _getProgressWidth(progress),
+                  width: _getProgressWidth(chapter.done, chapter.total),
                   decoration: BoxDecoration(
                     color: fillColor,
                     borderRadius: const BorderRadius.only(
@@ -403,7 +382,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    name,
+                    chapter.title,
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
@@ -415,7 +394,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                   Row(
                     children: [
                       Text(
-                        progress,
+                        '${chapter.done}/${chapter.total}',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 11,
@@ -443,16 +422,14 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
   }
 
   /// 根据进度文字计算宽度
-  double _getProgressWidth(String progress) {
-    final parts = progress.split('/');
-    final current = int.tryParse(parts[0]) ?? 0;
-    final total = int.tryParse(parts[1]) ?? 1;
+  double _getProgressWidth(int current, int total) {
     // 卡片内宽约322，减去padding后约296
     return (296 * current / total).clamp(0, 296).toDouble();
   }
 
   /// 模拟真题行 - 独立收起状态
-  Widget _buildMockExamRow() {
+  Widget _buildMockExamRow(MockAppStore store) {
+    final stat = store.practicePaperStat;
     return GestureDetector(
       onTap: () => context.go('/practice/papers'),
       behavior: HitTestBehavior.opaque,
@@ -497,7 +474,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '5套试卷 · 600题',
+                    '${store.practicePapers.length}套试卷 · ${stat.total}题',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
@@ -515,7 +492,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                 borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
               child: Text(
-                '188/600',
+                '${stat.done}/${stat.total}',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,

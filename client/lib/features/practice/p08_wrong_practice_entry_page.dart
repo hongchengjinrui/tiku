@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -334,40 +336,53 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
       child: Row(
         children: [
           // 清空错题入口
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primaryBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.primary),
+          GestureDetector(
+            onTap: () => context.go('/practice/wrong/clear-confirm'),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary),
+              ),
+              child: const Icon(Icons.delete_outline,
+                  size: 20, color: AppColors.primary),
             ),
-            child: const Icon(Icons.delete_outline,
-                size: 20, color: AppColors.primary),
           ),
           const SizedBox(width: 10),
           // 开始按钮
           Expanded(
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text('开始错题练习（42题）',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 18, color: Colors.white),
-                ],
+            child: GestureDetector(
+              onTap: () {
+                mockStore.startWrongPractice(
+                    count: mockStore.wrongPracticeCount);
+                context.go('/practice/quiz');
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('开始错题练习（${mockStore.wrongPracticeCount}题）',
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white)),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward,
+                        size: 18, color: Colors.white),
+                  ],
+                ),
               ),
             ),
           ),

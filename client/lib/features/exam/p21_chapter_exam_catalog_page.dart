@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/app_scaffold.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
+import '../../theme/app_colors.dart';
 
 /// P21 章节考试目录页 - Chapter exam catalog page
 class P21ChapterExamCatalogPage extends StatefulWidget {
@@ -25,46 +29,22 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
             const StatusBar(),
             const NavBar(title: '考试模式'),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    _buildSubjectPanel(),
-                    const SizedBox(height: 12),
-                    _buildChapterList(),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border, width: 1),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Icon(Icons.info_outline,
-                              size: 16, color: AppColors.textMuted),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '点击任一三级目录进入章节考试目录页。',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                height: 1.5,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        _buildSubjectPanel(mockStore),
+                        const SizedBox(height: 12),
+                        _buildChapterList(context, mockStore),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -73,7 +53,8 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
     );
   }
 
-  Widget _buildSubjectPanel() {
+  Widget _buildSubjectPanel(MockAppStore store) {
+    final stat = store.examStat;
     return Container(
       width: double.infinity,
       height: 109,
@@ -93,69 +74,62 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('小学教师',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  )),
-              Container(
-                height: 24,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
+              Text(
+                store.selectedSubject.name,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                child: const Center(
-                  child: Text('重置进度',
+              ),
+              GestureDetector(
+                onTap: () => context.go('/exam/reset'),
+                child: Container(
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '重置',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         color: Colors.white,
-                      )),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('考试进度 328/1200',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('考试进度 ${stat.done}/${stat.total}',
+                      style: _panelStatStyle),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('正确率 78%',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('正确率 ${stat.accuracy}%', style: _panelStatStyle),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Text('错题量 88',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('错题量 ${stat.wrong}', style: _panelStatStyle),
                 ),
               ),
             ],
@@ -163,7 +137,7 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.27,
+              value: stat.progress,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -174,10 +148,11 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
     );
   }
 
-  Widget _buildChapterList() {
+  Widget _buildChapterList(BuildContext context, MockAppStore store) {
+    final chapterStat = store.examChapterStat;
+    final paperStat = store.examPaperStat;
     return Column(
       children: [
-        // Chapter exam - expanded
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
@@ -200,147 +175,184 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
                         color: AppColors.primaryBg,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.menu_book,
-                          size: 18, color: AppColors.primary),
+                      child: const Icon(
+                        Icons.menu_book,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('章节考试',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              )),
-                          Text('328/1200 · 正确率 78%',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              )),
+                          Text(
+                            '章节考试（共${store.examChapters.length}章）',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            '${chapterStat.done}/${chapterStat.total} · 正确率 ${chapterStat.accuracy}%',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     Icon(
-                        _chapterExpanded
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: AppColors.textMuted),
+                      _chapterExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: AppColors.textMuted,
+                    ),
                   ],
                 ),
               ),
               if (_chapterExpanded) ...[
                 const SizedBox(height: 10),
-                _buildSubItem('第一章：教育基础', '66/120'),
-                _buildSubItem('第二章：安全规范', '44/68'),
-                _buildSubItem('第三章：实操常识', '0/54'),
+                ...store.examChapters
+                    .map((chapter) => _buildSubItem(context, chapter)),
               ],
             ],
           ),
         ),
         const SizedBox(height: 10),
-        // Mock exam - collapsed
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border, width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border, width: 1),
+        GestureDetector(
+          onTap: () => context.go('/exam/papers'),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border, width: 1),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border, width: 1),
+                  ),
+                  child: const Icon(
+                    Icons.edit_note,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                child: const Icon(Icons.edit_note,
-                    size: 16, color: AppColors.textSecondary),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('模拟考试',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '模拟考试',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
-                        )),
-                    Text('7套模拟卷 · 含全真模拟',
-                        style: TextStyle(
+                        ),
+                      ),
+                      Text(
+                        '${store.examPapers.length}套模拟卷 · 含全真模拟',
+                        style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
                           color: AppColors.textMuted,
-                        )),
-                  ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3FF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text('46/300',
-                    style: TextStyle(
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF3FF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${paperStat.done}/${paperStat.total}',
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
-                    )),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: AppColors.textMuted),
-            ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.textMuted),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSubItem(String title, String progress) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 4,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
+  Widget _buildSubItem(BuildContext context, Chapter chapter) {
+    return GestureDetector(
+      onTap: () {
+        mockStore.selectExamChapter(chapter.id);
+        context.go('/exam/sections');
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(title,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                chapter.title,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
                   color: AppColors.textPrimary,
-                )),
-          ),
-          Text(progress,
+                ),
+              ),
+            ),
+            Text(
+              '${chapter.done}/${chapter.total}',
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
                 color: AppColors.textSecondary,
-              )),
-          const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
-        ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 16, color: AppColors.textMuted),
+          ],
+        ),
       ),
     );
   }
+
+  static const _panelStatStyle = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
 }

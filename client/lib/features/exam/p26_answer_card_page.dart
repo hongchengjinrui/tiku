@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/app_scaffold.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
+import '../../theme/app_colors.dart';
 
 /// P26 答题卡页 - Answer card page
 class P26AnswerCardPage extends StatelessWidget {
@@ -17,90 +21,225 @@ class P26AnswerCardPage extends StatelessWidget {
             const StatusBar(),
             const NavBar(title: '答题卡'),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  children: [
-                    // Stats row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  final session = mockStore.examSession;
+                  if (session == null) {
+                    return const Center(child: Text('暂无考试答题卡'));
+                  }
+                  final statuses = mockStore.examAnsweredStatus();
+                  final unanswered =
+                      session.questions.length - session.answeredCount;
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Column(
                       children: [
-                        _statDot(AppColors.primary, '已答 68'),
-                        const SizedBox(width: 32),
-                        _statDot(AppColors.textMuted, '未答 32'),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Grid sections
-                    _buildSection('单选题  1-40', const Color(0xFFDBEAFE), const Color(0xFF1D4ED8), 1, 40, _answeredStatus()),
-                    _buildSection('多选题  41-60', const Color(0xFFE0E7FF), const Color(0xFF3730A3), 41, 60, _answeredStatus2()),
-                    _buildSection('判断题  61-75', const Color(0xFFD1FAE5), const Color(0xFF047857), 61, 75, _answeredStatus3()),
-                    _buildSection('填空题  76-85', const Color(0xFFFEF3C7), const Color(0xFF92400E), 76, 85, _answeredStatus4()),
-                    _buildSection('简答题  86-95', const Color(0xFFEDE9FE), const Color(0xFF6D28D9), 86, 95, _answeredStatus5()),
-                    _buildSection('材料题  96-100', const Color(0xFFE0F2FE), const Color(0xFF0369A1), 96, 100, _answeredStatus6()),
-                    const SizedBox(height: 16),
-                    // Legend
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _legendDot(AppColors.primary, '已答'),
-                        const SizedBox(width: 28),
-                        _legendDot(AppColors.textMuted, '未答', outlined: true),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Bottom buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            child: Container(
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.border, width: 1),
-                              ),
-                              child: const Center(
-                                child: Text('返回答题',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    )),
-                              ),
-                            ),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _statDot(AppColors.primary,
+                                '已答 ${session.answeredCount}'),
+                            const SizedBox(width: 32),
+                            _statDot(AppColors.textMuted, '未答 $unanswered'),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: GestureDetector(
-                            child: Container(
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: AppColors.error,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: Text('确认交卷',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    )),
+                        const SizedBox(height: 16),
+                        ..._buildTypeSections(context, session, statuses),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _legendDot(AppColors.primary, '已答'),
+                            const SizedBox(width: 28),
+                            _legendDot(
+                              AppColors.textMuted,
+                              '未答',
+                              outlined: true,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _bottomAction(
+                                label: '返回答题',
+                                bgColor: AppColors.card,
+                                fgColor: AppColors.textPrimary,
+                                border: true,
+                                onTap: () => context.go('/exam/answer'),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _bottomAction(
+                                label: '确认交卷',
+                                bgColor: AppColors.error,
+                                fgColor: Colors.white,
+                                onTap: () {
+                                  mockStore.submitExam();
+                                  context.go('/exam/analysis');
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildTypeSections(
+    BuildContext context,
+    ExamSession session,
+    List<bool> statuses,
+  ) {
+    final sections = <QuestionType, List<int>>{};
+    for (var i = 0; i < session.questions.length; i++) {
+      sections.putIfAbsent(session.questions[i].type, () => []).add(i);
+    }
+
+    final colors = [
+      (const Color(0xFFDBEAFE), const Color(0xFF1D4ED8)),
+      (const Color(0xFFE0E7FF), const Color(0xFF3730A3)),
+      (const Color(0xFFD1FAE5), const Color(0xFF047857)),
+      (const Color(0xFFFEF3C7), const Color(0xFF92400E)),
+      (const Color(0xFFEDE9FE), const Color(0xFF6D28D9)),
+    ];
+
+    var colorIndex = 0;
+    return sections.entries.map((entry) {
+      final color = colors[colorIndex++ % colors.length];
+      return _buildSection(
+        context,
+        session,
+        entry.key.label,
+        color.$1,
+        color.$2,
+        entry.value,
+        statuses,
+      );
+    }).toList();
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    ExamSession session,
+    String title,
+    Color bgColor,
+    Color textColor,
+    List<int> indexes,
+    List<bool> statuses,
+  ) {
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          height: 42,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              '$title  ${indexes.first + 1}-${indexes.last + 1}',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ..._buildRows(context, session, indexes, statuses),
+      ],
+    );
+  }
+
+  List<Widget> _buildRows(
+    BuildContext context,
+    ExamSession session,
+    List<int> indexes,
+    List<bool> statuses,
+  ) {
+    final rows = <Widget>[];
+    for (var i = 0; i < indexes.length; i += 5) {
+      final rowIndexes = indexes.skip(i).take(5).toList();
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: rowIndexes
+                .map(
+                  (index) => _buildCell(
+                    context,
+                    index,
+                    statuses[index],
+                    index == session.currentIndex,
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      );
+    }
+    return rows;
+  }
+
+  Widget _buildCell(
+    BuildContext context,
+    int index,
+    bool answered,
+    bool isCurrent,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        mockStore.jumpExamQuestion(index);
+        context.go('/exam/answer');
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isCurrent
+              ? AppColors.card
+              : answered
+                  ? AppColors.primary
+                  : AppColors.card,
+          borderRadius: BorderRadius.circular(8),
+          border: isCurrent
+              ? Border.all(color: AppColors.primary, width: 2)
+              : !answered
+                  ? Border.all(color: AppColors.border, width: 1)
+                  : null,
+        ),
+        child: Center(
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isCurrent
+                  ? AppColors.primary
+                  : answered
+                      ? Colors.white
+                      : AppColors.textSecondary,
+            ),
+          ),
         ),
       ),
     );
@@ -112,15 +251,20 @@ class P26AnswerCardPage extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
         const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
       ],
     );
   }
@@ -134,106 +278,51 @@ class P26AnswerCardPage extends StatelessWidget {
           decoration: BoxDecoration(
             color: outlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(4),
-            border: outlined ? Border.all(color: AppColors.border, width: 1) : null,
+            border:
+                outlined ? Border.all(color: AppColors.border, width: 1) : null,
           ),
         ),
         const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
       ],
     );
   }
 
-  // Returns a map of question number -> answered status
-  List<bool> _answeredStatus() => List.generate(40, (i) => ![12, 16, 22].contains(i + 1));
-  List<bool> _answeredStatus2() => List.generate(20, (i) => ![6, 13].contains(i + 41));
-  List<bool> _answeredStatus3() => List.generate(15, (i) => ![5].contains(i + 61));
-  List<bool> _answeredStatus4() => List.generate(10, (i) => ![3].contains(i + 76));
-  List<bool> _answeredStatus5() => List.generate(10, (i) => ![5].contains(i + 86));
-  List<bool> _answeredStatus6() => List.generate(5, (i) => false);
-
-  Widget _buildSection(String title, Color bgColor, Color textColor, int start, int end, List<bool> answered) {
-    final currentQuestion = 18; // current highlighted
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          height: 42,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(title,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                )),
-          ),
+  Widget _bottomAction({
+    required String label,
+    required Color bgColor,
+    required Color fgColor,
+    bool border = false,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: border ? Border.all(color: AppColors.border, width: 1) : null,
         ),
-        const SizedBox(height: 10),
-        ..._buildRows(start, end, answered, currentQuestion),
-      ],
-    );
-  }
-
-  List<Widget> _buildRows(int start, int end, List<bool> answered, int current) {
-    List<Widget> rows = [];
-    for (int i = start; i <= end; i += 5) {
-      List<Widget> cells = [];
-      for (int j = i; j < i + 5 && j <= end; j++) {
-        final idx = j - start;
-        final isAnswered = idx < answered.length ? answered[idx] : false;
-        final isCurrent = j == current;
-        cells.add(_buildCell(j, isAnswered, isCurrent));
-      }
-      rows.add(Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: cells,
-        ),
-      ));
-    }
-    return rows;
-  }
-
-  Widget _buildCell(int num, bool answered, bool isCurrent) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: isCurrent
-            ? AppColors.card
-            : answered
-                ? AppColors.primary
-                : AppColors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: isCurrent
-            ? Border.all(color: AppColors.primary, width: 2)
-            : !answered
-                ? Border.all(color: AppColors.border, width: 1)
-                : null,
-      ),
-      child: Center(
-        child: Text('$num',
+        child: Center(
+          child: Text(
+            label,
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: isCurrent
-                  ? AppColors.primary
-                  : answered
-                      ? Colors.white
-                      : AppColors.textSecondary,
-            )),
+              color: fgColor,
+            ),
+          ),
+        ),
       ),
     );
   }

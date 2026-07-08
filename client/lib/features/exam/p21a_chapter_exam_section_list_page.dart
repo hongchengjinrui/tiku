@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/app_scaffold.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
+import '../../theme/app_colors.dart';
 
 /// P21A 章节考试小节列表 - Chapter exam section list
 class P21AChapterExamSectionListPage extends StatelessWidget {
@@ -15,40 +19,40 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
         child: Column(
           children: [
             const StatusBar(),
-            const NavBar(title: '小学教师'),
+            NavBar(title: mockStore.selectedSubject.name),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    _buildBreadcrumbPanel(),
-                    const SizedBox(height: 14),
-                    const Text('章节目录',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        )),
-                    const SizedBox(height: 14),
-                    _buildSectionCard(
-                      '第二节 安全规范',
-                      '已考 44/68 · 已用时 36分',
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  final chapter = mockStore.selectedExamChapter;
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        _buildBreadcrumbPanel(chapter),
+                        const SizedBox(height: 14),
+                        const Text(
+                          '章节目录',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ...chapter.sections.expand(
+                          (section) => [
+                            _buildSectionCard(context, section),
+                            const SizedBox(height: 14),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    _buildSectionCard(
-                      '第三节 操作规程',
-                      '已考 0/54 · 已用时 0分',
-                    ),
-                    const SizedBox(height: 14),
-                    _buildSectionCard(
-                      '第四节 应急处置',
-                      '已考 12/46 · 已用时 18分',
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -57,7 +61,7 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBreadcrumbPanel() {
+  Widget _buildBreadcrumbPanel(Chapter chapter) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -72,42 +76,50 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('章节考试/第一章：教育基础',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              )),
+          Text(
+            '章节考试/${chapter.title}',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 12),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('考试进度 44/68',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('正确率 78%',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('错题量 88',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('考试进度 ${chapter.done}/${chapter.total}',
+                      style: _panelStatStyle),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child:
+                      Text('正确率 ${chapter.accuracy}%', style: _panelStatStyle),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text('错题量 ${chapter.wrong}', style: _panelStatStyle),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.65,
+              value: chapter.progress,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -118,7 +130,7 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionCard(String title, String info) {
+  Widget _buildSectionCard(BuildContext context, Section section) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -130,72 +142,48 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              )),
+          Text(
+            section.title,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 10),
-          Text(info,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textMuted,
-              )),
+          Text(
+            '已考 ${section.done}/${section.total} · 已用时 ${section.done == 0 ? 0 : 36}分',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border, width: 1),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.refresh, size: 14, color: AppColors.textSecondary),
-                        SizedBox(width: 4),
-                        Text('重考',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            )),
-                      ],
-                    ),
-                  ),
+                child: _actionButton(
+                  icon: Icons.refresh,
+                  label: '重考',
+                  bgColor: AppColors.surface,
+                  fgColor: AppColors.textSecondary,
+                  borderColor: AppColors.border,
+                  onTap: () => context.go('/exam/retake-confirm'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: GestureDetector(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.play_arrow, size: 14, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text('开始考试',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            )),
-                      ],
-                    ),
-                  ),
+                child: _actionButton(
+                  icon: Icons.play_arrow,
+                  label: section.done == 0 ? '开始考试' : '继续考试',
+                  bgColor: AppColors.primary,
+                  fgColor: Colors.white,
+                  onTap: () {
+                    mockStore.startExamFromSection(section.id);
+                    context.go('/exam/answer');
+                  },
                 ),
               ),
             ],
@@ -204,4 +192,51 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color bgColor,
+    required Color fgColor,
+    Color? borderColor,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 34,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: borderColor != null
+              ? Border.all(color: borderColor, width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: fgColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: fgColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _panelStatStyle = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
 }

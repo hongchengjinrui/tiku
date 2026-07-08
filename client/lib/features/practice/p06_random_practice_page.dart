@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -91,9 +93,7 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
                       fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: selected
-                          ? Colors.white
-                          : AppColors.textPrimary)),
+                      color: selected ? Colors.white : AppColors.textPrimary)),
             ),
           );
         },
@@ -128,9 +128,7 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
                       fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: selected
-                          ? Colors.white
-                          : AppColors.textPrimary)),
+                      color: selected ? Colors.white : AppColors.textPrimary)),
             ),
           );
         },
@@ -139,29 +137,36 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
   }
 
   Widget _buildStartButton() {
-    return Container(
-      width: double.infinity,
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.primaryLight, AppColors.primaryDark],
+    return GestureDetector(
+      onTap: () {
+        mockStore.startRandomPractice(count: _selectedCount);
+        context.go('/practice/quiz');
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.primaryLight, AppColors.primaryDark],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.shuffle, size: 18, color: Colors.white),
-          SizedBox(width: 8),
-          Text('开始随机练习',
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-        ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.shuffle, size: 18, color: Colors.white),
+            SizedBox(width: 8),
+            Text('开始随机练习',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
       ),
     );
   }
@@ -246,7 +251,8 @@ class _P06ARandomPracticeExpandedPageState
       decoration: BoxDecoration(
         color: selected ? AppColors.primary : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: selected ? AppColors.primary : AppColors.border),
+        border:
+            Border.all(color: selected ? AppColors.primary : AppColors.border),
       ),
       child: Text(label,
           style: TextStyle(
@@ -275,7 +281,8 @@ class _P06ARandomPracticeExpandedPageState
                       style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
-                          color: c == 20 ? Colors.white : AppColors.textPrimary)),
+                          color:
+                              c == 20 ? Colors.white : AppColors.textPrimary)),
                 ),
               ))
           .toList(),
@@ -297,8 +304,8 @@ class _P06ARandomPracticeExpandedPageState
           return Column(
             children: [
               GestureDetector(
-                onTap: () => setState(() =>
-                    _expandedChapters[chapter] = !expanded),
+                onTap: () =>
+                    setState(() => _expandedChapters[chapter] = !expanded),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -366,29 +373,36 @@ class _P06ARandomPracticeExpandedPageState
   }
 
   Widget _buildStartButton() {
-    return Container(
-      width: double.infinity,
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.primaryLight, AppColors.primaryDark],
+    return GestureDetector(
+      onTap: () {
+        mockStore.startRandomPractice(count: 20);
+        context.go('/practice/quiz');
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.primaryLight, AppColors.primaryDark],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.shuffle, size: 18, color: Colors.white),
-          SizedBox(width: 8),
-          Text('开始随机练习',
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-        ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.shuffle, size: 18, color: Colors.white),
+            SizedBox(width: 8),
+            Text('开始随机练习',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
       ),
     );
   }

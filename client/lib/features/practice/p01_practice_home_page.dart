@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/widgets.dart';
 import '../../core/app_scaffold.dart';
@@ -19,95 +21,23 @@ class P01PracticeHomePage extends StatelessWidget {
 
           // 可滚动内容区
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ===== 练习进度面板 - 渐变背景 =====
-                  _buildProgressPanel(),
+            child: AnimatedBuilder(
+              animation: mockStore,
+              builder: (context, _) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ===== 练习进度面板 - 渐变背景 =====
+                      _buildProgressPanel(context, mockStore),
 
-                  const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                  // ===== 练习入口 标题 =====
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      '练习入口',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ===== 四类练习入口 (2x2 网格) =====
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        // 第一行: 开始练习 / 错题练习
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildEntryCard(
-                                icon: Icons.menu_book,
-                                iconColor: AppColors.primary,
-                                title: '开始练习',
-                                onTap: () => context.go('/practice/catalog'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildEntryCard(
-                                icon: Icons.error_outline,
-                                iconColor: AppColors.error,
-                                title: '错题练习',
-                                onTap: () => context.go('/practice/wrong'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // 第二行: 收藏练习 / 随机练习
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildEntryCard(
-                                icon: Icons.star,
-                                iconColor: AppColors.warning,
-                                title: '收藏练习',
-                                onTap: () => context.go('/practice/favorite'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildEntryCard(
-                                icon: Icons.shuffle,
-                                iconColor: const Color(0xFF8B5CF6),
-                                title: '随机练习',
-                                onTap: () => context.go('/practice/random'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ===== 最近练习 标题行 =====
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '最近练习',
+                      // ===== 练习入口 标题 =====
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          '练习入口',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 17,
@@ -115,76 +45,121 @@ class P01PracticeHomePage extends StatelessWidget {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        Text(
-                          '全部练习记录',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  const SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
-                  // ===== 最近3次练习卡片 =====
-                  Padding(
-                    padding:
-                        const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-                    child: Column(
-                      children: [
-                        // 最近练习 - 章节
-                        _buildRecentCard(
-                          title: '第一章',
-                          accuracy: '正确率 81%',
-                          accuracyColor: AppColors.success,
-                          info: '已练 32/80 · 用时 72分钟',
-                          action1Text: '重新练习',
-                          action1Bg: AppColors.primaryBg,
-                          action1Fg: AppColors.primary,
-                          action2Text: '继续练习',
-                          action2Bg: AppColors.primaryBg,
-                          action2Fg: AppColors.primary,
-                          progress: 0.4,
+                      // ===== 四类练习入口 (2x2 网格) =====
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            // 第一行: 开始练习 / 错题练习
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildEntryCard(
+                                    icon: Icons.menu_book,
+                                    iconColor: AppColors.primary,
+                                    title: '开始练习',
+                                    onTap: () =>
+                                        context.go('/practice/catalog'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildEntryCard(
+                                    icon: Icons.error_outline,
+                                    iconColor: AppColors.error,
+                                    title: '错题练习',
+                                    onTap: () => context.go('/practice/wrong'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            // 第二行: 收藏练习 / 随机练习
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildEntryCard(
+                                    icon: Icons.star,
+                                    iconColor: AppColors.warning,
+                                    title: '收藏练习',
+                                    onTap: () =>
+                                        context.go('/practice/favorite'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildEntryCard(
+                                    icon: Icons.shuffle,
+                                    iconColor: const Color(0xFF8B5CF6),
+                                    title: '随机练习',
+                                    onTap: () => context.go('/practice/random'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        // 最近练习 - 模拟
-                        _buildRecentCard(
-                          title: '模拟卷 03',
-                          accuracy: '正确率 72%',
-                          accuracyColor: AppColors.warning,
-                          info: '已练 100/100 · 用时 72分钟',
-                          action1Text: '重新练习',
-                          action1Bg: AppColors.primaryBg,
-                          action1Fg: AppColors.primary,
-                          action2Text: '查看解析',
-                          action2Bg: AppColors.primary,
-                          action2Fg: Colors.white,
-                          progress: 1.0,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // ===== 最近练习 标题行 =====
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '最近练习',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () =>
+                                  context.go('/profile/practice-records'),
+                              child: Text(
+                                '全部练习记录',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        // 最近练习 - 真题
-                        _buildRecentCard(
-                          title: '2024 年卷',
-                          accuracy: '正确率 55%',
-                          accuracyColor: AppColors.error,
-                          info: '已练 46/100 · 用时 72分钟',
-                          action1Text: '重新练习',
-                          action1Bg: AppColors.primaryBg,
-                          action1Fg: AppColors.primary,
-                          action2Text: '继续练习',
-                          action2Bg: AppColors.primaryBg,
-                          action2Fg: AppColors.primary,
-                          progress: 0.46,
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ===== 最近3次练习卡片 =====
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            left: 20, right: 20, bottom: 24),
+                        child: Column(
+                          children: [
+                            ...mockStore.practiceRecords.take(3).expand(
+                                  (record) => [
+                                    _buildRecentRecordCard(record),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
 
@@ -196,7 +171,8 @@ class P01PracticeHomePage extends StatelessWidget {
   }
 
   /// 练习进度面板 - 渐变背景
-  Widget _buildProgressPanel() {
+  Widget _buildProgressPanel(BuildContext context, MockAppStore store) {
+    final stat = store.practiceStat;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(18),
@@ -213,7 +189,7 @@ class P01PracticeHomePage extends StatelessWidget {
             children: [
               // 学科名称
               Text(
-                '小学教师',
+                store.selectedSubject.name,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
@@ -231,32 +207,35 @@ class P01PracticeHomePage extends StatelessWidget {
                 ),
               ),
               // 切换科目入口
-              Container(
-                height: 26,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '切换科目',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+              GestureDetector(
+                onTap: () => context.go('/practice/switch-subject'),
+                child: Container(
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '切换科目',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 14,
-                      color: AppColors.textBlueHint,
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: AppColors.textBlueHint,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -281,7 +260,7 @@ class P01PracticeHomePage extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '练习进度 642/1860',
+                    '练习进度 ${stat.done}/${stat.total}',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
@@ -296,7 +275,7 @@ class P01PracticeHomePage extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    '正确率 78%',
+                    '正确率 ${stat.accuracy}%',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
@@ -312,7 +291,7 @@ class P01PracticeHomePage extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
                   child: Text(
-                    '错题量 88',
+                    '错题量 ${stat.wrong}',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
@@ -329,7 +308,7 @@ class P01PracticeHomePage extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 642 / 1860,
+              value: stat.progress,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -384,6 +363,37 @@ class P01PracticeHomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildRecentRecordCard(StudyRecord record) {
+    final isLowAccuracy =
+        record.metric.contains('正确率 5') || record.metric.contains('正确率 6');
+    return _buildRecentCard(
+      title: record.title,
+      accuracy: _accuracyText(record.metric),
+      accuracyColor: isLowAccuracy ? AppColors.error : AppColors.success,
+      info: '${record.mode} · ${record.metric} · ${record.time}',
+      action1Text: '重新练习',
+      action1Bg: AppColors.primaryBg,
+      action1Fg: AppColors.primary,
+      action2Text: '继续练习',
+      action2Bg: AppColors.primaryBg,
+      action2Fg: AppColors.primary,
+      progress: _recordProgress(record.metric),
+    );
+  }
+
+  String _accuracyText(String metric) {
+    final match = RegExp(r'正确率\s?\d+%').firstMatch(metric);
+    return match?.group(0) ?? '正确率 --';
+  }
+
+  double _recordProgress(String metric) {
+    final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
+    if (match == null) return 1;
+    final done = int.tryParse(match.group(1) ?? '') ?? 0;
+    final total = int.tryParse(match.group(2) ?? '') ?? 1;
+    return total == 0 ? 0 : done / total;
   }
 
   /// 最近练习卡片

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -7,10 +9,12 @@ class P24ExamAssemblySettingsPage extends StatefulWidget {
   const P24ExamAssemblySettingsPage({super.key});
 
   @override
-  State<P24ExamAssemblySettingsPage> createState() => _P24ExamAssemblySettingsPageState();
+  State<P24ExamAssemblySettingsPage> createState() =>
+      _P24ExamAssemblySettingsPageState();
 }
 
-class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPage> {
+class _P24ExamAssemblySettingsPageState
+    extends State<P24ExamAssemblySettingsPage> {
   String _scope = 'custom';
   int _questionCount = 100;
   int _duration = 120;
@@ -59,7 +63,8 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                               decoration: BoxDecoration(
                                 color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.border, width: 1),
+                                border: Border.all(
+                                    color: AppColors.border, width: 1),
                               ),
                               child: Column(
                                 children: [
@@ -84,7 +89,8 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                                     )),
                                 Container(
                                   height: 44,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
                                   decoration: BoxDecoration(
                                     color: AppColors.primary,
                                     borderRadius: BorderRadius.circular(10),
@@ -92,7 +98,8 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.tune, size: 16, color: Colors.white),
+                                      Icon(Icons.tune,
+                                          size: 16, color: Colors.white),
                                       SizedBox(width: 6),
                                       Text('标准考试组卷',
                                           style: TextStyle(
@@ -119,6 +126,15 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                     const SizedBox(height: 10),
                     // Start exam button
                     GestureDetector(
+                      onTap: () {
+                        mockStore.startAssemblyExam(
+                          scope: _scope == 'all' ? 'all' : 'custom',
+                          questionCount: _questionCount,
+                          duration: _duration,
+                        );
+                        context.go('/exam/answer');
+                      },
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
                         width: double.infinity,
                         height: 46,
@@ -176,7 +192,8 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                     fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.primary : AppColors.textSecondary,
+                    color:
+                        selected ? AppColors.primary : AppColors.textSecondary,
                   )),
             ],
           ),
@@ -237,7 +254,8 @@ class _P24ExamAssemblySettingsPageState extends State<P24ExamAssemblySettingsPag
                     color: AppColors.primary,
                   )),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+              const Icon(Icons.chevron_right,
+                  size: 16, color: AppColors.textMuted),
             ],
           ),
         ],

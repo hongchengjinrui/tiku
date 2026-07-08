@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 
@@ -129,29 +131,37 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
                 height: 92,
                 color: AppColors.surface,
                 padding: const EdgeInsets.only(top: 12, left: 20, right: 20),
-                child: Container(
-                  width: double.infinity,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [AppColors.primaryLight, AppColors.primaryDark],
+                child: GestureDetector(
+                  onTap: () {
+                    mockStore.startFavoritePractice(
+                        count: mockStore.favoritePracticeCount);
+                    context.go('/practice/quiz');
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: double.infinity,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.primaryLight, AppColors.primaryDark],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.star, size: 18, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text('开始收藏练习（16题）',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white)),
-                    ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.star, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text('开始收藏练习（${mockStore.favoritePracticeCount}题）',
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white)),
+                      ],
+                    ),
                   ),
                 ),
               ),

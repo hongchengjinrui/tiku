@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -21,53 +24,63 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
           children: [
             const StatusBar(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: _ExamProgressPanel(),
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _ExamProgressPanel(store: mockStore),
+                        ),
+                        const SizedBox(height: 16),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          child: _ExamEntrySection(),
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('考试记录',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  )),
+                              GestureDetector(
+                                onTap: () =>
+                                    context.go('/profile/exam-records'),
+                                child: const Text('全部考试记录',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child:
+                              _HistoryCardList(records: mockStore.examRecords),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: _ExamEntrySection(),
-                    ),
-                    const SizedBox(height: 16),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('考试记录',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              )),
-                          Text('全部考试记录',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              )),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: _HistoryCardList(),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
-            const _ExamTabBar(currentIndex: 1),
+            const BottomTabBar(currentIndex: 1),
           ],
         ),
       ),
@@ -76,10 +89,13 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
 }
 
 class _ExamProgressPanel extends StatelessWidget {
-  const _ExamProgressPanel();
+  final MockAppStore store;
+
+  const _ExamProgressPanel({required this.store});
 
   @override
   Widget build(BuildContext context) {
+    final stat = store.examStat;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -97,8 +113,8 @@ class _ExamProgressPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('小学教师',
-                  style: TextStyle(
+              Text(store.selectedSubject.name,
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -137,17 +153,17 @@ class _ExamProgressPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _ruleItem('1200', '总题数')),
-              Expanded(child: _ruleItem('120分', '考试时间')),
-              Expanded(child: _ruleItem('72', '及格分')),
-              Expanded(child: _ruleItem('78%', '总正确率')),
+              Expanded(child: _ruleItem('${stat.total}', '题目覆盖')),
+              Expanded(child: _ruleItem('${store.examRecords.length}', '考试次数')),
+              Expanded(child: _ruleItem('1', '通过次数')),
+              Expanded(child: _ruleItem('${stat.accuracy}%', '总正确率')),
             ],
           ),
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.27,
+              value: stat.progress,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -198,6 +214,7 @@ class _ExamEntrySection extends StatelessWidget {
                   color: AppColors.textPrimary,
                 )),
             GestureDetector(
+              onTap: () => context.go('/exam/rules'),
               child: const Text('考试规则',
                   style: TextStyle(
                     fontFamily: 'Inter',
@@ -211,68 +228,98 @@ class _ExamEntrySection extends StatelessWidget {
         Row(
           children: [
             _entryCard(
-                Icons.book_outlined, AppColors.primary, '章节考试', '按章节逐步考核'),
+              Icons.book_outlined,
+              AppColors.primary,
+              '章节考试',
+              '按章节逐步考核',
+              () => context.go('/exam/catalog'),
+            ),
             const SizedBox(width: 10),
             _entryCard(
-                Icons.edit_note, AppColors.primaryDark, '模拟考试', '模拟真实考试'),
+              Icons.edit_note,
+              AppColors.primaryDark,
+              '模拟考试',
+              '模拟真实考试',
+              () => context.go('/exam/assemble'),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            _entryCard(Icons.description_outlined, AppColors.primary, '真题考试',
-                '历年真题练习'),
+            _entryCard(
+              Icons.description_outlined,
+              AppColors.primary,
+              '真题考试',
+              '历年真题练习',
+              () => context.go('/exam/papers'),
+            ),
             const SizedBox(width: 10),
             _entryCard(
-                Icons.assignment, AppColors.primaryDark, '组卷考试', '自定义组卷'),
+              Icons.assignment,
+              AppColors.primaryDark,
+              '组卷考试',
+              '自定义组卷',
+              () => context.go('/exam/assemble'),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _entryCard(IconData icon, Color iconColor, String title, String desc) {
+  Widget _entryCard(
+    IconData icon,
+    Color iconColor,
+    String title,
+    String desc,
+    VoidCallback onTap,
+  ) {
     return Expanded(
-      child: Container(
-        height: 112,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border, width: 1),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: iconColor,
-                borderRadius: BorderRadius.circular(10),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 112,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 1),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: Colors.white),
               ),
-              child: Icon(icon, size: 20, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                )),
-            const SizedBox(height: 2),
-            Text(desc,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                )),
-          ],
+              const SizedBox(height: 8),
+              Text(title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  )),
+              const SizedBox(height: 2),
+              Text(desc,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  )),
+            ],
+          ),
         ),
       ),
     );
@@ -280,23 +327,25 @@ class _ExamEntrySection extends StatelessWidget {
 }
 
 class _HistoryCardList extends StatelessWidget {
-  const _HistoryCardList();
+  final List<StudyRecord> records;
+
+  const _HistoryCardList({required this.records});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        _historyCard('组卷12', '组卷考试', '88/100题', '正确率 88%', '查看解析'),
-        const SizedBox(height: 10),
-        _historyCard('模拟卷一', '模拟考试', '72/100题', '正确率 75%', '查看解析'),
-        const SizedBox(height: 10),
-        _historyCard('2024真题卷', '真题考试', '100/100题', '正确率 82%', '查看解析'),
-      ],
+      children: records.take(3).expand((record) {
+        return [
+          _historyCard(
+              record.title, record.mode, record.metric, record.time, '查看解析'),
+          const SizedBox(height: 10),
+        ];
+      }).toList(),
     );
   }
 
-  Widget _historyCard(String title, String type, String progress,
-      String accuracy, String action) {
+  Widget _historyCard(
+      String title, String type, String progress, String time, String action) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -310,32 +359,38 @@ class _HistoryCardList extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBg,
-                      borderRadius: BorderRadius.circular(4),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBg,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(type,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          )),
                     ),
-                    child: Text(type,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
-                        )),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(title,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      )),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          )),
+                    ),
+                  ],
+                ),
               ),
               const Icon(Icons.chevron_right,
                   size: 18, color: AppColors.textMuted),
@@ -345,12 +400,17 @@ class _HistoryCardList extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$progress · $accuracy',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  )),
+              Expanded(
+                child: Text('$progress · $time',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    )),
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 child: Container(
                   padding:
@@ -374,60 +434,4 @@ class _HistoryCardList extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ExamTabBar extends StatelessWidget {
-  final int currentIndex;
-  const _ExamTabBar({required this.currentIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    final tabs = [
-      _TabItem(icon: Icons.menu_book_outlined, label: '练习'),
-      _TabItem(icon: Icons.description_outlined, label: '考试'),
-      _TabItem(icon: Icons.folder_open_outlined, label: '资料'),
-      _TabItem(icon: Icons.person_outline, label: '我的'),
-    ];
-
-    return Container(
-      height: 56,
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(tabs.length, (i) {
-          final t = tabs[i];
-          final selected = i == currentIndex;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(t.icon,
-                    size: 22,
-                    color: selected ? AppColors.primary : AppColors.textMuted),
-                const SizedBox(height: 2),
-                Text(t.label,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 10,
-                      color: selected ? AppColors.primary : AppColors.textMuted,
-                    )),
-              ],
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _TabItem {
-  final IconData icon;
-  final String label;
-  _TabItem({required this.icon, required this.label});
 }

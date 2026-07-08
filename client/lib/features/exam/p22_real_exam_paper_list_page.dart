@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/app_scaffold.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
+import '../../theme/app_colors.dart';
 
 /// P22 真题考试试卷列表 - Real exam paper list
 class P22RealExamPaperListPage extends StatelessWidget {
@@ -17,29 +21,37 @@ class P22RealExamPaperListPage extends StatelessWidget {
             const StatusBar(),
             const NavBar(title: '真题考试'),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-                    _buildOverviewPanel(),
-                    const SizedBox(height: 16),
-                    const Text('真题试卷',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        )),
-                    const SizedBox(height: 14),
-                    _buildPaperCard('2025真题卷', '已考 88/100 · 用时 72分钟'),
-                    const SizedBox(height: 14),
-                    _buildPaperCard('2024真题卷', '已考 0/100 · 用时 0分钟'),
-                    const SizedBox(height: 14),
-                    _buildPaperCard('2023真题卷', '已考 62/100 · 用时 58分钟'),
-                  ],
-                ),
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        _buildOverviewPanel(mockStore.examPaperStat),
+                        const SizedBox(height: 16),
+                        const Text(
+                          '真题试卷',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ...mockStore.examPapers.expand(
+                          (paper) => [
+                            _buildPaperCard(context, paper),
+                            const SizedBox(height: 14),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -48,7 +60,7 @@ class P22RealExamPaperListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOverviewPanel() {
+  Widget _buildOverviewPanel(PracticeStat stat) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -63,52 +75,40 @@ class P22RealExamPaperListPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('真题考试总览',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              )),
+          const Text(
+            '真题考试总览',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('考试进度 328/1200',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('考试进度 ${stat.done}/${stat.total}',
+                      style: _panelStatStyle),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('正确率 78%',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('正确率 ${stat.accuracy}%', style: _panelStatStyle),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Text('错题量 88',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text('错题量 ${stat.wrong}', style: _panelStatStyle),
                 ),
               ),
             ],
@@ -117,7 +117,7 @@ class P22RealExamPaperListPage extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.27,
+              value: stat.progress,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -128,7 +128,7 @@ class P22RealExamPaperListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPaperCard(String title, String info) {
+  Widget _buildPaperCard(BuildContext context, Paper paper) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -140,73 +140,48 @@ class P22RealExamPaperListPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              )),
+          Text(
+            paper.title,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 10),
-          Text(info,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textMuted,
-              )),
+          Text(
+            '已考 ${paper.done}/${paper.total} · 用时 ${paper.minutes}分钟',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border, width: 1),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.refresh,
-                            size: 14, color: AppColors.textSecondary),
-                        SizedBox(width: 4),
-                        Text('重考',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            )),
-                      ],
-                    ),
-                  ),
+                child: _actionButton(
+                  icon: Icons.refresh,
+                  label: '重考',
+                  bgColor: AppColors.surface,
+                  fgColor: AppColors.textSecondary,
+                  borderColor: AppColors.border,
+                  onTap: () => context.go('/exam/retake-confirm'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: GestureDetector(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.play_arrow, size: 14, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text('开始考试',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            )),
-                      ],
-                    ),
-                  ),
+                child: _actionButton(
+                  icon: Icons.play_arrow,
+                  label: paper.done == 0 ? '开始考试' : '继续考试',
+                  bgColor: AppColors.primary,
+                  fgColor: Colors.white,
+                  onTap: () {
+                    mockStore.startExamFromPaper(paper.id);
+                    context.go('/exam/answer');
+                  },
                 ),
               ),
             ],
@@ -215,4 +190,51 @@ class P22RealExamPaperListPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color bgColor,
+    required Color fgColor,
+    Color? borderColor,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 34,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: borderColor != null
+              ? Border.all(color: borderColor, width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: fgColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: fgColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _panelStatStyle = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
 }
