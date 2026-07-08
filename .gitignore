@@ -17,3 +17,6 @@ build/
 
 # Logs
 *.log
+
+# Local source question-bank datasets
+/V4版题库_简答拆解/
