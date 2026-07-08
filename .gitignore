@@ -1,0 +1,19 @@
+.DS_Store
+**/.DS_Store
+
+# Flutter/Dart generated files
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Build outputs
+build/
+**/build/
+
+# IDE files
+.idea/
+.vscode/
+
+# Logs
+*.log
