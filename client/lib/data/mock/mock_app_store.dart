@@ -15,6 +15,34 @@ final mockStore = appStore;
 
 typedef MockAppStore = AppStore;
 
+class _LocalSubjectState {
+  final List<Chapter> chapters;
+  final List<Chapter> examChapters;
+  final List<Paper> practicePapers;
+  final List<Paper> examPapers;
+  final List<StudyRecord> practiceRecords;
+  final List<StudyRecord> examRecords;
+  final List<Question> favoriteQuestions;
+  final List<Question> wrongQuestions;
+  final Map<String, int> wrongCorrectCounts;
+  final String selectedChapterId;
+  final String selectedExamChapterId;
+
+  const _LocalSubjectState({
+    required this.chapters,
+    required this.examChapters,
+    required this.practicePapers,
+    required this.examPapers,
+    required this.practiceRecords,
+    required this.examRecords,
+    required this.favoriteQuestions,
+    required this.wrongQuestions,
+    required this.wrongCorrectCounts,
+    required this.selectedChapterId,
+    required this.selectedExamChapterId,
+  });
+}
+
 class AppStore extends ChangeNotifier {
   TikuRepository repository;
   AppStateStorage? stateStorage;
@@ -22,6 +50,7 @@ class AppStore extends ChangeNotifier {
   bool _restoringLocalState = false;
   bool _localStateDirty = false;
   Timer? _localPersistTimer;
+  final Map<String, _LocalSubjectState> _localSubjectStates = {};
 
   AppStore({required this.repository, this.stateStorage}) {
     _loadInitialState();
@@ -147,6 +176,9 @@ class AppStore extends ChangeNotifier {
     if (current is RemoteTikuRepository) {
       current.restoreQuestionCache(snapshot.catalogQuestionCache);
     }
+    if (_readyRemoteRepository == null) {
+      _saveLocalSubjectState(selectedSubjectId);
+    }
   }
 
   AppStateSnapshot _snapshot() {
@@ -183,20 +215,221 @@ class AppStore extends ChangeNotifier {
 
   void _seedLocalQuestionBuckets() {
     if (wrongQuestions.isEmpty) {
-      final wrongCount = practiceStat.wrong;
-      if (wrongCount > 0) {
-        final now = DateTime.now();
-        final seeded = repository.buildWrongPracticeQuestions(
-          count: wrongCount.clamp(1, 80).toInt(),
-        );
-        wrongQuestions = List.generate(seeded.length, (index) {
-          return seeded[index].copyWith(
-            wrongCount: index % 3 + 1,
-            lastWrongAt: now.subtract(Duration(days: index % 9)),
-          );
-        });
-      }
+      wrongQuestions = _seedWrongQuestionsForStat(practiceStat);
     }
+  }
+
+  void _saveLocalSubjectState(String subjectId) {
+    if (subjectId.isEmpty) return;
+    _localSubjectStates[subjectId] = _captureLocalSubjectState();
+  }
+
+  _LocalSubjectState _captureLocalSubjectState() {
+    return _LocalSubjectState(
+      chapters: List<Chapter>.of(chapters),
+      examChapters: List<Chapter>.of(examChapters),
+      practicePapers: List<Paper>.of(practicePapers),
+      examPapers: List<Paper>.of(examPapers),
+      practiceRecords: List<StudyRecord>.of(practiceRecords),
+      examRecords: List<StudyRecord>.of(examRecords),
+      favoriteQuestions: List<Question>.of(favoriteQuestions),
+      wrongQuestions: List<Question>.of(wrongQuestions),
+      wrongCorrectCounts: Map<String, int>.from(wrongCorrectCounts),
+      selectedChapterId: selectedChapterId,
+      selectedExamChapterId: selectedExamChapterId,
+    );
+  }
+
+  void _applyLocalSubjectState(String subjectId) {
+    final state = _localSubjectStates.putIfAbsent(
+      subjectId,
+      () => _createLocalSubjectState(subjectId),
+    );
+    chapters = List<Chapter>.of(state.chapters);
+    examChapters = List<Chapter>.of(state.examChapters);
+    practicePapers = List<Paper>.of(state.practicePapers);
+    examPapers = List<Paper>.of(state.examPapers);
+    practiceRecords = List<StudyRecord>.of(state.practiceRecords);
+    examRecords = List<StudyRecord>.of(state.examRecords);
+    favoriteQuestions = List<Question>.of(state.favoriteQuestions);
+    wrongQuestions = List<Question>.of(state.wrongQuestions);
+    wrongCorrectCounts = Map<String, int>.from(state.wrongCorrectCounts);
+    selectedChapterId = _validChapterId(
+      state.selectedChapterId,
+      chapters,
+      fallback: chapters.isNotEmpty ? chapters.first.id : selectedChapterId,
+    );
+    selectedExamChapterId = _validChapterId(
+      state.selectedExamChapterId,
+      examChapters,
+      fallback: examChapters.isNotEmpty
+          ? examChapters.first.id
+          : selectedExamChapterId,
+    );
+  }
+
+  _LocalSubjectState _createLocalSubjectState(String subjectId) {
+    final ratio = _localSubjectProgressRatio(subjectId);
+    final nextChapters = _varyChapters(
+      repository.loadPracticeChapters(),
+      ratio,
+    );
+    final nextExamChapters = _varyChapters(
+      repository.loadExamChapters(),
+      (ratio + 0.08).clamp(0.2, 1.0),
+    );
+    final nextPracticePapers = _varyPapers(
+      repository.loadPracticePapers(),
+      ratio,
+    );
+    final nextExamPapers = _varyPapers(
+      repository.loadExamPapers(),
+      (ratio + 0.08).clamp(0.2, 1.0),
+    );
+    final stat = _combinedStat(nextChapters, nextPracticePapers);
+    return _LocalSubjectState(
+      chapters: nextChapters,
+      examChapters: nextExamChapters,
+      practicePapers: nextPracticePapers,
+      examPapers: nextExamPapers,
+      practiceRecords: _subjectPracticeRecords(ratio),
+      examRecords: _subjectExamRecords(ratio),
+      favoriteQuestions: const [],
+      wrongQuestions: _seedWrongQuestionsForStat(stat),
+      wrongCorrectCounts: const {},
+      selectedChapterId:
+          nextChapters.isNotEmpty ? nextChapters.first.id : selectedChapterId,
+      selectedExamChapterId: nextExamChapters.isNotEmpty
+          ? nextExamChapters.first.id
+          : selectedExamChapterId,
+    );
+  }
+
+  String _validChapterId(
+    String candidate,
+    List<Chapter> source, {
+    required String fallback,
+  }) {
+    final ids = {
+      ...source.map((chapter) => chapter.id),
+      ...source.expand((chapter) => _flattenSections(chapter.sections)).map(
+            (section) => section.id,
+          ),
+    };
+    return ids.contains(candidate) ? candidate : fallback;
+  }
+
+  double _localSubjectProgressRatio(String subjectId) {
+    final index = subjects.indexWhere((subject) => subject.id == subjectId);
+    return switch (index) {
+      0 => 1.0,
+      1 => 0.68,
+      2 => 0.84,
+      3 => 0.52,
+      _ => 0.76,
+    };
+  }
+
+  List<Chapter> _varyChapters(List<Chapter> source, double ratio) {
+    return source.map((chapter) {
+      final nextSections = chapter.sections
+          .map((section) => _varySection(section, ratio))
+          .toList();
+      if (nextSections.isNotEmpty) {
+        return chapter.copyWith(
+          done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
+          correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
+          wrong: nextSections.fold<int>(0, (sum, item) => sum + item.wrong),
+          sections: nextSections,
+        );
+      }
+      final done = _scaledProgressValue(chapter.done, chapter.total, ratio);
+      return chapter.copyWith(
+        done: done,
+        correct: _scaledBoundedValue(chapter.correct, done, ratio),
+        wrong: _scaledBoundedValue(chapter.wrong, done, ratio),
+      );
+    }).toList();
+  }
+
+  Section _varySection(Section section, double ratio) {
+    final nextChildren =
+        section.children.map((child) => _varySection(child, ratio)).toList();
+    if (nextChildren.isNotEmpty) {
+      return _rollupSectionChildren(section, nextChildren);
+    }
+    final done = _scaledProgressValue(section.done, section.total, ratio);
+    return section.copyWith(
+      done: done,
+      correct: _scaledBoundedValue(section.correct, done, ratio),
+      wrong: _scaledBoundedValue(section.wrong, done, ratio),
+    );
+  }
+
+  List<Paper> _varyPapers(List<Paper> source, double ratio) {
+    return source.map((paper) {
+      final done = _scaledProgressValue(paper.done, paper.total, ratio);
+      return paper.copyWith(
+        done: done,
+        correct: _scaledBoundedValue(paper.correct, done, ratio),
+        wrong: _scaledBoundedValue(paper.wrong, done, ratio),
+        minutes: (paper.minutes * ratio).round(),
+      );
+    }).toList();
+  }
+
+  int _scaledProgressValue(int value, int total, double ratio) {
+    if (value <= 0 || total <= 0) return 0;
+    return (value * ratio).round().clamp(0, total).toInt();
+  }
+
+  int _scaledBoundedValue(int value, int max, double ratio) {
+    if (value <= 0 || max <= 0) return 0;
+    return (value * ratio).round().clamp(0, max).toInt();
+  }
+
+  List<Question> _seedWrongQuestionsForStat(PracticeStat stat) {
+    if (stat.wrong <= 0) return const [];
+    final now = DateTime.now();
+    final seeded = repository.buildWrongPracticeQuestions(
+      count: stat.wrong.clamp(1, 80).toInt(),
+    );
+    return List.generate(seeded.length, (index) {
+      return seeded[index].copyWith(
+        wrongCount: index % 3 + 1,
+        lastWrongAt: now.subtract(Duration(days: index % 9)),
+      );
+    });
+  }
+
+  List<StudyRecord> _subjectPracticeRecords(double ratio) {
+    final records = repository.loadPracticeRecords();
+    if (records.isEmpty || ratio < 0.6) return const [];
+    return [
+      for (final record in records.take(ratio < 0.8 ? 1 : 2))
+        StudyRecord(
+          id: record.id,
+          title: record.title,
+          mode: record.mode,
+          metric: record.metric,
+          time: record.time,
+        ),
+    ];
+  }
+
+  List<StudyRecord> _subjectExamRecords(double ratio) {
+    final records = repository.loadExamRecords();
+    if (records.isEmpty || ratio < 0.6) return const [];
+    return [
+      for (final record in records.take(ratio < 0.8 ? 1 : 2))
+        StudyRecord(
+          id: record.id,
+          title: record.title,
+          mode: record.mode,
+          metric: record.metric,
+          time: record.time,
+        ),
+    ];
   }
 
   void _scheduleLocalStatePersist() {
@@ -291,13 +524,25 @@ class AppStore extends ChangeNotifier {
   int get favoritePracticeCount => favoriteQuestions.length;
 
   Future<void> selectSubject(String subjectId) async {
+    if (subjectId == selectedSubjectId) return;
+    final previousSubjectId = selectedSubjectId;
+    final current = _readyRemoteRepository;
+    if (current == null) {
+      _saveLocalSubjectState(previousSubjectId);
+      selectedSubjectId = subjectId;
+      practiceSession = null;
+      examSession = null;
+      _applyLocalSubjectState(subjectId);
+      _markLocalStateDirty();
+      notifyListeners();
+      return;
+    }
+
     selectedSubjectId = subjectId;
     practiceSession = null;
     examSession = null;
     _markLocalStateDirty();
     notifyListeners();
-    final current = _readyRemoteRepository;
-    if (current == null) return;
     final loaded = await current.loadSubject(subjectId);
     if (!loaded || selectedSubjectId != subjectId) return;
     _loadInitialState();

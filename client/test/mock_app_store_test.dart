@@ -693,6 +693,50 @@ void main() {
     expect(store.examRecords, isEmpty);
   });
 
+  test('local subject switching keeps per-subject interaction state', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    const primaryFavorite = Question(
+      id: 'primary_subject_favorite',
+      type: QuestionType.single,
+      stem: '小学教师收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    const middleFavorite = Question(
+      id: 'middle_subject_favorite',
+      type: QuestionType.single,
+      stem: '中学教师收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {1},
+      analysis: '解析',
+    );
+
+    final primaryDone = store.practiceStat.done;
+    await store.toggleFavorite(primaryFavorite);
+    store.selectChapter('chapter_3');
+
+    await store.selectSubject('middle_teacher');
+
+    expect(store.selectedSubjectId, 'middle_teacher');
+    expect(store.selectedChapterId, 'chapter_1');
+    expect(store.favoriteQuestions, isEmpty);
+    expect(store.practiceStat.done, isNot(primaryDone));
+
+    await store.toggleFavorite(middleFavorite);
+
+    await store.selectSubject('primary_teacher');
+
+    expect(store.selectedChapterId, 'chapter_3');
+    expect(store.favoriteQuestions.map((item) => item.id),
+        ['primary_subject_favorite']);
+
+    await store.selectSubject('middle_teacher');
+
+    expect(store.favoriteQuestions.map((item) => item.id),
+        ['middle_subject_favorite']);
+  });
+
   test('single record deletion keeps other records', () async {
     final store = AppStore(repository: MockTikuRepository());
     final practiceTarget = store.practiceRecords.first;
