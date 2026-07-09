@@ -375,6 +375,30 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('question type result pages navigate through review states',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/qt/single/result');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('以下哪些属于新课程改革的具体目标？（多选）'), findsOneWidget);
+
+    await tester.tap(find.text('上一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('在教师资格证考试中，教育观的核心内容是什么？'), findsOneWidget);
+
+    appRouter.go('/qt/analysis-images/result');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('在教师资格证考试中，教育观的核心内容是什么？'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('home pages resume active practice and exam sessions',
       (tester) async {
     final previousPracticeSession = mockStore.practiceSession;

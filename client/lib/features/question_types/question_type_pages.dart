@@ -936,6 +936,8 @@ class QT08ImageLoadFailedPage extends StatelessWidget {
         _QTChoiceData('D', '课后自主复习', _QTChoiceState.normal),
       ],
       resultCard: null,
+      previousRoute: '/qt/image',
+      nextRoute: '/qt/single/result',
     );
   }
 }
@@ -963,6 +965,8 @@ class QT09SingleChoiceResultPage extends StatelessWidget {
         userAnswer: 'A',
         analysis: '教育观强调以学生发展为中心，尊重学生主体地位，促进学生全面发展。',
       ),
+      previousRoute: '/qt/analysis-images/result',
+      nextRoute: '/qt/multiple/result',
     );
   }
 }
@@ -991,6 +995,8 @@ class QT10MultipleChoiceResultPage extends StatelessWidget {
         userAnswer: 'A、B、D',
         analysis: '新课程改革强调课程功能、内容关联和课程管理机制改革，不是取消评价制度。',
       ),
+      previousRoute: '/qt/single/result',
+      nextRoute: '/qt/truefalse/result',
     );
   }
 }
@@ -1016,6 +1022,8 @@ class QT11TrueFalseResultPage extends StatelessWidget {
         userAnswer: '正确',
         analysis: '社会本位论强调教育目的由社会需要决定，个人本位论才强调个人发展需要。',
       ),
+      previousRoute: '/qt/multiple/result',
+      nextRoute: '/qt/fillblank/result',
     );
   }
 }
@@ -1038,6 +1046,8 @@ class QT12FillBlankResultPage extends StatelessWidget {
         userAnswer: '感知运动阶段',
         analysis: '皮亚杰认知发展阶段依次为感知运动、前运算、具体运算和形式运算阶段。',
       ),
+      previousRoute: '/qt/truefalse/result',
+      nextRoute: '/qt/short/result',
     );
   }
 }
@@ -1064,6 +1074,8 @@ class QT13ShortAnswerScoredResultPage extends StatelessWidget {
         analysis: '命中“主动建构”“已有经验”“情境创设”“协作探究”等核心要点。',
         supplement: '可补充教师支架作用和学习共同体等关键词。',
       ),
+      previousRoute: '/qt/fillblank/result',
+      nextRoute: '/qt/material/result',
     );
   }
 }
@@ -1092,6 +1104,8 @@ class QT14MaterialResultPage extends StatelessWidget {
         userAnswer: 'C',
         analysis: '材料中教师组织学生分组讨论并评价小组表现，核心活动是讨论交流。',
       ),
+      previousRoute: '/qt/short/result',
+      nextRoute: '/qt/image/result',
     );
   }
 }
@@ -1125,6 +1139,8 @@ class QT15ImageResultPage extends StatelessWidget {
         userAnswer: 'B',
         analysis: '图片中教师通过直观展示帮助学生理解知识，符合演示法的典型特征。',
       ),
+      previousRoute: '/qt/material/result',
+      nextRoute: '/qt/multi-image/result',
     );
   }
 }
@@ -1153,6 +1169,8 @@ class QT16MultiImageResultPage extends StatelessWidget {
         userAnswer: 'B',
         analysis: '多张情境图连续展示学习过程，更适合使用过程性评价关注学生阶段表现。',
       ),
+      previousRoute: '/qt/image/result',
+      nextRoute: '/qt/analysis-images/result',
     );
   }
 }
@@ -1181,6 +1199,8 @@ class QT17AnalysisMultiImageResultPage extends StatelessWidget {
         analysis: '解析图显示板书区域信息层级混乱，优先调整板书布局能提升课堂信息组织效率。',
         extra: _QTMultiImageGrid(labels: ['解析图 1', '解析图 2']),
       ),
+      previousRoute: '/qt/multi-image/result',
+      nextRoute: '/qt/single/result',
     );
   }
 }
@@ -1195,6 +1215,8 @@ class _QTStaticResultPage extends StatelessWidget {
   final Widget? answerContent;
   final Widget? resultCard;
   final bool multiple;
+  final String previousRoute;
+  final String nextRoute;
 
   const _QTStaticResultPage({
     required this.typeLabel,
@@ -1206,6 +1228,8 @@ class _QTStaticResultPage extends StatelessWidget {
     this.answerContent,
     this.resultCard,
     this.multiple = false,
+    this.previousRoute = '/qt/single',
+    this.nextRoute = '/qt/single/result',
   });
 
   @override
@@ -1259,7 +1283,10 @@ class _QTStaticResultPage extends StatelessWidget {
                 ),
               ),
             ),
-            const _QTBottomNavBar(),
+            _QTBottomNavBar(
+              previousRoute: previousRoute,
+              nextRoute: nextRoute,
+            ),
           ],
         ),
       ),
@@ -1763,7 +1790,13 @@ class _QTMultiImageGrid extends StatelessWidget {
 }
 
 class _QTBottomNavBar extends StatelessWidget {
-  const _QTBottomNavBar();
+  final String previousRoute;
+  final String nextRoute;
+
+  const _QTBottomNavBar({
+    required this.previousRoute,
+    required this.nextRoute,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1777,37 +1810,17 @@ class _QTBottomNavBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _bottomButton('上一题', Icons.chevron_left, false),
-          _bottomButton('下一题', Icons.chevron_right, true),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomButton(String label, IconData icon, bool primary) {
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: BoxDecoration(
-        color: primary ? AppColors.primary : AppColors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: primary ? null : Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          if (!primary) Icon(icon, size: 18, color: AppColors.textSecondary),
-          if (!primary) const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15,
-              fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
-              color: primary ? Colors.white : AppColors.textSecondary,
-            ),
+          _QTNavButton(
+            label: '上一题',
+            icon: Icons.chevron_left,
+            route: previousRoute,
           ),
-          if (primary) const SizedBox(width: 4),
-          if (primary) Icon(icon, size: 18, color: Colors.white),
+          _QTNavButton(
+            label: '下一题',
+            icon: Icons.chevron_right,
+            route: nextRoute,
+            primary: true,
+          ),
         ],
       ),
     );
