@@ -687,6 +687,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       'true_false' => QuestionType.trueFalse,
       'fill_blank' => QuestionType.fillBlank,
       'short_answer' => QuestionType.shortAnswer,
+      'material' => QuestionType.material,
       _ => QuestionType.single,
     };
   }

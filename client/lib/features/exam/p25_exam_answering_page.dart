@@ -69,15 +69,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          question.stem,
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 17,
-                            height: 1.6,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
+                        _buildQuestionStem(question),
                         const SizedBox(height: 16),
                         _buildAnswerArea(
                           question: question,
@@ -94,6 +86,95 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildQuestionStem(Question question) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _cleanDisplayText(question.stem),
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 17,
+            height: 1.6,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        if (question.imageUrls.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ...question.imageUrls.map(
+            (url) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildQuestionImage(url),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuestionImage(String url) {
+    final canLoad = url.startsWith('http://') || url.startsWith('https://');
+    if (!canLoad) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.primaryBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.image_outlined,
+                size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '图片：$url',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        width: double.infinity,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildQuestionImageFallback(url),
+      ),
+    );
+  }
+
+  Widget _buildQuestionImageFallback(String url) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        '图片加载失败：$url',
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          color: AppColors.textMuted,
+        ),
       ),
     );
   }
@@ -237,7 +318,8 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
     required bool submitted,
   }) {
     if (question.type == QuestionType.fillBlank ||
-        question.type == QuestionType.shortAnswer) {
+        question.type == QuestionType.shortAnswer ||
+        question.type == QuestionType.material) {
       return _buildTextAnswerArea(
         question: question,
         textAnswer: textAnswer,
@@ -268,7 +350,8 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
     required bool submitted,
   }) {
     final controller = _textControllerFor(question.id, textAnswer);
-    final isShortAnswer = question.type == QuestionType.shortAnswer;
+    final isLongText = question.type == QuestionType.shortAnswer ||
+        question.type == QuestionType.material;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -280,13 +363,17 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
       child: TextField(
         controller: controller,
         enabled: !submitted,
-        minLines: isShortAnswer ? 6 : 1,
-        maxLines: isShortAnswer ? 10 : 3,
+        minLines: isLongText ? 6 : 1,
+        maxLines: isLongText ? 10 : 3,
         textInputAction:
-            isShortAnswer ? TextInputAction.newline : TextInputAction.done,
+            isLongText ? TextInputAction.newline : TextInputAction.done,
         onChanged: mockStore.answerExamText,
         decoration: InputDecoration(
-          hintText: isShortAnswer ? '请输入简答题答案' : '请输入答案',
+          hintText: question.type == QuestionType.material
+              ? '阅读材料后输入你的作答'
+              : isLongText
+                  ? '请输入简答题答案'
+                  : '请输入答案',
           border: InputBorder.none,
           hintStyle: const TextStyle(
             fontFamily: 'Inter',
@@ -493,4 +580,19 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   }
 
   String _letter(int index) => String.fromCharCode(65 + index);
+
+  String _cleanDisplayText(String value) {
+    return value
+        .replaceAll(RegExp(r'<img\b[^>]*>', caseSensitive: false), ' [图片] ')
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll(r'$', '')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .trim();
+  }
 }

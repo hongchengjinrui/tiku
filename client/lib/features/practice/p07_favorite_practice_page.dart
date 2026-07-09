@@ -276,6 +276,7 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
       QuestionType.trueFalse => '判断',
       QuestionType.fillBlank => '填空',
       QuestionType.shortAnswer => '简答',
+      QuestionType.material => '材料',
     };
   }
 }

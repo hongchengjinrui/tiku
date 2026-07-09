@@ -1068,7 +1068,14 @@ class AppStore extends ChangeNotifier {
       score: correct == null ? null : (correct ? 100 : 0),
       correctAnswerText: expected,
       myAnswerText: text,
-      analysisText: question.analysis,
+      analysisText: question.analysis.isNotEmpty
+          ? question.analysis
+          : question.type == QuestionType.material
+              ? '材料题答案已记录，后续可在中台补充规则或人工核查。'
+              : question.analysis,
+      reviewReason: correct == null && question.type == QuestionType.material
+          ? '当前阶段材料题不自动判定对错。'
+          : null,
     );
   }
 
@@ -1200,7 +1207,8 @@ class AppStore extends ChangeNotifier {
     for (var i = 0; i < session.questions.length; i++) {
       final question = session.questions[i];
       if (question.type == QuestionType.fillBlank ||
-          question.type == QuestionType.shortAnswer) {
+          question.type == QuestionType.shortAnswer ||
+          question.type == QuestionType.material) {
         final correctText = _cleanAnswerText(question.answerText);
         session.textAnswers[question.id] =
             i < correctTarget && correctText.isNotEmpty ? correctText : '未命中答案';

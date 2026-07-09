@@ -85,6 +85,55 @@ void main() {
     expect(session.answerResults[question.id]?.isCorrect, isTrue);
   });
 
+  test('material question records text answer without forced grading', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const question = Question(
+      id: 'material_q1',
+      type: QuestionType.material,
+      stem: '阅读材料后回答教育评价应注意什么？',
+      options: [],
+      answerIndexes: {},
+      answerText: '',
+      analysis: '',
+    );
+    store.practiceSession = PracticeSession(
+      title: '材料题练习',
+      mode: '章节练习',
+      questions: [question],
+    );
+
+    store.answerPracticeText('应结合过程性评价和结果性评价。');
+    final result = store.practiceSession!.answerResults[question.id];
+
+    expect(store.practiceSession!.answeredCount, 1);
+    expect(store.practiceSession!.wrongCount, 0);
+    expect(result?.isCorrect, isNull);
+    expect(result?.reviewReason, contains('不自动判定'));
+  });
+
+  test('exam session records material text answers', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const question = Question(
+      id: 'exam_material_q1',
+      type: QuestionType.material,
+      stem: '阅读材料后分析处理思路。',
+      options: [],
+      answerIndexes: {},
+      answerText: '',
+      analysis: '',
+    );
+    store.examSession = ExamSession(
+      title: '材料题考试',
+      mode: '章节考试',
+      questions: [question],
+      durationMinutes: 45,
+    );
+
+    store.answerExamText('先识别问题，再结合规范提出处理措施。');
+
+    expect(store.examAnsweredStatus(), [true]);
+  });
+
   test('practice answer card can jump to a valid question only', () {
     final store = AppStore(repository: MockTikuRepository());
     final section = store.chapters.first.sections.first;

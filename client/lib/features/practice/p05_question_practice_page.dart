@@ -236,7 +236,8 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required bool answered,
   }) {
     if (question.type == QuestionType.fillBlank ||
-        question.type == QuestionType.shortAnswer) {
+        question.type == QuestionType.shortAnswer ||
+        question.type == QuestionType.material) {
       return _buildTextAnswerArea(
         question: question,
         textAnswer: textAnswer,
@@ -271,7 +272,8 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required bool answered,
   }) {
     final controller = _textControllerFor(question.id, textAnswer);
-    final isShortAnswer = question.type == QuestionType.shortAnswer;
+    final isLongText = question.type == QuestionType.shortAnswer ||
+        question.type == QuestionType.material;
     final canSubmit = !submitting && !answered;
     return Container(
       width: double.infinity,
@@ -287,12 +289,16 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           TextField(
             controller: controller,
             enabled: canSubmit,
-            minLines: isShortAnswer ? 5 : 1,
-            maxLines: isShortAnswer ? 8 : 2,
+            minLines: isLongText ? 5 : 1,
+            maxLines: isLongText ? 8 : 2,
             textInputAction:
-                isShortAnswer ? TextInputAction.newline : TextInputAction.done,
+                isLongText ? TextInputAction.newline : TextInputAction.done,
             decoration: InputDecoration(
-              hintText: isShortAnswer ? '请输入你的简答题答案' : '请输入答案',
+              hintText: question.type == QuestionType.material
+                  ? '阅读材料后输入你的作答'
+                  : isLongText
+                      ? '请输入你的简答题答案'
+                      : '请输入答案',
               border: InputBorder.none,
               hintStyle: const TextStyle(
                 fontFamily: 'Inter',

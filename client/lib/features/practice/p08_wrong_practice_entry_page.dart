@@ -444,6 +444,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
       QuestionType.trueFalse => '判断',
       QuestionType.fillBlank => '填空',
       QuestionType.shortAnswer => '简答',
+      QuestionType.material => '材料',
     };
   }
 

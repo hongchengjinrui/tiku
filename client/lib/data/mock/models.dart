@@ -3,7 +3,8 @@ enum QuestionType {
   multiple('多选题'),
   trueFalse('判断题'),
   fillBlank('填空题'),
-  shortAnswer('简答题');
+  shortAnswer('简答题'),
+  material('材料题');
 
   final String label;
   const QuestionType(this.label);
