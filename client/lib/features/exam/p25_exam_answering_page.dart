@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,6 +20,7 @@ class P25ExamAnsweringPage extends StatefulWidget {
 
 class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   final _textControllers = <String, TextEditingController>{};
+  Timer? _examTimer;
 
   @override
   void initState() {
@@ -30,14 +33,28 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
         notify: false,
       );
     }
+    _startExamTimer();
   }
 
   @override
   void dispose() {
+    _examTimer?.cancel();
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _startExamTimer() {
+    _examTimer?.cancel();
+    _examTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final session = mockStore.examSession;
+      if (!mounted || session == null || session.submitted) {
+        _examTimer?.cancel();
+        return;
+      }
+      mockStore.tickExamSecond();
+    });
   }
 
   @override
@@ -284,7 +301,9 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            '剩余 ${session.durationMinutes}:00',
+            session.submitted
+                ? '已交卷'
+                : '剩余 ${_formatRemaining(session.remainingSeconds)}',
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 13,
@@ -546,6 +565,13 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
         ),
       ),
     );
+  }
+
+  String _formatRemaining(int seconds) {
+    final safeSeconds = seconds < 0 ? 0 : seconds;
+    final minutes = safeSeconds ~/ 60;
+    final restSeconds = safeSeconds % 60;
+    return '$minutes:${restSeconds.toString().padLeft(2, '0')}';
   }
 
   Future<void> _submitExam(BuildContext context) async {

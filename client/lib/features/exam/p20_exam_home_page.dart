@@ -57,7 +57,7 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
                                   )),
                               GestureDetector(
                                 onTap: () =>
-                                    context.go('/profile/exam-records'),
+                                    context.push('/profile/exam-records'),
                                 child: const Text('全部考试记录',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
@@ -125,7 +125,7 @@ class _ExamProgressPanel extends StatelessWidget {
                     color: Colors.white,
                   )),
               GestureDetector(
-                onTap: () => context.go('/practice/switch-subject'),
+                onTap: () => context.push('/practice/switch-subject'),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   height: 26,
@@ -258,14 +258,14 @@ class _ExamEntrySection extends StatelessWidget {
               Icons.book_outlined,
               AppColors.primary,
               '章节考试',
-              () => context.go('/exam/catalog'),
+              () => context.push('/exam/catalog'),
             ),
             const SizedBox(width: 10),
             _entryCard(
               Icons.edit_note,
               AppColors.primaryDark,
               '模拟考试',
-              () => context.go('/exam/assemble'),
+              () => context.push('/exam/assemble'),
             ),
           ],
         ),
@@ -276,14 +276,14 @@ class _ExamEntrySection extends StatelessWidget {
               Icons.description_outlined,
               AppColors.primary,
               '真题考试',
-              () => context.go('/exam/papers'),
+              () => context.push('/exam/papers'),
             ),
             const SizedBox(width: 10),
             _entryCard(
               Icons.assignment,
               AppColors.primaryDark,
               '组卷考试',
-              () => context.go('/exam/assemble'),
+              () => context.push('/exam/assemble'),
             ),
           ],
         ),

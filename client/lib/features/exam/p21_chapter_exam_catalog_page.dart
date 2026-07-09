@@ -225,7 +225,7 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
         ),
         const SizedBox(height: 10),
         GestureDetector(
-          onTap: () => context.go('/exam/papers'),
+          onTap: () => context.push('/exam/papers'),
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,
@@ -308,7 +308,7 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
     return GestureDetector(
       onTap: () {
         mockStore.selectExamChapter(chapter.id);
-        context.go('/exam/sections');
+        context.push('/exam/sections');
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(

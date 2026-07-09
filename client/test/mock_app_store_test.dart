@@ -108,7 +108,33 @@ void main() {
     expect(store.practiceSession!.answeredCount, 1);
     expect(store.practiceSession!.wrongCount, 0);
     expect(result?.isCorrect, isNull);
-    expect(result?.reviewReason, contains('不自动判定'));
+    expect(result?.reviewReason, contains('缺少标准答案'));
+  });
+
+  test('short answer local grading uses matched answer points', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const question = Question(
+      id: 'short_q1',
+      type: QuestionType.shortAnswer,
+      stem: '简述教学评价的功能。',
+      options: [],
+      answerIndexes: {},
+      answerText: '诊断功能、激励功能、调控功能',
+      analysis: '教学评价通常具有诊断、激励和调控等功能。',
+    );
+    store.practiceSession = PracticeSession(
+      title: '简答练习',
+      mode: '章节练习',
+      questions: [question],
+    );
+
+    store.answerPracticeText('教学评价可以诊断学习情况，也能起到激励作用。');
+    final result = store.practiceSession!.answerResults[question.id];
+
+    expect(result?.score, 67);
+    expect(result?.isCorrect, isTrue);
+    expect(result?.scoreText, '67/100');
+    expect(result?.matchedPoints, ['诊断功能', '激励功能']);
   });
 
   test('exam session records material text answers', () {
@@ -296,6 +322,67 @@ void main() {
     expect(session.submitted, isTrue);
     expect(session.correctCount, 1);
     expect(session.score, 100);
+  });
+
+  test('exam short answer grading affects score and wrong count', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const shortQuestion = Question(
+      id: 'exam_short_q1',
+      type: QuestionType.shortAnswer,
+      stem: '简述教学评价的功能。',
+      options: [],
+      answerIndexes: {},
+      answerText: '诊断功能、激励功能、调控功能',
+      analysis: '教学评价通常具有诊断、激励和调控等功能。',
+    );
+    const unansweredQuestion = Question(
+      id: 'exam_single_q2',
+      type: QuestionType.single,
+      stem: '未作答题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    store.examSession = ExamSession(
+      title: '简答考试',
+      mode: '章节考试',
+      questions: [shortQuestion, unansweredQuestion],
+      durationMinutes: 45,
+    );
+
+    store.answerExamText('教学评价具有诊断功能，也能激励学生继续改进。');
+    store.submitExam();
+    final session = store.examSession!;
+
+    expect(session.submitted, isTrue);
+    expect(session.correctCount, 1);
+    expect(session.wrongCount, 0);
+    expect(session.score, 34);
+    expect(session.isWrong(unansweredQuestion), isFalse);
+  });
+
+  test('exam countdown auto submits once when time is over', () {
+    final store = AppStore(repository: MockTikuRepository());
+    store.startAssemblyExam(
+      scope: 'all',
+      questionCount: 8,
+      duration: 1,
+      notify: false,
+    );
+    final session = store.examSession!;
+    final beforeRecords = store.examRecords.length;
+
+    store.tickExamSecond(seconds: 30);
+    expect(session.remainingSeconds, 30);
+    expect(session.submitted, isFalse);
+
+    store.tickExamSecond(seconds: 30);
+    expect(session.remainingSeconds, 0);
+    expect(session.submitted, isTrue);
+    expect(store.examRecords.length, beforeRecords + 1);
+
+    store.tickExamSecond(seconds: 30);
+    expect(store.examRecords.length, beforeRecords + 1);
   });
 
   test('fill blank local comparison accepts json-array answer text', () {

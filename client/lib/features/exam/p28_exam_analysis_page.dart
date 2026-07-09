@@ -358,8 +358,7 @@ class P28ExamAnalysisPage extends StatelessWidget {
     return List.generate(session.questions.length, (index) => index)
         .where((index) {
           final question = session.questions[index];
-          return session.hasAnswered(question.id) &&
-              !session.isCorrect(question);
+          return session.isWrong(question);
         })
         .map((index) => index + 1)
         .toList();

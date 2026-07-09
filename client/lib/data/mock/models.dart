@@ -236,6 +236,86 @@ class PracticeAnswerResult {
   });
 }
 
+class TextAnswerEvaluation {
+  final bool? isCorrect;
+  final int? score;
+  final String correctAnswerText;
+  final List<String> matchedPoints;
+  final String? reviewReason;
+
+  const TextAnswerEvaluation({
+    required this.isCorrect,
+    required this.score,
+    required this.correctAnswerText,
+    this.matchedPoints = const [],
+    this.reviewReason,
+  });
+
+  String? get scoreText => score == null ? null : '$score/100';
+}
+
+TextAnswerEvaluation evaluateTextAnswer(Question question, String text) {
+  final submitted = text.trim();
+  final expected = _cleanAnswerText(question.answerText);
+  if (submitted.isEmpty) {
+    return TextAnswerEvaluation(
+      isCorrect: null,
+      score: null,
+      correctAnswerText: expected,
+      reviewReason: '未提交答案。',
+    );
+  }
+
+  if (question.type == QuestionType.fillBlank) {
+    if (expected.isEmpty) {
+      return TextAnswerEvaluation(
+        isCorrect: null,
+        score: null,
+        correctAnswerText: expected,
+        reviewReason: '当前题目缺少标准答案，已记录作答，待中台补充判分规则。',
+      );
+    }
+    final correct = _normalizeAnswer(submitted) == _normalizeAnswer(expected);
+    return TextAnswerEvaluation(
+      isCorrect: correct,
+      score: correct ? 100 : 0,
+      correctAnswerText: expected,
+    );
+  }
+
+  if (question.type == QuestionType.shortAnswer ||
+      question.type == QuestionType.material) {
+    final points = _extractAnswerPoints(expected);
+    if (points.isEmpty) {
+      return TextAnswerEvaluation(
+        isCorrect: null,
+        score: null,
+        correctAnswerText: expected,
+        reviewReason: '当前题目缺少标准答案，已记录作答，待中台补充判分规则。',
+      );
+    }
+
+    final normalizedAnswer = _normalizeAnswer(submitted);
+    final matched = points
+        .where((point) => _matchesAnswerPoint(normalizedAnswer, point))
+        .toList();
+    final score = (matched.length * 100 / points.length).round();
+    return TextAnswerEvaluation(
+      isCorrect: score >= 60,
+      score: score,
+      correctAnswerText: expected,
+      matchedPoints: matched,
+      reviewReason: score >= 60 ? null : '待补充：未命中的要点可继续对照标准答案复盘。',
+    );
+  }
+
+  return TextAnswerEvaluation(
+    isCorrect: sameAnswer(null, question.answerIndexes),
+    score: null,
+    correctAnswerText: expected,
+  );
+}
+
 class PracticeSession {
   final String title;
   final String mode;
@@ -300,6 +380,7 @@ class ExamSession {
   final int durationMinutes;
   int currentIndex;
   bool submitted;
+  int remainingSeconds;
   final Map<String, Set<int>> answers;
   final Map<String, String> textAnswers;
 
@@ -312,10 +393,12 @@ class ExamSession {
     this.paperId,
     this.currentIndex = 0,
     this.submitted = false,
+    int? remainingSeconds,
     Map<String, Set<int>>? answers,
     Map<String, String>? textAnswers,
   })  : answers = answers ?? {},
-        textAnswers = textAnswers ?? {};
+        textAnswers = textAnswers ?? {},
+        remainingSeconds = remainingSeconds ?? durationMinutes * 60;
 
   Question get currentQuestion => questions[currentIndex];
   bool hasAnswered(String questionId) =>
@@ -327,25 +410,83 @@ class ExamSession {
       .toSet()
       .length;
   int get correctCount => questions.where(isCorrect).length;
-  int get wrongCount => submitted ? questions.length - correctCount : 0;
+  int get wrongCount => submitted ? questions.where(isWrong).length : 0;
+  int get earnedScore =>
+      questions.fold<int>(0, (sum, question) => sum + questionScore(question));
   int get score =>
-      questions.isEmpty ? 0 : (correctCount * 100 / questions.length).round();
+      questions.isEmpty ? 0 : (earnedScore / questions.length).round();
   int get accuracy => score;
 
   bool isCorrect(Question question) {
-    if (question.type == QuestionType.fillBlank) {
+    if (_isTextQuestion(question)) {
       final text = textAnswers[question.id]?.trim() ?? '';
-      final expected = _cleanAnswerText(question.answerText);
-      return text.isNotEmpty &&
-          expected.isNotEmpty &&
-          _normalizeAnswer(text) == _normalizeAnswer(expected);
+      if (text.isEmpty) return false;
+      return evaluateTextAnswer(question, text).isCorrect ?? false;
     }
     return sameAnswer(answers[question.id], question.answerIndexes);
+  }
+
+  bool isWrong(Question question) {
+    if (!hasAnswered(question.id)) return false;
+    if (_isTextQuestion(question)) {
+      final evaluation =
+          evaluateTextAnswer(question, textAnswers[question.id] ?? '');
+      return evaluation.isCorrect == false;
+    }
+    return !sameAnswer(answers[question.id], question.answerIndexes);
+  }
+
+  int questionScore(Question question) {
+    if (!hasAnswered(question.id)) return 0;
+    if (_isTextQuestion(question)) {
+      return evaluateTextAnswer(question, textAnswers[question.id] ?? '')
+              .score ??
+          0;
+    }
+    return sameAnswer(answers[question.id], question.answerIndexes) ? 100 : 0;
   }
 }
 
 String _normalizeAnswer(String value) =>
     _cleanAnswerText(value).replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+bool _isTextQuestion(Question question) =>
+    question.type == QuestionType.fillBlank ||
+    question.type == QuestionType.shortAnswer ||
+    question.type == QuestionType.material;
+
+List<String> _extractAnswerPoints(String value) {
+  final cleaned = _cleanAnswerText(value);
+  if (cleaned.isEmpty) return const [];
+  final chunks = cleaned
+      .replaceAll(RegExp(r'[（(]?\d+[）).、]'), '\n')
+      .split(RegExp(r'[\n。；;]+'));
+  final points = <String>[];
+  for (final chunk in chunks) {
+    final parts = chunk.split(RegExp(r'[，,、]|和|及|与'));
+    for (final part in parts) {
+      final point =
+          part.replaceAll(RegExp(r'^(应|需|需要|包括|主要|可以|通过|结合|坚持)'), '').trim();
+      if (_normalizeAnswer(point).length >= 2 && !points.contains(point)) {
+        points.add(point);
+      }
+    }
+  }
+  return points.isEmpty ? [cleaned] : points;
+}
+
+bool _matchesAnswerPoint(String normalizedAnswer, String point) {
+  final normalizedPoint = _normalizeAnswer(point);
+  if (normalizedPoint.isEmpty) return false;
+  if (normalizedAnswer.contains(normalizedPoint)) return true;
+  final compactPoint =
+      normalizedPoint.replaceFirst(RegExp(r'(功能|作用|原则|方法|措施|要求)$'), '');
+  if (compactPoint.length >= 2 && normalizedAnswer.contains(compactPoint)) {
+    return true;
+  }
+  return normalizedAnswer.length >= 4 &&
+      normalizedPoint.contains(normalizedAnswer);
+}
 
 String _cleanAnswerText(String value) {
   final trimmed = value.trim();

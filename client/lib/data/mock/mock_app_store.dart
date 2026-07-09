@@ -74,11 +74,35 @@ class AppStore extends ChangeNotifier {
         orElse: () => subjects.first,
       );
 
-  Chapter get selectedChapter =>
-      chapters.firstWhere((chapter) => chapter.id == selectedChapterId);
+  Chapter get selectedChapter => chapters.firstWhere(
+        (chapter) => chapter.id == selectedChapterId,
+        orElse: () => chapters.isNotEmpty
+            ? chapters.first
+            : const Chapter(
+                id: 'empty_practice_chapter',
+                title: '暂无章节',
+                done: 0,
+                total: 0,
+                correct: 0,
+                wrong: 0,
+                sections: [],
+              ),
+      );
 
-  Chapter get selectedExamChapter =>
-      examChapters.firstWhere((chapter) => chapter.id == selectedExamChapterId);
+  Chapter get selectedExamChapter => examChapters.firstWhere(
+        (chapter) => chapter.id == selectedExamChapterId,
+        orElse: () => examChapters.isNotEmpty
+            ? examChapters.first
+            : const Chapter(
+                id: 'empty_exam_chapter',
+                title: '暂无章节',
+                done: 0,
+                total: 0,
+                correct: 0,
+                wrong: 0,
+                sections: [],
+              ),
+      );
 
   PracticeStat get practiceStat => _combinedStat(chapters, practicePapers);
 
@@ -125,8 +149,12 @@ class AppStore extends ChangeNotifier {
   }
 
   void startPracticeFromSection(String sectionId, {bool notify = true}) {
-    final section =
-        _allSections(chapters).firstWhere((item) => item.id == sectionId);
+    final sections = _allSections(chapters).toList();
+    final section = _firstWhereOrNull(sections, (item) => item.id == sectionId);
+    if (section == null) {
+      startRandomPractice(notify: notify);
+      return;
+    }
     practiceSession = PracticeSession(
       title: section.title,
       mode: '章节练习',
@@ -138,7 +166,12 @@ class AppStore extends ChangeNotifier {
   }
 
   void startPracticeFromPaper(String paperId, {bool notify = true}) {
-    final paper = practicePapers.firstWhere((item) => item.id == paperId);
+    final paper =
+        _firstWhereOrNull(practicePapers, (item) => item.id == paperId);
+    if (paper == null) {
+      startRandomPractice(notify: notify);
+      return;
+    }
     practiceSession = PracticeSession(
       title: paper.title,
       mode: '真题练习',
@@ -167,13 +200,22 @@ class AppStore extends ChangeNotifier {
     }
     if (record.mode.contains('真题')) {
       final paper = _findPracticePaper(record.title);
-      startPracticeFromPaper((paper ?? practicePapers.first).id);
+      if (paper == null && practicePapers.isEmpty) {
+        startRandomPractice();
+      } else {
+        startPracticeFromPaper((paper ?? practicePapers.first).id);
+      }
       if (!restart) _movePracticeIndexToProgress(record.metric);
       return;
     }
-    final section =
-        _findPracticeSection(record.title) ?? _allSections(chapters).first;
-    startPracticeFromSection(section.id);
+    final sections = _allSections(chapters).toList();
+    final section = _findPracticeSection(record.title) ??
+        (sections.isEmpty ? null : sections.first);
+    if (section == null) {
+      startRandomPractice();
+    } else {
+      startPracticeFromSection(section.id);
+    }
     if (!restart) _movePracticeIndexToProgress(record.metric);
   }
 
@@ -571,8 +613,17 @@ class AppStore extends ChangeNotifier {
   }
 
   void startExamFromSection(String sectionId, {bool notify = true}) {
-    final section =
-        _allSections(examChapters).firstWhere((item) => item.id == sectionId);
+    final sections = _allSections(examChapters).toList();
+    final section = _firstWhereOrNull(sections, (item) => item.id == sectionId);
+    if (section == null) {
+      startAssemblyExam(
+        scope: 'all',
+        questionCount: 20,
+        duration: 100,
+        notify: notify,
+      );
+      return;
+    }
     examSession = ExamSession(
       title: section.title,
       mode: '章节考试',
@@ -585,7 +636,16 @@ class AppStore extends ChangeNotifier {
   }
 
   void startExamFromPaper(String paperId, {bool notify = true}) {
-    final paper = examPapers.firstWhere((item) => item.id == paperId);
+    final paper = _firstWhereOrNull(examPapers, (item) => item.id == paperId);
+    if (paper == null) {
+      startAssemblyExam(
+        scope: 'all',
+        questionCount: 20,
+        duration: 100,
+        notify: notify,
+      );
+      return;
+    }
     examSession = ExamSession(
       title: paper.title,
       mode: '真题考试',
@@ -600,7 +660,11 @@ class AppStore extends ChangeNotifier {
   void openExamRecordAnalysis(StudyRecord record) {
     if (record.mode.contains('真题')) {
       final paper = _findExamPaper(record.title);
-      startExamFromPaper((paper ?? examPapers.first).id);
+      if (paper == null && examPapers.isEmpty) {
+        startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+      } else {
+        startExamFromPaper((paper ?? examPapers.first).id);
+      }
       _applyRecordResultToExamSession(record);
       return;
     }
@@ -609,9 +673,14 @@ class AppStore extends ChangeNotifier {
       _applyRecordResultToExamSession(record);
       return;
     }
-    final section =
-        _findExamSection(record.title) ?? _allSections(examChapters).first;
-    startExamFromSection(section.id);
+    final sections = _allSections(examChapters).toList();
+    final section = _findExamSection(record.title) ??
+        (sections.isEmpty ? null : sections.first);
+    if (section == null) {
+      startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+    } else {
+      startExamFromSection(section.id);
+    }
     _applyRecordResultToExamSession(record);
   }
 
@@ -681,6 +750,19 @@ class AppStore extends ChangeNotifier {
       return;
     }
     session.currentIndex = index;
+    notifyListeners();
+  }
+
+  void tickExamSecond({int seconds = 1}) {
+    final session = examSession;
+    if (session == null || session.submitted || seconds <= 0) return;
+    session.remainingSeconds = (session.remainingSeconds - seconds)
+        .clamp(0, session.durationMinutes * 60)
+        .toInt();
+    if (session.remainingSeconds == 0) {
+      submitExam();
+      return;
+    }
     notifyListeners();
   }
 
@@ -1123,24 +1205,20 @@ class AppStore extends ChangeNotifier {
   }
 
   PracticeAnswerResult _localTextResult(Question question, String text) {
-    final expected = _cleanAnswerText(question.answerText);
-    final canCompare =
-        question.type == QuestionType.fillBlank && expected.isNotEmpty;
-    final correct =
-        canCompare ? _normalize(text) == _normalize(expected) : null;
+    final evaluation = evaluateTextAnswer(question, text);
     return PracticeAnswerResult(
-      isCorrect: correct,
-      score: correct == null ? null : (correct ? 100 : 0),
-      correctAnswerText: expected,
+      isCorrect: evaluation.isCorrect,
+      score: evaluation.score,
+      correctAnswerText: evaluation.correctAnswerText,
       myAnswerText: text,
       analysisText: question.analysis.isNotEmpty
           ? question.analysis
           : question.type == QuestionType.material
               ? '材料题答案已记录，后续可在中台补充规则或人工核查。'
               : question.analysis,
-      reviewReason: correct == null && question.type == QuestionType.material
-          ? '当前阶段材料题不自动判定对错。'
-          : null,
+      scoreText: evaluation.scoreText,
+      matchedPoints: evaluation.matchedPoints,
+      reviewReason: evaluation.reviewReason,
     );
   }
 
@@ -1149,9 +1227,6 @@ class AppStore extends ChangeNotifier {
     final sorted = answers.toList()..sort();
     return sorted.map((index) => String.fromCharCode(65 + index)).join('、');
   }
-
-  String _normalize(String value) =>
-      _cleanAnswerText(value).replaceAll(RegExp(r'\s+'), '').toLowerCase();
 
   String _cleanAnswerText(String value) {
     final trimmed = value.trim();
@@ -1357,4 +1432,11 @@ class AppStore extends ChangeNotifier {
             : paper)
         .toList();
   }
+}
+
+T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
+  for (final item in items) {
+    if (test(item)) return item;
+  }
+  return null;
 }

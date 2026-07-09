@@ -26,10 +26,14 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     if (mockStore.practiceSession == null) {
       final firstSection =
           _firstLeafSection(mockStore.selectedChapter.sections);
-      mockStore.startPracticeFromSection(
-        firstSection.id,
-        notify: false,
-      );
+      if (firstSection == null) {
+        mockStore.startRandomPractice(notify: false);
+      } else {
+        mockStore.startPracticeFromSection(
+          firstSection.id,
+          notify: false,
+        );
+      }
     }
   }
 
@@ -1251,7 +1255,8 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         .trim();
   }
 
-  Section _firstLeafSection(List<Section> sections) {
+  Section? _firstLeafSection(List<Section> sections) {
+    if (sections.isEmpty) return null;
     final first = sections.first;
     return first.children.isEmpty ? first : _firstLeafSection(first.children);
   }

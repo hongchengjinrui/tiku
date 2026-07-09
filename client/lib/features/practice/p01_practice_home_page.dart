@@ -63,7 +63,7 @@ class P01PracticeHomePage extends StatelessWidget {
                                     iconColor: AppColors.primary,
                                     title: '开始练习',
                                     onTap: () =>
-                                        context.go('/practice/catalog'),
+                                        context.push('/practice/catalog'),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -72,7 +72,8 @@ class P01PracticeHomePage extends StatelessWidget {
                                     icon: Icons.error_outline,
                                     iconColor: AppColors.error,
                                     title: '错题练习',
-                                    onTap: () => context.go('/practice/wrong'),
+                                    onTap: () =>
+                                        context.push('/practice/wrong'),
                                   ),
                                 ),
                               ],
@@ -87,7 +88,7 @@ class P01PracticeHomePage extends StatelessWidget {
                                     iconColor: AppColors.warning,
                                     title: '收藏练习',
                                     onTap: () =>
-                                        context.go('/practice/favorite'),
+                                        context.push('/practice/favorite'),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -96,7 +97,8 @@ class P01PracticeHomePage extends StatelessWidget {
                                     icon: Icons.shuffle,
                                     iconColor: const Color(0xFF8B5CF6),
                                     title: '随机练习',
-                                    onTap: () => context.go('/practice/random'),
+                                    onTap: () =>
+                                        context.push('/practice/random'),
                                   ),
                                 ),
                               ],
@@ -124,7 +126,7 @@ class P01PracticeHomePage extends StatelessWidget {
                             ),
                             GestureDetector(
                               onTap: () =>
-                                  context.go('/profile/practice-records'),
+                                  context.push('/profile/practice-records'),
                               child: Text(
                                 '全部练习记录',
                                 style: TextStyle(
@@ -210,7 +212,7 @@ class P01PracticeHomePage extends StatelessWidget {
               ),
               // 切换科目入口
               GestureDetector(
-                onTap: () => context.go('/practice/switch-subject'),
+                onTap: () => context.push('/practice/switch-subject'),
                 child: Container(
                   height: 26,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -368,12 +370,10 @@ class P01PracticeHomePage extends StatelessWidget {
   }
 
   Widget _buildRecentRecordCard(BuildContext context, StudyRecord record) {
-    final isLowAccuracy =
-        record.metric.contains('正确率 5') || record.metric.contains('正确率 6');
     return _buildRecentCard(
       title: record.title,
       accuracy: _accuracyText(record.metric),
-      accuracyColor: isLowAccuracy ? AppColors.error : AppColors.success,
+      accuracyColor: _recordStatusColor(record.metric),
       info: '${record.mode} · ${record.metric} · ${record.time}',
       action1Text: '重新练习',
       action1Bg: AppColors.primaryBg,
@@ -395,7 +395,21 @@ class P01PracticeHomePage extends StatelessWidget {
 
   String _accuracyText(String metric) {
     final match = RegExp(r'正确率\s?\d+%').firstMatch(metric);
-    return match?.group(0) ?? '正确率 --';
+    if (match != null) return match.group(0)!;
+    if (metric.contains('回答正确')) return '回答正确';
+    if (metric.contains('回答错误')) return '回答错误';
+    if (metric.contains('未交卷')) return '未交卷';
+    return '暂无统计';
+  }
+
+  Color _recordStatusColor(String metric) {
+    if (metric.contains('回答错误') || metric.contains('未交卷')) {
+      return AppColors.error;
+    }
+    final match = RegExp(r'正确率\s?(\d+)%').firstMatch(metric);
+    final accuracy = int.tryParse(match?.group(1) ?? '');
+    if (accuracy != null && accuracy < 70) return AppColors.error;
+    return AppColors.success;
   }
 
   double _recordProgress(String metric) {

@@ -89,7 +89,7 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
                 ],
               ),
               GestureDetector(
-                onTap: () => context.go('/practice/switch-subject'),
+                onTap: () => context.push('/practice/switch-subject'),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 88,
@@ -139,7 +139,7 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         _activeResource = resource;
-        context.go(resource.isFree ? '/resources/free' : '/resources/paid');
+        context.push(resource.isFree ? '/resources/free' : '/resources/paid');
       },
       child: Container(
         width: double.infinity,

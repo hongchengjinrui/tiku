@@ -407,8 +407,7 @@ class _AnalysisDetailPage extends StatelessWidget {
     final question = session.questions[index];
     return switch (kind) {
       _AnalysisKind.unanswered => !session.hasAnswered(question.id),
-      _AnalysisKind.wrong =>
-        session.hasAnswered(question.id) && !session.isCorrect(question),
+      _AnalysisKind.wrong => session.isWrong(question),
       _AnalysisKind.correct => session.isCorrect(question),
     };
   }
@@ -423,19 +422,35 @@ class _AnalysisDetailPage extends StatelessWidget {
       );
     }
     if (session.isCorrect(question)) {
-      return const _QuestionStatus(
+      final scoreText = _textScoreText(question, session);
+      return _QuestionStatus(
         label: '已答对',
-        resultLabel: '回答正确',
+        resultLabel: scoreText == null ? '回答正确' : '回答正确 · $scoreText',
         color: AppColors.success,
-        bgColor: Color(0xFFD1FAE5),
+        bgColor: const Color(0xFFD1FAE5),
       );
     }
+    if (!session.isWrong(question)) {
+      return const _QuestionStatus(
+        label: '待核查',
+        resultLabel: '已作答 · 待核查',
+        color: AppColors.primary,
+        bgColor: AppColors.primaryBg,
+      );
+    }
+    final scoreText = _textScoreText(question, session);
     return const _QuestionStatus(
       label: '答错题',
       resultLabel: '回答错误',
       color: AppColors.error,
       bgColor: Color(0xFFFEE2E2),
-    );
+    ).copyWith(resultLabel: scoreText == null ? null : '回答错误 · $scoreText');
+  }
+
+  String? _textScoreText(Question question, ExamSession session) {
+    final text = session.textAnswers[question.id]?.trim();
+    if (text == null || text.isEmpty) return null;
+    return evaluateTextAnswer(question, text).scoreText;
   }
 
   String _correctAnswer(Question question) {
@@ -484,4 +499,13 @@ class _QuestionStatus {
     required this.color,
     required this.bgColor,
   });
+
+  _QuestionStatus copyWith({String? resultLabel}) {
+    return _QuestionStatus(
+      label: label,
+      resultLabel: resultLabel ?? this.resultLabel,
+      color: color,
+      bgColor: bgColor,
+    );
+  }
 }

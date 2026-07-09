@@ -255,7 +255,7 @@ class P50ProfilePage extends StatelessWidget {
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 14),
                         dense: true,
-                        onTap: () => context.go(item['route'] as String),
+                        onTap: () => context.push(item['route'] as String),
                       ),
                     );
                   }).toList(),
@@ -903,7 +903,7 @@ class P53WrongEntryPage extends StatelessWidget {
                                   mockStore.startWrongPractice(count: count);
                                   context.go('/practice/quiz');
                                 }
-                              : () => context.go('/practice/catalog'),
+                              : () => context.push('/practice/catalog'),
                           child: Container(
                             width: 200,
                             height: 44,

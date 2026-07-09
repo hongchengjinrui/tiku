@@ -364,7 +364,7 @@ class P55UploadBankPage extends StatelessWidget {
                             trailing: const Icon(Icons.chevron_right,
                                 size: 18, color: AppColors.textMuted),
                             contentPadding: EdgeInsets.zero,
-                            onTap: () => context.go('/profile/feedback'),
+                            onTap: () => context.push('/profile/feedback'),
                           ),
                         ],
                       ),
@@ -585,7 +585,7 @@ class P57AboutPage extends StatelessWidget {
                                     color: AppColors.textPrimary)),
                             trailing: const Icon(Icons.chevron_right,
                                 size: 18, color: AppColors.textMuted),
-                            onTap: () => context.go('/agreement/user'),
+                            onTap: () => context.push('/agreement/user'),
                           ),
                           const Divider(height: 1),
                           ListTile(
@@ -597,7 +597,7 @@ class P57AboutPage extends StatelessWidget {
                                     color: AppColors.textPrimary)),
                             trailing: const Icon(Icons.chevron_right,
                                 size: 18, color: AppColors.textMuted),
-                            onTap: () => context.go('/agreement/privacy'),
+                            onTap: () => context.push('/agreement/privacy'),
                           ),
                           const Divider(height: 1),
                           ListTile(
@@ -774,7 +774,11 @@ class P58LoginPage extends StatelessWidget {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () {},
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('当前已使用本地游客模式')),
+                        );
+                      },
                       child: const Text('游客登录',
                           style: TextStyle(
                               fontFamily: 'Inter',

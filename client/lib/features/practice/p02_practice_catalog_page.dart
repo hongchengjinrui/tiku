@@ -342,7 +342,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
     return GestureDetector(
       onTap: () {
         mockStore.selectChapter(chapter.id);
-        context.go('/practice/sections');
+        context.push('/practice/sections');
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -432,7 +432,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
   Widget _buildMockExamRow(MockAppStore store) {
     final stat = store.practicePaperStat;
     return GestureDetector(
-      onTap: () => context.go('/practice/papers'),
+      onTap: () => context.push('/practice/papers'),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.all(14),
