@@ -5,6 +5,7 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import 'p21b_retake_confirmation_modal.dart';
 
 /// P21A 章节考试小节列表 - Chapter exam section list
 class P21AChapterExamSectionListPage extends StatelessWidget {
@@ -170,7 +171,7 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
                   bgColor: AppColors.surface,
                   fgColor: AppColors.textSecondary,
                   borderColor: AppColors.border,
-                  onTap: () => context.go('/exam/retake-confirm'),
+                  onTap: () => _retakeSection(context, section),
                 ),
               ),
               const SizedBox(width: 8),
@@ -191,6 +192,16 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _retakeSection(BuildContext context, Section section) async {
+    final confirmed = await P21BRetakeConfirmationModal.show(
+      context,
+      message: '将重新开始该小节考试，本次作答会覆盖当前进度记录。',
+    );
+    if (confirmed != true || !context.mounted) return;
+    mockStore.startExamFromSection(section.id);
+    context.go('/exam/answer');
   }
 
   List<Section> _leafSections(List<Section> sections) {

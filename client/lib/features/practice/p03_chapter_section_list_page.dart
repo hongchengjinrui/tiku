@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
+import '../../features/exam/p03a_section_reset_confirmation_modal.dart';
 import '../../theme/app_colors.dart';
 
 /// P03 章节练习小节列表 - 含状态栏、导航栏、章节数据面板、各小节卡片
@@ -165,7 +166,7 @@ class P03ChapterSectionListPage extends StatelessWidget {
                   bgColor: AppColors.surface,
                   fgColor: AppColors.textSecondary,
                   borderColor: AppColors.border,
-                  onTap: () => context.go('/practice/sections/reset-confirm'),
+                  onTap: () => _resetSection(context, section),
                 ),
               ),
               const SizedBox(width: 8),
@@ -208,6 +209,18 @@ class P03ChapterSectionListPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _resetSection(BuildContext context, Section section) async {
+    final confirmed = await P03ASectionResetConfirmationModal.show(context);
+    if (confirmed != true || !context.mounted) return;
+    final ok = await mockStore.resetPracticeProgress(
+      catalogIds: [section.id],
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '小节进度已重置' : '重置失败，请稍后重试')),
     );
   }
 

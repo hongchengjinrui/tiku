@@ -5,6 +5,7 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import '../exam/p04a_paper_reset_confirmation_modal.dart';
 
 /// P04 真题练习试卷列表 - 含状态栏、导航栏、总览数据面板、真题试卷列表
 class P04RealExamPaperListPage extends StatelessWidget {
@@ -175,7 +176,7 @@ class P04RealExamPaperListPage extends StatelessWidget {
                   bgColor: AppColors.surface,
                   fgColor: AppColors.textSecondary,
                   borderColor: AppColors.border,
-                  onTap: () => context.go('/practice/papers/reset-confirm'),
+                  onTap: () => _resetPaper(context, paper),
                 ),
               ),
               const SizedBox(width: 8),
@@ -218,6 +219,18 @@ class P04RealExamPaperListPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _resetPaper(BuildContext context, Paper paper) async {
+    final confirmed = await P04APaperResetConfirmationModal.show(context);
+    if (confirmed != true || !context.mounted) return;
+    final ok = await mockStore.resetPracticeProgress(
+      catalogIds: [paper.id],
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '真题进度已重置' : '重置失败，请稍后重试')),
     );
   }
 

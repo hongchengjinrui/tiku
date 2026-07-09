@@ -5,14 +5,25 @@ import '../../theme/app_colors.dart';
 class P21BRetakeConfirmationModal extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
+  final String title;
+  final String message;
+  final String confirmText;
 
   const P21BRetakeConfirmationModal({
     super.key,
     this.onCancel,
     this.onConfirm,
+    this.title = '确认重新考试？',
+    this.message = '将重新开始当前小节考试，本次作答会覆盖当前进度记录。',
+    this.confirmText = '确认重考',
   });
 
-  static Future<bool?> show(BuildContext context) {
+  static Future<bool?> show(
+    BuildContext context, {
+    String title = '确认重新考试？',
+    String message = '将重新开始当前小节考试，本次作答会覆盖当前进度记录。',
+    String confirmText = '确认重考',
+  }) {
     return showDialog<bool>(
       context: context,
       barrierColor: const Color(0x660F172A),
@@ -22,6 +33,9 @@ class P21BRetakeConfirmationModal extends StatelessWidget {
         child: P21BRetakeConfirmationModal(
           onCancel: () => Navigator.of(context).pop(false),
           onConfirm: () => Navigator.of(context).pop(true),
+          title: title,
+          message: message,
+          confirmText: confirmText,
         ),
       ),
     );
@@ -48,21 +62,22 @@ class P21BRetakeConfirmationModal extends StatelessWidget {
                 color: const Color(0xFFFEF3C7),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.refresh, size: 20, color: Color(0xFFD97706)),
+              child:
+                  const Icon(Icons.refresh, size: 20, color: Color(0xFFD97706)),
             ),
             const SizedBox(height: 14),
-            const Text('确认重新考试？',
-                style: TextStyle(
+            Text(title,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 )),
             const SizedBox(height: 14),
-            const Text(
-              '将重新开始当前小节考试，本次作答会覆盖当前进度记录。',
+            Text(
+              message,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
                 height: 1.5,
@@ -107,9 +122,9 @@ class P21BRetakeConfirmationModal extends StatelessWidget {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Center(
-                        child: Text('确认重考',
-                            style: TextStyle(
+                      child: Center(
+                        child: Text(confirmText,
+                            style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 14,
                               fontWeight: FontWeight.w700,

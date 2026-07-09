@@ -5,6 +5,7 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import 'p21b_retake_confirmation_modal.dart';
 
 /// P22 真题考试试卷列表 - Real exam paper list
 class P22RealExamPaperListPage extends StatelessWidget {
@@ -168,7 +169,7 @@ class P22RealExamPaperListPage extends StatelessWidget {
                   bgColor: AppColors.surface,
                   fgColor: AppColors.textSecondary,
                   borderColor: AppColors.border,
-                  onTap: () => context.go('/exam/retake-confirm'),
+                  onTap: () => _retakePaper(context, paper),
                 ),
               ),
               const SizedBox(width: 8),
@@ -189,6 +190,17 @@ class P22RealExamPaperListPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _retakePaper(BuildContext context, Paper paper) async {
+    final confirmed = await P21BRetakeConfirmationModal.show(
+      context,
+      title: '确认重新考试？',
+      message: '将重新开始该真题卷考试，本次作答会覆盖当前进度记录。',
+    );
+    if (confirmed != true || !context.mounted) return;
+    mockStore.startExamFromPaper(paper.id);
+    context.go('/exam/answer');
   }
 
   Widget _actionButton({
