@@ -67,7 +67,7 @@ class MemoryAppStateStorage implements AppStateStorage {
 }
 
 class AppStateSnapshot {
-  static const currentVersion = 3;
+  static const currentVersion = 4;
 
   final int version;
   final DateTime savedAt;
@@ -85,6 +85,8 @@ class AppStateSnapshot {
   final Map<String, int> wrongCorrectCounts;
   final List<FeedbackSubmission> feedbackSubmissions;
   final List<ResourceClaim> resourceClaims;
+  final PracticeSessionSnapshot? activePracticeSession;
+  final ExamSessionSnapshot? activeExamSession;
   final Map<String, List<Question>> catalogQuestionCache;
   final Map<String, SubjectStateSnapshot> localSubjectStates;
 
@@ -105,6 +107,8 @@ class AppStateSnapshot {
     this.wrongCorrectCounts = const {},
     this.feedbackSubmissions = const [],
     this.resourceClaims = const [],
+    this.activePracticeSession,
+    this.activeExamSession,
     this.catalogQuestionCache = const {},
     this.localSubjectStates = const {},
   });
@@ -129,6 +133,11 @@ class AppStateSnapshot {
       feedbackSubmissions:
           _mapList(json['feedbackSubmissions'], _feedbackFromJson),
       resourceClaims: _mapList(json['resourceClaims'], _resourceClaimFromJson),
+      activePracticeSession:
+          _practiceSessionSnapshotFromJson(json['activePracticeSession']),
+      activeExamSession: _examSessionSnapshotFromJson(
+        json['activeExamSession'],
+      ),
       catalogQuestionCache:
           _questionCacheFromJson(json['catalogQuestionCache']),
       localSubjectStates: _subjectStatesFromJson(json['localSubjectStates']),
@@ -153,12 +162,138 @@ class AppStateSnapshot {
       'wrongCorrectCounts': wrongCorrectCounts,
       'feedbackSubmissions': feedbackSubmissions.map(_feedbackToJson).toList(),
       'resourceClaims': resourceClaims.map(_resourceClaimToJson).toList(),
+      'activePracticeSession': activePracticeSession?.toJson(),
+      'activeExamSession': activeExamSession?.toJson(),
       'catalogQuestionCache': catalogQuestionCache.map(
         (key, value) => MapEntry(key, value.map(_questionToJson).toList()),
       ),
       'localSubjectStates': localSubjectStates.map(
         (key, value) => MapEntry(key, value.toJson()),
       ),
+    };
+  }
+}
+
+class PracticeSessionSnapshot {
+  final String title;
+  final String mode;
+  final String? sectionId;
+  final String? paperId;
+  final List<Question> questions;
+  final int currentIndex;
+  final bool finished;
+  final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
+  final Set<String> resultQuestionIds;
+  final int wrongRemovalThreshold;
+
+  const PracticeSessionSnapshot({
+    required this.title,
+    required this.mode,
+    this.sectionId,
+    this.paperId,
+    required this.questions,
+    required this.currentIndex,
+    required this.finished,
+    this.answers = const {},
+    this.textAnswers = const {},
+    this.resultQuestionIds = const {},
+    this.wrongRemovalThreshold = 0,
+  });
+
+  factory PracticeSessionSnapshot.fromJson(Map<String, dynamic> json) {
+    return PracticeSessionSnapshot(
+      title: json['title']?.toString() ?? '',
+      mode: json['mode']?.toString() ?? '',
+      sectionId: json['sectionId']?.toString(),
+      paperId: json['paperId']?.toString(),
+      questions: _mapList(json['questions'], _questionFromJson),
+      currentIndex: _int(json['currentIndex']),
+      finished: json['finished'] == true,
+      answers: _answerMap(json['answers']),
+      textAnswers: _stringMap(json['textAnswers']),
+      resultQuestionIds: _stringSet(json['resultQuestionIds']),
+      wrongRemovalThreshold: _int(json['wrongRemovalThreshold']),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'title': title,
+      'mode': mode,
+      'sectionId': sectionId,
+      'paperId': paperId,
+      'questions': questions.map(_questionToJson).toList(),
+      'currentIndex': currentIndex,
+      'finished': finished,
+      'answers': _answerMapToJson(answers),
+      'textAnswers': textAnswers,
+      'resultQuestionIds': resultQuestionIds.toList()..sort(),
+      'wrongRemovalThreshold': wrongRemovalThreshold,
+    };
+  }
+}
+
+class ExamSessionSnapshot {
+  final String title;
+  final String mode;
+  final String? sectionId;
+  final String? paperId;
+  final List<Question> questions;
+  final int durationMinutes;
+  final int currentIndex;
+  final bool submitted;
+  final int remainingSeconds;
+  final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
+
+  const ExamSessionSnapshot({
+    required this.title,
+    required this.mode,
+    this.sectionId,
+    this.paperId,
+    required this.questions,
+    required this.durationMinutes,
+    required this.currentIndex,
+    required this.submitted,
+    required this.remainingSeconds,
+    this.answers = const {},
+    this.textAnswers = const {},
+  });
+
+  factory ExamSessionSnapshot.fromJson(Map<String, dynamic> json) {
+    final durationMinutes = _int(json['durationMinutes'], fallback: 1);
+    return ExamSessionSnapshot(
+      title: json['title']?.toString() ?? '',
+      mode: json['mode']?.toString() ?? '',
+      sectionId: json['sectionId']?.toString(),
+      paperId: json['paperId']?.toString(),
+      questions: _mapList(json['questions'], _questionFromJson),
+      durationMinutes: durationMinutes,
+      currentIndex: _int(json['currentIndex']),
+      submitted: json['submitted'] == true,
+      remainingSeconds: _int(
+        json['remainingSeconds'],
+        fallback: durationMinutes * 60,
+      ),
+      answers: _answerMap(json['answers']),
+      textAnswers: _stringMap(json['textAnswers']),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'title': title,
+      'mode': mode,
+      'sectionId': sectionId,
+      'paperId': paperId,
+      'questions': questions.map(_questionToJson).toList(),
+      'durationMinutes': durationMinutes,
+      'currentIndex': currentIndex,
+      'submitted': submitted,
+      'remainingSeconds': remainingSeconds,
+      'answers': _answerMapToJson(answers),
+      'textAnswers': textAnswers,
     };
   }
 }
@@ -256,11 +391,68 @@ Map<String, SubjectStateSnapshot> _subjectStatesFromJson(Object? value) {
   return states;
 }
 
+PracticeSessionSnapshot? _practiceSessionSnapshotFromJson(Object? value) {
+  if (value is! Map) return null;
+  final snapshot = PracticeSessionSnapshot.fromJson(
+    Map<String, dynamic>.from(value),
+  );
+  return snapshot.questions.isEmpty ? null : snapshot;
+}
+
+ExamSessionSnapshot? _examSessionSnapshotFromJson(Object? value) {
+  if (value is! Map) return null;
+  final snapshot = ExamSessionSnapshot.fromJson(
+    Map<String, dynamic>.from(value),
+  );
+  return snapshot.questions.isEmpty ? null : snapshot;
+}
+
 Map<String, int> _intMap(Object? value) {
   if (value is! Map) return const {};
   return value.map(
     (key, rawValue) => MapEntry(key.toString(), _int(rawValue)),
   )..removeWhere((key, count) => key.isEmpty || count <= 0);
+}
+
+Map<String, Set<int>> _answerMap(Object? value) {
+  if (value is! Map) return const {};
+  final answers = <String, Set<int>>{};
+  for (final entry in value.entries) {
+    final questionId = entry.key.toString();
+    final selected = _intSet(entry.value);
+    if (questionId.isEmpty || selected.isEmpty) continue;
+    answers[questionId] = selected;
+  }
+  return answers;
+}
+
+Map<String, List<int>> _answerMapToJson(Map<String, Set<int>> answers) {
+  return answers.map((questionId, selected) {
+    return MapEntry(questionId, selected.toList()..sort());
+  })
+    ..removeWhere((questionId, selected) {
+      return questionId.isEmpty || selected.isEmpty;
+    });
+}
+
+Map<String, String> _stringMap(Object? value) {
+  if (value is! Map) return const {};
+  final strings = <String, String>{};
+  for (final entry in value.entries) {
+    final key = entry.key.toString();
+    final text = entry.value?.toString() ?? '';
+    if (key.isEmpty || text.trim().isEmpty) continue;
+    strings[key] = text;
+  }
+  return strings;
+}
+
+Set<String> _stringSet(Object? value) {
+  if (value is! List) return const {};
+  return value
+      .map((item) => item.toString())
+      .where((item) => item.isNotEmpty)
+      .toSet();
 }
 
 Map<String, Object?> _chapterToJson(Chapter chapter) {

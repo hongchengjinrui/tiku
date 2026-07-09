@@ -997,4 +997,47 @@ void main() {
     expect(restored.resourceClaimCount('resource_free_1'), 2);
     expect(restored.resourceClaimFor('resource_free_1')?.subjectName, '小学教师');
   });
+
+  test('active practice and exam sessions survive app state restore', () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    final practiceSection = store.chapters.first.sections.first;
+    final examSection = store.examChapters.first.sections.first;
+
+    store.startPracticeFromSection(practiceSection.id, notify: false);
+    final practiceQuestion = store.practiceSession!.currentQuestion;
+    store.answerPractice(practiceQuestion.answerIndexes);
+    store.nextPracticeQuestion();
+
+    store.startExamFromSection(examSection.id, notify: false);
+    final examQuestion = store.examSession!.currentQuestion;
+    store.answerExam(examQuestion.answerIndexes);
+    store.nextExamQuestion();
+    store.tickExamSecond(seconds: 45);
+    await store.flushLocalState();
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+
+    final restoredPractice = restored.practiceSession!;
+    expect(restoredPractice.sectionId, practiceSection.id);
+    expect(restoredPractice.currentIndex, 1);
+    expect(restoredPractice.answers[practiceQuestion.id],
+        practiceQuestion.answerIndexes);
+    expect(
+        restoredPractice.answerResults[practiceQuestion.id]?.isCorrect, isTrue);
+
+    final restoredExam = restored.examSession!;
+    expect(restoredExam.sectionId, examSection.id);
+    expect(restoredExam.currentIndex, 1);
+    expect(restoredExam.answers[examQuestion.id], examQuestion.answerIndexes);
+    expect(restoredExam.remainingSeconds, 45 * 60 - 45);
+    expect(restored.examAnsweredStatus().first, isTrue);
+  });
 }

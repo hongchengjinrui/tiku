@@ -189,6 +189,10 @@ class AppStore extends ChangeNotifier {
     resourceClaims = snapshot.resourceClaims
         .where((claim) => claim.resourceId.isNotEmpty)
         .toList();
+    practiceSession = _practiceSessionFromSnapshot(
+      snapshot.activePracticeSession,
+    );
+    examSession = _examSessionFromSnapshot(snapshot.activeExamSession);
     final current = repository;
     if (current is RemoteTikuRepository) {
       current.restoreQuestionCache(snapshot.catalogQuestionCache);
@@ -221,6 +225,8 @@ class AppStore extends ChangeNotifier {
       wrongCorrectCounts: wrongCorrectCounts,
       feedbackSubmissions: feedbackSubmissions,
       resourceClaims: resourceClaims,
+      activePracticeSession: _practiceSessionSnapshot(practiceSession),
+      activeExamSession: _examSessionSnapshot(examSession),
       catalogQuestionCache: current is RemoteTikuRepository
           ? current.exportQuestionCache()
           : const {},
@@ -230,6 +236,106 @@ class AppStore extends ChangeNotifier {
           _localSubjectStateToSnapshot(state),
         ),
       ),
+    );
+  }
+
+  PracticeSessionSnapshot? _practiceSessionSnapshot(
+    PracticeSession? session,
+  ) {
+    if (session == null || session.questions.isEmpty) return null;
+    return PracticeSessionSnapshot(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: session.questions,
+      currentIndex: session.currentIndex,
+      finished: session.finished,
+      answers: session.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(session.textAnswers),
+      resultQuestionIds: session.answerResults.keys.toSet(),
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
+    );
+  }
+
+  PracticeSession? _practiceSessionFromSnapshot(
+    PracticeSessionSnapshot? snapshot,
+  ) {
+    if (snapshot == null || snapshot.questions.isEmpty) return null;
+    final answers = snapshot.answers.map(
+      (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+    );
+    final textAnswers = Map<String, String>.from(snapshot.textAnswers);
+    final answerResults = <String, PracticeAnswerResult>{};
+    for (final question in snapshot.questions) {
+      if (!snapshot.resultQuestionIds.contains(question.id)) continue;
+      final text = textAnswers[question.id];
+      if (text != null && text.trim().isNotEmpty) {
+        answerResults[question.id] = _localTextResult(question, text);
+        continue;
+      }
+      final selected = answers[question.id];
+      if (selected != null && selected.isNotEmpty) {
+        answerResults[question.id] = _localChoiceResult(question, selected);
+      }
+    }
+    return PracticeSession(
+      title: snapshot.title,
+      mode: snapshot.mode,
+      sectionId: snapshot.sectionId,
+      paperId: snapshot.paperId,
+      questions: snapshot.questions,
+      currentIndex:
+          snapshot.currentIndex.clamp(0, snapshot.questions.length - 1).toInt(),
+      finished: snapshot.finished,
+      answers: answers,
+      textAnswers: textAnswers,
+      answerResults: answerResults,
+      wrongRemovalThreshold: snapshot.wrongRemovalThreshold,
+    );
+  }
+
+  ExamSessionSnapshot? _examSessionSnapshot(ExamSession? session) {
+    if (session == null || session.questions.isEmpty) return null;
+    return ExamSessionSnapshot(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: session.questions,
+      durationMinutes: session.durationMinutes,
+      currentIndex: session.currentIndex,
+      submitted: session.submitted,
+      remainingSeconds: session.remainingSeconds,
+      answers: session.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(session.textAnswers),
+    );
+  }
+
+  ExamSession? _examSessionFromSnapshot(ExamSessionSnapshot? snapshot) {
+    if (snapshot == null || snapshot.questions.isEmpty) return null;
+    final durationMinutes =
+        snapshot.durationMinutes <= 0 ? 1 : snapshot.durationMinutes;
+    return ExamSession(
+      title: snapshot.title,
+      mode: snapshot.mode,
+      sectionId: snapshot.sectionId,
+      paperId: snapshot.paperId,
+      questions: snapshot.questions,
+      durationMinutes: durationMinutes,
+      currentIndex:
+          snapshot.currentIndex.clamp(0, snapshot.questions.length - 1).toInt(),
+      submitted: snapshot.submitted,
+      remainingSeconds:
+          snapshot.remainingSeconds.clamp(0, durationMinutes * 60).toInt(),
+      answers: snapshot.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(snapshot.textAnswers),
     );
   }
 
@@ -706,6 +812,7 @@ class AppStore extends ChangeNotifier {
       sectionId: section.id,
       questions: repository.buildPracticeSectionQuestions(section),
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydratePracticeQuestionsFromRemote(section);
   }
@@ -723,6 +830,7 @@ class AppStore extends ChangeNotifier {
       paperId: paper.id,
       questions: repository.buildPracticePaperQuestions(paper),
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydratePracticeQuestionsFromRemote(paper);
   }
@@ -778,6 +886,7 @@ class AppStore extends ChangeNotifier {
         catalogIds: catalogIds,
       ),
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydrateRandomPracticeQuestions(count, catalogIds: catalogIds);
   }
@@ -793,6 +902,7 @@ class AppStore extends ChangeNotifier {
         : favoriteQuestions.take(count).toList();
     if (sourceQuestions.isEmpty) {
       practiceSession = null;
+      _markLocalStateDirty();
       if (notify) notifyListeners();
       return;
     }
@@ -801,6 +911,7 @@ class AppStore extends ChangeNotifier {
       mode: '收藏练习',
       questions: sourceQuestions,
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     if (questions.isEmpty && current != null) {
       _hydrateFavoritePracticeQuestions(count);
@@ -818,6 +929,7 @@ class AppStore extends ChangeNotifier {
         questions.isNotEmpty ? questions : wrongQuestions.take(count).toList();
     if (sourceQuestions.isEmpty) {
       practiceSession = null;
+      _markLocalStateDirty();
       if (notify) notifyListeners();
       return;
     }
@@ -827,6 +939,7 @@ class AppStore extends ChangeNotifier {
       questions: sourceQuestions,
       wrongRemovalThreshold: removeAfterCorrect.clamp(1, 99).toInt(),
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     if (questions.isEmpty && current != null) {
       _hydrateWrongPracticeQuestions(count);
@@ -855,6 +968,7 @@ class AppStore extends ChangeNotifier {
     if (current != null && answer.isNotEmpty && reveal) {
       unawaited(_submitPracticeAnswer(question: question, selected: answer));
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -866,6 +980,7 @@ class AppStore extends ChangeNotifier {
     if (trimmed.isEmpty) {
       session.textAnswers.remove(question.id);
       session.answerResults.remove(question.id);
+      _markLocalStateDirty();
       notifyListeners();
       return;
     }
@@ -878,6 +993,7 @@ class AppStore extends ChangeNotifier {
     if (current != null) {
       unawaited(_submitPracticeAnswer(question: question, text: trimmed));
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1253,6 +1369,7 @@ class AppStore extends ChangeNotifier {
         _markLocalStateDirty();
       }
       unawaited(_refreshRemoteRecords());
+      _markLocalStateDirty();
     }
     notifyListeners();
   }
@@ -1263,6 +1380,7 @@ class AppStore extends ChangeNotifier {
     if (session.currentIndex < session.questions.length - 1) {
       session.currentIndex += 1;
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1270,6 +1388,7 @@ class AppStore extends ChangeNotifier {
     final session = practiceSession;
     if (session == null || session.currentIndex == 0) return;
     session.currentIndex -= 1;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1279,6 +1398,7 @@ class AppStore extends ChangeNotifier {
       return;
     }
     session.currentIndex = index;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1341,6 +1461,7 @@ class AppStore extends ChangeNotifier {
       questions: repository.buildExamSectionQuestions(section),
       durationMinutes: 45,
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydrateExamQuestionsFromRemote(section);
   }
@@ -1363,6 +1484,7 @@ class AppStore extends ChangeNotifier {
       questions: repository.buildExamPaperQuestions(paper),
       durationMinutes: 100,
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydrateExamQuestionsFromRemote(paper);
   }
@@ -1437,6 +1559,7 @@ class AppStore extends ChangeNotifier {
       ),
       durationMinutes: duration,
     );
+    _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydrateAssemblyExamQuestions(questionCount, catalogIds: catalogIds);
   }
@@ -1451,6 +1574,7 @@ class AppStore extends ChangeNotifier {
       session.answers[question.id] = answer;
       session.textAnswers.remove(question.id);
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1465,6 +1589,7 @@ class AppStore extends ChangeNotifier {
       session.textAnswers[question.id] = trimmed;
       session.answers.remove(question.id);
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1473,6 +1598,7 @@ class AppStore extends ChangeNotifier {
     if (session == null) return;
     if (session.currentIndex < session.questions.length - 1) {
       session.currentIndex += 1;
+      _markLocalStateDirty();
       notifyListeners();
     }
   }
@@ -1481,6 +1607,7 @@ class AppStore extends ChangeNotifier {
     final session = examSession;
     if (session == null || session.currentIndex == 0) return;
     session.currentIndex -= 1;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1490,6 +1617,7 @@ class AppStore extends ChangeNotifier {
       return;
     }
     session.currentIndex = index;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1503,6 +1631,7 @@ class AppStore extends ChangeNotifier {
       submitExam();
       return;
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -2083,6 +2212,7 @@ class AppStore extends ChangeNotifier {
     final answered = int.tryParse(match?.group(1) ?? '') ?? 0;
     session.currentIndex =
         answered.clamp(0, session.questions.length - 1).toInt();
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -2093,6 +2223,7 @@ class AppStore extends ChangeNotifier {
     final answered = int.tryParse(match?.group(1) ?? '') ?? 0;
     session.currentIndex =
         answered.clamp(0, session.questions.length - 1).toInt();
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -2126,6 +2257,7 @@ class AppStore extends ChangeNotifier {
     }
     session.submitted = true;
     session.currentIndex = 0;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
