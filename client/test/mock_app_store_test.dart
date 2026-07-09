@@ -611,6 +611,88 @@ void main() {
         ['fav_fill']);
   });
 
+  test('favorite removal updates active favorite practice session', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    const firstQuestion = Question(
+      id: 'fav_remove_q1',
+      type: QuestionType.single,
+      stem: '第一道收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    const secondQuestion = Question(
+      id: 'fav_remove_q2',
+      type: QuestionType.trueFalse,
+      stem: '第二道收藏题',
+      options: ['正确', '错误'],
+      answerIndexes: {1},
+      analysis: '解析',
+    );
+    store.favoriteQuestions = const [firstQuestion, secondQuestion];
+
+    store.startFavoritePractice(
+      count: 2,
+      questions: const [firstQuestion, secondQuestion],
+      notify: false,
+    );
+
+    await store.toggleFavorite(firstQuestion);
+    expect(store.favoriteQuestions.map((question) => question.id),
+        ['fav_remove_q2']);
+    expect(store.practiceSession?.questions.map((question) => question.id),
+        ['fav_remove_q2']);
+    expect(store.practiceSession?.currentQuestion.id, 'fav_remove_q2');
+
+    await store.toggleFavorite(secondQuestion);
+    expect(store.favoriteQuestions, isEmpty);
+    expect(store.practiceSession, isNull);
+  });
+
+  test('remote repository falls back to local interactions before warm up',
+      () async {
+    final store = AppStore(
+      repository: RemoteTikuRepository(baseUrl: 'http://127.0.0.1:1/api'),
+    );
+
+    expect(store.remoteReady, isFalse);
+    expect(store.favoritePracticeCount, 0);
+    expect(store.wrongPracticeCount, greaterThan(0));
+
+    const favorite = Question(
+      id: 'offline_favorite_q1',
+      type: QuestionType.single,
+      stem: '离线收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    await store.toggleFavorite(favorite);
+    expect(store.favoriteQuestions.map((item) => item.id),
+        ['offline_favorite_q1']);
+    await store.toggleFavorite(favorite);
+    expect(store.favoriteQuestions, isEmpty);
+
+    final wrong = store.wrongQuestions.first;
+    final removedWrong = await store.removeWrongQuestion(wrong);
+    expect(removedWrong, isTrue);
+    expect(store.wrongQuestions.any((item) => item.id == wrong.id), isFalse);
+
+    final clearedWrong = await store.clearWrongQuestions();
+    expect(clearedWrong, isTrue);
+    expect(store.wrongPracticeCount, 0);
+
+    store.startWrongPractice(notify: false);
+    expect(store.practiceSession, isNull);
+
+    final deletedPracticeRecords = await store.deletePracticeRecords();
+    final deletedExamRecords = await store.deleteExamRecords();
+    expect(deletedPracticeRecords, isTrue);
+    expect(deletedExamRecords, isTrue);
+    expect(store.practiceRecords, isEmpty);
+    expect(store.examRecords, isEmpty);
+  });
+
   test('single record deletion keeps other records', () async {
     final store = AppStore(repository: MockTikuRepository());
     final practiceTarget = store.practiceRecords.first;

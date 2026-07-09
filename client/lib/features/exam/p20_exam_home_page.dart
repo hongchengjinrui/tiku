@@ -398,6 +398,9 @@ class _HistoryCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (records.isEmpty) {
+      return _emptyCard(context);
+    }
     return Column(
       children: records.take(3).expand((record) {
         return [
@@ -405,6 +408,61 @@ class _HistoryCardList extends StatelessWidget {
           const SizedBox(height: 10),
         ];
       }).toList(),
+    );
+  }
+
+  Widget _emptyCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.assignment_outlined,
+              size: 32, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          const Text('暂无考试记录',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              )),
+          const SizedBox(height: 6),
+          const Text('完成章节考试、真题考试或组卷考试后会显示在这里。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                color: AppColors.textMuted,
+              )),
+          const SizedBox(height: 14),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push('/exam/catalog'),
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text('开始考试',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  )),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

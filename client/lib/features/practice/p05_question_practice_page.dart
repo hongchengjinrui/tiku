@@ -114,8 +114,13 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                             icon: isFavorite ? Icons.star : Icons.star_border,
                             text: isFavorite ? '已收藏' : '收藏',
                             selected: isFavorite,
-                            onTap: () =>
-                                unawaited(mockStore.toggleFavorite(question)),
+                            onTap: () => unawaited(
+                              _toggleFavoriteQuestion(
+                                question,
+                                wasFavorite: isFavorite,
+                                sessionMode: session.mode,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 16),
                           _buildActionChip(
@@ -822,6 +827,23 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     );
     if (mockStore.practiceSession == null && mounted) {
       context.go('/practice/wrong');
+    }
+  }
+
+  Future<void> _toggleFavoriteQuestion(
+    Question question, {
+    required bool wasFavorite,
+    required String sessionMode,
+  }) async {
+    await mockStore.toggleFavorite(question);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(wasFavorite ? '已取消收藏' : '已收藏')),
+    );
+    if (wasFavorite &&
+        sessionMode == '收藏练习' &&
+        mockStore.practiceSession == null) {
+      context.go('/practice/favorite');
     }
   }
 

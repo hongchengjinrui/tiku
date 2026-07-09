@@ -72,6 +72,11 @@ class AppStore extends ChangeNotifier {
     if (current is RemoteTikuRepository) {
       favoriteQuestions = current.loadCachedFavoriteQuestions();
       wrongQuestions = current.loadCachedWrongQuestions();
+      if (!current.remoteReady) {
+        _seedLocalQuestionBuckets();
+      }
+    } else {
+      _seedLocalQuestionBuckets();
     }
   }
 
@@ -170,6 +175,30 @@ class AppStore extends ChangeNotifier {
     _localStateDirty = true;
   }
 
+  RemoteTikuRepository? get _readyRemoteRepository {
+    final current = repository;
+    if (remoteReady && current is RemoteTikuRepository) return current;
+    return null;
+  }
+
+  void _seedLocalQuestionBuckets() {
+    if (wrongQuestions.isEmpty) {
+      final wrongCount = practiceStat.wrong;
+      if (wrongCount > 0) {
+        final now = DateTime.now();
+        final seeded = repository.buildWrongPracticeQuestions(
+          count: wrongCount.clamp(1, 80).toInt(),
+        );
+        wrongQuestions = List.generate(seeded.length, (index) {
+          return seeded[index].copyWith(
+            wrongCount: index % 3 + 1,
+            lastWrongAt: now.subtract(Duration(days: index % 9)),
+          );
+        });
+      }
+    }
+  }
+
   void _scheduleLocalStatePersist() {
     final storage = stateStorage;
     if (storage == null) return;
@@ -257,12 +286,9 @@ class AppStore extends ChangeNotifier {
     };
   }
 
-  int get wrongPracticeCount =>
-      remoteReady ? wrongQuestions.length : practiceStat.wrong;
+  int get wrongPracticeCount => wrongQuestions.length;
 
-  int get favoritePracticeCount => remoteReady
-      ? favoriteQuestions.length
-      : (favoriteQuestions.isNotEmpty ? favoriteQuestions.length : 16);
+  int get favoritePracticeCount => favoriteQuestions.length;
 
   Future<void> selectSubject(String subjectId) async {
     selectedSubjectId = subjectId;
@@ -270,8 +296,8 @@ class AppStore extends ChangeNotifier {
     examSession = null;
     _markLocalStateDirty();
     notifyListeners();
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final loaded = await current.loadSubject(subjectId);
     if (!loaded || selectedSubjectId != subjectId) return;
     _loadInitialState();
@@ -387,10 +413,11 @@ class AppStore extends ChangeNotifier {
     List<Question> questions = const [],
     bool notify = true,
   }) {
+    final current = _readyRemoteRepository;
     final sourceQuestions = questions.isNotEmpty
         ? questions
         : favoriteQuestions.take(count).toList();
-    if (remoteReady && sourceQuestions.isEmpty) {
+    if (sourceQuestions.isEmpty) {
       practiceSession = null;
       if (notify) notifyListeners();
       return;
@@ -398,12 +425,10 @@ class AppStore extends ChangeNotifier {
     practiceSession = PracticeSession(
       title: '收藏练习',
       mode: '收藏练习',
-      questions: sourceQuestions.isNotEmpty
-          ? sourceQuestions
-          : repository.buildFavoritePracticeQuestions(count: count),
+      questions: sourceQuestions,
     );
     if (notify) notifyListeners();
-    if (questions.isEmpty) {
+    if (questions.isEmpty && current != null) {
       _hydrateFavoritePracticeQuestions(count);
     }
   }
@@ -414,9 +439,10 @@ class AppStore extends ChangeNotifier {
     int removeAfterCorrect = 2,
     bool notify = true,
   }) {
+    final current = _readyRemoteRepository;
     final sourceQuestions =
         questions.isNotEmpty ? questions : wrongQuestions.take(count).toList();
-    if (remoteReady && sourceQuestions.isEmpty) {
+    if (sourceQuestions.isEmpty) {
       practiceSession = null;
       if (notify) notifyListeners();
       return;
@@ -424,13 +450,13 @@ class AppStore extends ChangeNotifier {
     practiceSession = PracticeSession(
       title: '错题练习',
       mode: '错题练习',
-      questions: sourceQuestions.isNotEmpty
-          ? sourceQuestions
-          : repository.buildWrongPracticeQuestions(count: count),
+      questions: sourceQuestions,
       wrongRemovalThreshold: removeAfterCorrect.clamp(1, 99).toInt(),
     );
     if (notify) notifyListeners();
-    _hydrateWrongPracticeQuestions(count);
+    if (questions.isEmpty && current != null) {
+      _hydrateWrongPracticeQuestions(count);
+    }
   }
 
   void answerPractice(Set<int> answer, {bool reveal = true}) {
@@ -451,8 +477,8 @@ class AppStore extends ChangeNotifier {
         session.answerResults.remove(question.id);
       }
     }
-    final current = repository;
-    if (current is RemoteTikuRepository && answer.isNotEmpty && reveal) {
+    final current = _readyRemoteRepository;
+    if (current != null && answer.isNotEmpty && reveal) {
       unawaited(_submitPracticeAnswer(question: question, selected: answer));
     }
     notifyListeners();
@@ -474,33 +500,38 @@ class AppStore extends ChangeNotifier {
     final result = _localTextResult(question, trimmed);
     session.answerResults[question.id] = result;
     _applyWrongPracticeRemoval(question, result.isCorrect);
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       unawaited(_submitPracticeAnswer(question: question, text: trimmed));
     }
     notifyListeners();
   }
 
   Future<void> toggleFavorite(Question question) async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
-      await current.toggleFavorite(question);
+    final current = _readyRemoteRepository;
+    if (current != null) {
+      final favorited = await current.toggleFavorite(question);
       favoriteQuestions = current.loadCachedFavoriteQuestions();
+      if (!favorited) {
+        _dropFavoriteQuestionsFromActiveSession({question.id});
+      }
       _markLocalStateDirty();
       notifyListeners();
       return;
     }
     final exists = favoriteQuestions.any((item) => item.id == question.id);
-    favoriteQuestions = exists
-        ? favoriteQuestions.where((item) => item.id != question.id).toList()
-        : [question, ...favoriteQuestions];
+    if (exists) {
+      _dropFavoriteQuestions({question.id});
+    } else {
+      favoriteQuestions = [question, ...favoriteQuestions];
+    }
     _markLocalStateDirty();
     notifyListeners();
   }
 
   Future<bool> removeWrongQuestion(Question question) async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.removeWrongQuestion(question.id);
       if (!ok) return false;
     }
@@ -517,8 +548,8 @@ class AppStore extends ChangeNotifier {
         : questions.map((question) => question.id).toSet();
     if (ids.isEmpty) return true;
 
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.clearWrongQuestions(
         questionIds: ids.toList(),
         subjectId: selectedSubjectId,
@@ -534,8 +565,8 @@ class AppStore extends ChangeNotifier {
   Future<bool> resetPracticeProgress(
       {List<String> catalogIds = const []}) async {
     final ids = catalogIds.isEmpty ? _allPracticeCatalogIds() : catalogIds;
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.resetProgress(mode: 'practice', catalogIds: ids);
       if (!ok) return false;
       _loadInitialState();
@@ -553,8 +584,8 @@ class AppStore extends ChangeNotifier {
 
   Future<bool> resetExamProgress({List<String> catalogIds = const []}) async {
     final ids = catalogIds.isEmpty ? _allExamCatalogIds() : catalogIds;
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.resetProgress(mode: 'exam', catalogIds: ids);
       if (!ok) return false;
       _loadInitialState();
@@ -572,8 +603,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<bool> deletePracticeRecords() async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.deleteRecords('practice');
       if (!ok) return false;
     }
@@ -584,8 +615,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<bool> deletePracticeRecord(StudyRecord record) async {
-    final current = repository;
-    if (current is RemoteTikuRepository && record.id.isNotEmpty) {
+    final current = _readyRemoteRepository;
+    if (current != null && record.id.isNotEmpty) {
       final ok = await current.deleteRecord('practice', record.id);
       if (!ok) return false;
     }
@@ -597,8 +628,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<bool> deleteExamRecords() async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       final ok = await current.deleteRecords('exam');
       if (!ok) return false;
     }
@@ -609,8 +640,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<bool> deleteExamRecord(StudyRecord record) async {
-    final current = repository;
-    if (current is RemoteTikuRepository && record.id.isNotEmpty) {
+    final current = _readyRemoteRepository;
+    if (current != null && record.id.isNotEmpty) {
       final ok = await current.deleteRecord('exam', record.id);
       if (!ok) return false;
     }
@@ -626,8 +657,8 @@ class AppStore extends ChangeNotifier {
     required String content,
     String type = 'question_error',
   }) async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       return current.submitQuestionFeedback(
         question: question,
         content: content,
@@ -642,8 +673,8 @@ class AppStore extends ChangeNotifier {
     String type = 'general_feedback',
     Map<String, Object?> payload = const {},
   }) async {
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       return current.submitGeneralFeedback(
         content: content,
         type: type,
@@ -655,6 +686,40 @@ class AppStore extends ChangeNotifier {
 
   bool isQuestionFavorite(String questionId) =>
       favoriteQuestions.any((item) => item.id == questionId);
+
+  void _dropFavoriteQuestions(Set<String> questionIds) {
+    favoriteQuestions = favoriteQuestions
+        .where((question) => !questionIds.contains(question.id))
+        .toList();
+    _dropFavoriteQuestionsFromActiveSession(questionIds);
+  }
+
+  void _dropFavoriteQuestionsFromActiveSession(Set<String> questionIds) {
+    final session = practiceSession;
+    if (session == null || session.mode != '收藏练习') return;
+    final nextQuestions = session.questions
+        .where((question) => !questionIds.contains(question.id))
+        .toList();
+    if (nextQuestions.isEmpty) {
+      practiceSession = null;
+      return;
+    }
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: nextQuestions,
+      currentIndex:
+          session.currentIndex.clamp(0, nextQuestions.length - 1).toInt(),
+      finished: session.finished,
+      answers: session.answers,
+      textAnswers: session.textAnswers,
+      answerResults: session.answerResults,
+      submittingQuestionIds: session.submittingQuestionIds,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
+    );
+  }
 
   void _dropWrongQuestions(Set<String> questionIds) {
     _dropWrongQuestionsFromState(questionIds);
@@ -726,9 +791,9 @@ class AppStore extends ChangeNotifier {
     Set<int> selected = const {},
     String? text,
   }) async {
-    final current = repository;
+    final current = _readyRemoteRepository;
     final session = practiceSession;
-    if (current is! RemoteTikuRepository || session == null) return;
+    if (current == null || session == null) return;
     session.submittingQuestionIds.add(question.id);
     notifyListeners();
     final result = await current.submitPracticeAnswer(
@@ -1040,8 +1105,8 @@ class AppStore extends ChangeNotifier {
       ),
       ...examRecords.take(7),
     ];
-    final current = repository;
-    if (current is RemoteTikuRepository) {
+    final current = _readyRemoteRepository;
+    if (current != null) {
       current.submitExamResult(session);
       unawaited(_refreshRemoteRecords());
     }
@@ -1050,8 +1115,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _hydratePracticeQuestionsFromRemote(Object source) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final catalogId = switch (source) {
       Section section => section.id,
       Paper paper => paper.id,
@@ -1093,8 +1158,8 @@ class AppStore extends ChangeNotifier {
     int count, {
     List<String> catalogIds = const [],
   }) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final questions = await current.fetchRandomPracticeQuestions(
       subjectId: selectedSubjectId,
       catalogIds: catalogIds,
@@ -1118,8 +1183,8 @@ class AppStore extends ChangeNotifier {
     int count, {
     List<String> catalogIds = const [],
   }) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final questions = await current.fetchRandomPracticeQuestions(
       subjectId: selectedSubjectId,
       catalogIds: catalogIds,
@@ -1142,8 +1207,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _hydrateFavoritePracticeQuestions(int count) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final questions = await current.fetchFavoriteQuestions(
       limit: count,
       subjectId: selectedSubjectId,
@@ -1173,8 +1238,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _hydrateWrongPracticeQuestions(int count) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final questions = await current.fetchWrongQuestions(
       limit: count,
       subjectId: selectedSubjectId,
@@ -1204,8 +1269,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _hydrateExamQuestionsFromRemote(Object source) async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     final catalogId = switch (source) {
       Section section => section.id,
       Paper paper => paper.id,
@@ -1243,8 +1308,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _refreshRemoteRecords() async {
-    final current = repository;
-    if (current is! RemoteTikuRepository) return;
+    final current = _readyRemoteRepository;
+    if (current == null) return;
     await current.refreshRecords();
     await current.loadSubject(selectedSubjectId);
     chapters = current.loadPracticeChapters();

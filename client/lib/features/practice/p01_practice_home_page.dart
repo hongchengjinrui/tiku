@@ -155,14 +155,17 @@ class P01PracticeHomePage extends StatelessWidget {
                         padding: const EdgeInsets.only(
                             left: 20, right: 20, bottom: 24),
                         child: Column(
-                          children: [
-                            ...mockStore.practiceRecords.take(3).expand(
-                                  (record) => [
-                                    _buildRecentRecordCard(context, record),
-                                    const SizedBox(height: 10),
-                                  ],
-                                ),
-                          ],
+                          children: mockStore.practiceRecords.isEmpty
+                              ? [_buildRecentEmptyCard(context)]
+                              : [
+                                  ...mockStore.practiceRecords.take(3).expand(
+                                        (record) => [
+                                          _buildRecentRecordCard(
+                                              context, record),
+                                          const SizedBox(height: 10),
+                                        ],
+                                      ),
+                                ],
                         ),
                       ),
                     ],
@@ -397,6 +400,66 @@ class P01PracticeHomePage extends StatelessWidget {
         mockStore.startPracticeFromRecord(record, restart: false);
         context.go('/practice/quiz');
       },
+    );
+  }
+
+  Widget _buildRecentEmptyCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.history, size: 32, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          const Text(
+            '暂无练习记录',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '完成章节练习、随机练习或错题练习后会显示在这里。',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push('/practice/catalog'),
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBg,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: const Text(
+                '开始练习',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

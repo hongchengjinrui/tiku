@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tiku_muban/data/mock/mock_app_store.dart';
 import 'package:tiku_muban/main.dart';
 import 'package:tiku_muban/routes/app_router.dart';
 
@@ -138,6 +139,32 @@ void main() {
     await tester.tap(find.text('练习').last);
     await tester.pumpAndSettle();
     expect(find.text('练习入口'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('home record sections show empty states after records cleared',
+      (tester) async {
+    final previousPracticeRecords = mockStore.practiceRecords;
+    final previousExamRecords = mockStore.examRecords;
+    addTearDown(() {
+      mockStore.practiceRecords = previousPracticeRecords;
+      mockStore.examRecords = previousExamRecords;
+    });
+
+    mockStore.practiceRecords = const [];
+    mockStore.examRecords = const [];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/practice');
+    await tester.pumpAndSettle();
+    expect(find.text('暂无练习记录'), findsOneWidget);
+
+    appRouter.go('/exam');
+    await tester.pumpAndSettle();
+    expect(find.text('暂无考试记录'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });
