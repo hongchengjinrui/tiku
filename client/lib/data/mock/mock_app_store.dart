@@ -433,7 +433,7 @@ class AppStore extends ChangeNotifier {
     _hydrateWrongPracticeQuestions(count);
   }
 
-  void answerPractice(Set<int> answer) {
+  void answerPractice(Set<int> answer, {bool reveal = true}) {
     final session = practiceSession;
     if (session == null) return;
     final question = session.currentQuestion;
@@ -443,12 +443,16 @@ class AppStore extends ChangeNotifier {
     } else {
       session.answers[question.id] = answer;
       session.textAnswers.remove(question.id);
-      final result = _localChoiceResult(question, answer);
-      session.answerResults[question.id] = result;
-      _applyWrongPracticeRemoval(question, result.isCorrect);
+      if (reveal) {
+        final result = _localChoiceResult(question, answer);
+        session.answerResults[question.id] = result;
+        _applyWrongPracticeRemoval(question, result.isCorrect);
+      } else {
+        session.answerResults.remove(question.id);
+      }
     }
     final current = repository;
-    if (current is RemoteTikuRepository && answer.isNotEmpty) {
+    if (current is RemoteTikuRepository && answer.isNotEmpty && reveal) {
       unawaited(_submitPracticeAnswer(question: question, selected: answer));
     }
     notifyListeners();

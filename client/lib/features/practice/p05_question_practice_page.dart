@@ -64,6 +64,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           final submitting =
               session.submittingQuestionIds.contains(question.id);
           final answered = session.hasAnswered(question.id);
+          final revealed = _isAnswerRevealed(session, question);
           final isLast = session.currentIndex == session.questions.length - 1;
           final isFavorite = mockStore.isQuestionFavorite(question.id);
 
@@ -94,6 +95,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                         textAnswer: textAnswer,
                         submitting: submitting,
                         answered: answered,
+                        revealed: revealed,
                       ),
                       const SizedBox(height: 6),
                       Row(
@@ -123,7 +125,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                           ),
                         ],
                       ),
-                      if (answered) ...[
+                      if (revealed) ...[
                         const SizedBox(height: 16),
                         _buildAnalysis(
                           question: question,
@@ -240,6 +242,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required String textAnswer,
     required bool submitting,
     required bool answered,
+    required bool revealed,
   }) {
     if (question.type == QuestionType.fillBlank ||
         question.type == QuestionType.shortAnswer ||
@@ -248,26 +251,31 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         question: question,
         textAnswer: textAnswer,
         submitting: submitting,
-        answered: answered,
+        answered: revealed,
       );
     }
     if (question.options.isEmpty) {
       return const SizedBox.shrink();
     }
     return Column(
-      children: List.generate(question.options.length, (index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _buildOption(
-            label: '${_letter(index)}.',
-            text: question.options[index],
-            state: _optionState(question, selected, index),
-            onTap: answered || submitting
-                ? null
-                : () => _answerQuestion(question, selected, index),
-          ),
-        );
-      }),
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        ...List.generate(question.options.length, (index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildOption(
+              label: '${_letter(index)}.',
+              text: question.options[index],
+              state: _optionState(question, selected, index, revealed),
+              onTap: revealed || submitting
+                  ? null
+                  : () => _answerQuestion(question, selected, index),
+            ),
+          );
+        }),
+        if (question.type == QuestionType.multiple && !revealed)
+          _buildConfirmMultipleButton(selected),
+      ],
     );
   }
 
@@ -415,15 +423,25 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
       } else {
         next.add(index);
       }
-      mockStore.answerPractice(next);
+      mockStore.answerPractice(next, reveal: false);
       return;
     }
     mockStore.answerPractice({index});
   }
 
-  OptionState _optionState(Question question, Set<int>? selected, int index) {
+  OptionState _optionState(
+    Question question,
+    Set<int>? selected,
+    int index,
+    bool revealed,
+  ) {
     if (selected == null || selected.isEmpty) {
       return OptionState.unselected;
+    }
+    if (!revealed) {
+      return selected.contains(index)
+          ? OptionState.selected
+          : OptionState.unselected;
     }
     if (question.answerIndexes.contains(index)) {
       return OptionState.correct;
@@ -460,6 +478,13 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         labelColor = const Color(0xFF065F46);
         textColor = const Color(0xFF065F46);
         leading = _buildIconCircle(Icons.check, AppColors.success);
+        break;
+      case OptionState.selected:
+        bgColor = AppColors.primaryBg;
+        borderColor = AppColors.primary;
+        labelColor = AppColors.primary;
+        textColor = AppColors.primary;
+        leading = _buildIconCircle(Icons.check, AppColors.primary);
         break;
       case OptionState.unselected:
         bgColor = AppColors.card;
@@ -506,6 +531,32 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmMultipleButton(Set<int>? selected) {
+    final canConfirm = selected != null && selected.isNotEmpty;
+    return GestureDetector(
+      onTap: canConfirm ? () => mockStore.answerPractice(selected) : null,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: canConfirm ? AppColors.primary : AppColors.border,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text(
+          '确认答案',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -1260,10 +1311,17 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     final first = sections.first;
     return first.children.isEmpty ? first : _firstLeafSection(first.children);
   }
+
+  bool _isAnswerRevealed(PracticeSession session, Question question) {
+    if (session.answerResults.containsKey(question.id)) return true;
+    return question.type != QuestionType.multiple &&
+        session.hasAnswered(question.id);
+  }
 }
 
 enum OptionState {
   correct,
   wrong,
+  selected,
   unselected,
 }
