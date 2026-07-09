@@ -26,8 +26,7 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
         animation: mockStore,
         builder: (context, _) {
           final questions = _filteredQuestions();
-          final totalCount = mockStore.favoriteQuestions.length;
-          final canStart = totalCount > 0;
+          final canStart = questions.isNotEmpty;
           return SizedBox(
             width: 390,
             height: 844,
@@ -124,7 +123,9 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
                       onTap: canStart
                           ? () {
                               mockStore.startFavoritePractice(
-                                  count: totalCount);
+                                count: questions.length,
+                                questions: questions,
+                              );
                               context.go('/practice/quiz');
                             }
                           : null,
@@ -152,7 +153,7 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
                             const Icon(Icons.star,
                                 size: 18, color: Colors.white),
                             const SizedBox(width: 8),
-                            Text('开始收藏练习（$totalCount题）',
+                            Text('开始收藏练习（${questions.length}题）',
                                 style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 16,
@@ -200,7 +201,21 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
                         fontSize: 11,
                         color: AppColors.primary)),
               ),
-              const Icon(Icons.star, size: 16, color: AppColors.warning),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () async {
+                  await mockStore.toggleFavorite(question);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('已取消收藏')),
+                  );
+                },
+                child: const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Icon(Icons.star, size: 16, color: AppColors.warning),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),

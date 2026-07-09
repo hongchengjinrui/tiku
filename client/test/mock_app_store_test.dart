@@ -261,4 +261,36 @@ void main() {
     expect(store.wrongQuestions, isEmpty);
     expect(store.practiceSession, isNull);
   });
+
+  test('favorite practice can start from a filtered question list', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const singleQuestion = Question(
+      id: 'fav_single',
+      type: QuestionType.single,
+      stem: '单选收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    const fillQuestion = Question(
+      id: 'fav_fill',
+      type: QuestionType.fillBlank,
+      stem: '填空收藏题',
+      options: [],
+      answerIndexes: {},
+      answerText: '答案',
+      analysis: '解析',
+    );
+    store.favoriteQuestions = const [singleQuestion, fillQuestion];
+
+    store.startFavoritePractice(
+      count: 1,
+      questions: const [fillQuestion],
+      notify: false,
+    );
+
+    expect(store.practiceSession?.mode, '收藏练习');
+    expect(store.practiceSession?.questions.map((question) => question.id),
+        ['fav_fill']);
+  });
 }

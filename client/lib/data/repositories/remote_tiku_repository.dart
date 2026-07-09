@@ -320,6 +320,25 @@ class RemoteTikuRepository extends MockTikuRepository {
     }
   }
 
+  Future<bool> submitGeneralFeedback({
+    required String content,
+    String type = 'general_feedback',
+    Map<String, Object?> payload = const {},
+  }) async {
+    try {
+      await _dio.post('/client/feedback', data: {
+        'userId': userId,
+        'appKey': appKey,
+        'type': type,
+        'content': content,
+        'payload': payload,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<PracticeAnswerResult?> submitPracticeAnswer({
     required Question question,
     Set<int> selected = const {},

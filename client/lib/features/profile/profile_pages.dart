@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -15,6 +17,21 @@ class P54FeedbackPage extends StatefulWidget {
 class _P54FeedbackPageState extends State<P54FeedbackPage> {
   int _selectedType = 0;
   final _types = ['题目有误', '答案有误', '解析有误', '图片问题', '其他'];
+  final _typeValues = [
+    'stem_error',
+    'answer_error',
+    'analysis_error',
+    'image_error',
+    'other',
+  ];
+  final _controller = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +44,8 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
             const NavBar(title: '题目纠错'),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -49,8 +67,9 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color:
-                                  selected ? AppColors.primaryBg : AppColors.card,
+                              color: selected
+                                  ? AppColors.primaryBg
+                                  : AppColors.card,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                   color: selected
@@ -69,7 +88,6 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                       }),
                     ),
                     const SizedBox(height: 18),
-                    // 表单卡
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -80,17 +98,18 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('详细描述',
+                        children: [
+                          const Text('详细描述',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary)),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           TextField(
+                            controller: _controller,
                             maxLines: 4,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               hintText: '请描述具体的错误内容...',
                               border: InputBorder.none,
                             ),
@@ -123,25 +142,34 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    // 提交按钮
-                    Container(
-                      width: double.infinity,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [AppColors.primaryLight, AppColors.primaryDark],
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _submitting ? null : _submitCorrection,
+                      child: Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: _submitting
+                              ? null
+                              : const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    AppColors.primaryLight,
+                                    AppColors.primaryDark,
+                                  ],
+                                ),
+                          color: _submitting ? AppColors.border : null,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: const Center(
-                        child: Text('提交反馈',
-                            style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                        child: Center(
+                          child: Text(_submitting ? '提交中...' : '提交反馈',
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                        ),
                       ),
                     ),
                   ],
@@ -151,6 +179,31 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _submitCorrection() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写具体问题')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    final ok = await mockStore.submitFeedback(
+      content: content,
+      type: _typeValues[_selectedType],
+      payload: {
+        'source': 'profile_correction',
+        'label': _types[_selectedType],
+      },
+    );
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (ok) _controller.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '纠错已提交' : '提交失败，请稍后重试')),
     );
   }
 }
@@ -170,7 +223,8 @@ class P55UploadBankPage extends StatelessWidget {
             const NavBar(title: '上传题库'),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -190,14 +244,14 @@ class P55UploadBankPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
-                          Text('自定义题库导入',
+                          Text('题库维护入口',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white)),
                           SizedBox(height: 10),
-                          Text('支持 Excel / Word / JSON 格式',
+                          Text('题库内容统一在中台维护，客户端仅展示与反馈',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
@@ -206,33 +260,41 @@ class P55UploadBankPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // 文件选择卡
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.cloud_upload_outlined,
-                              size: 48, color: AppColors.primary),
-                          const SizedBox(height: 12),
-                          const Text('点击选择文件或拖拽到此处',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary)),
-                          const SizedBox(height: 6),
-                          const Text('单个文件最大 10MB',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  color: AppColors.textMuted)),
-                        ],
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('题库增删改请在中台维护')),
+                        );
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Column(
+                          children: const [
+                            Icon(Icons.admin_panel_settings_outlined,
+                                size: 48, color: AppColors.primary),
+                            SizedBox(height: 12),
+                            Text('当前 APP 不直接上传题库',
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary)),
+                            SizedBox(height: 6),
+                            Text('如需新增题库、章节或题目，请通过中台处理',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    color: AppColors.textMuted)),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -248,14 +310,15 @@ class P55UploadBankPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
-                          Text('导入规则',
+                          Text('维护规则',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary)),
                           SizedBox(height: 10),
-                          Text('1. 每行一道题目，题干在前选项在后\n2. 正确答案用 ★ 标记\n3. 解析为可选字段',
+                          Text(
+                              '1. 目录树、题目、答案解析由中台统一管理\n2. 用户端发现题目问题后，可通过题目纠错反馈\n3. 资料与封面上传也在中台维护',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
@@ -277,7 +340,7 @@ class P55UploadBankPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('上传记录',
+                          const Text('维护反馈',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 15,
@@ -286,19 +349,22 @@ class P55UploadBankPage extends StatelessWidget {
                           const SizedBox(height: 10),
                           ListTile(
                             dense: true,
-                            leading: const Icon(Icons.description,
-                                size: 20, color: AppColors.success),
-                            title: const Text('教育基础题库.xlsx',
+                            leading: const Icon(Icons.feedback_outlined,
+                                size: 20, color: AppColors.primary),
+                            title: const Text('提交题库维护建议',
                                 style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     color: AppColors.textPrimary)),
-                            subtitle: const Text('120题 · 已导入',
+                            subtitle: const Text('错别字、题目缺失、章节异常等都可以反馈',
                                 style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 12,
                                     color: AppColors.textMuted)),
+                            trailing: const Icon(Icons.chevron_right,
+                                size: 18, color: AppColors.textMuted),
                             contentPadding: EdgeInsets.zero,
+                            onTap: () => context.go('/profile/feedback'),
                           ),
                         ],
                       ),
@@ -315,8 +381,22 @@ class P55UploadBankPage extends StatelessWidget {
 }
 
 /// P56 意见反馈页
-class P56FeedbackPage extends StatelessWidget {
+class P56FeedbackPage extends StatefulWidget {
   const P56FeedbackPage({super.key});
+
+  @override
+  State<P56FeedbackPage> createState() => _P56FeedbackPageState();
+}
+
+class _P56FeedbackPageState extends State<P56FeedbackPage> {
+  final _controller = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -329,7 +409,8 @@ class P56FeedbackPage extends StatelessWidget {
             const NavBar(title: '意见反馈'),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -350,38 +431,50 @@ class P56FeedbackPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: const TextField(
+                      child: TextField(
+                        controller: _controller,
                         maxLines: null,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: '请输入您的意见或建议...',
                           border: InputBorder.none,
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [AppColors.primaryLight, AppColors.primaryDark],
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _submitting ? null : _submitFeedback,
+                      child: Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: _submitting
+                              ? null
+                              : const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    AppColors.primaryLight,
+                                    AppColors.primaryDark,
+                                  ],
+                                ),
+                          color: _submitting ? AppColors.border : null,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.send, size: 18, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text('提交反馈',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white)),
-                        ],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.send,
+                                size: 18, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(_submitting ? '提交中...' : '提交反馈',
+                                style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white)),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -391,6 +484,28 @@ class P56FeedbackPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _submitFeedback() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写反馈内容')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    final ok = await mockStore.submitFeedback(
+      content: content,
+      type: 'app_feedback',
+      payload: const {'source': 'profile_feedback'},
+    );
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (ok) _controller.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '反馈已提交' : '提交失败，请稍后重试')),
     );
   }
 }
@@ -410,7 +525,8 @@ class P57AboutPage extends StatelessWidget {
             const NavBar(title: '关于我们'),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 child: Column(
                   children: [
                     // App Icon
@@ -442,8 +558,7 @@ class P57AboutPage extends StatelessWidget {
                             fontSize: 14,
                             color: AppColors.textMuted)),
                     const SizedBox(height: 16),
-                    const Text(
-                        '专注章节练习、模拟考试与错题复习的轻量题库工具。',
+                    const Text('专注章节练习、模拟考试与错题复习的轻量题库工具。',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontFamily: 'Inter',
@@ -470,7 +585,7 @@ class P57AboutPage extends StatelessWidget {
                                     color: AppColors.textPrimary)),
                             trailing: const Icon(Icons.chevron_right,
                                 size: 18, color: AppColors.textMuted),
-                            onTap: () {},
+                            onTap: () => context.go('/agreement/user'),
                           ),
                           const Divider(height: 1),
                           ListTile(
@@ -482,7 +597,7 @@ class P57AboutPage extends StatelessWidget {
                                     color: AppColors.textPrimary)),
                             trailing: const Icon(Icons.chevron_right,
                                 size: 18, color: AppColors.textMuted),
-                            onTap: () {},
+                            onTap: () => context.go('/agreement/privacy'),
                           ),
                           const Divider(height: 1),
                           ListTile(
@@ -497,7 +612,11 @@ class P57AboutPage extends StatelessWidget {
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     color: AppColors.textMuted)),
-                            onTap: () {},
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('当前已是最新版本')),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -780,7 +899,8 @@ class P60AgreementPage extends StatelessWidget {
             NavBar(title: title),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -804,8 +924,7 @@ class P60AgreementPage extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary)),
                           const SizedBox(height: 10),
-                          Text(
-                              '本协议描述了应用的使用条款、权利义务、隐私保护等内容，请仔细阅读。',
+                          Text('本协议描述了应用的使用条款、权利义务、隐私保护等内容，请仔细阅读。',
                               style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
@@ -839,8 +958,7 @@ class P60AgreementPage extends StatelessWidget {
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.textPrimary)),
                               const SizedBox(height: 8),
-                              const Text(
-                                  '详细条款内容将在实际使用中替换为完整的法律文本描述...',
+                              const Text('详细条款内容将在实际使用中替换为完整的法律文本描述...',
                                   style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 13,
@@ -882,13 +1000,13 @@ class RecordDeleteDialog extends StatelessWidget {
       title: Text(title,
           textAlign: TextAlign.center,
           style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 18,
-              fontWeight: FontWeight.w700)),
+              fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700)),
       content: Text(message,
           textAlign: TextAlign.center,
           style: const TextStyle(
-              fontFamily: 'Inter', fontSize: 14, color: AppColors.textSecondary)),
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppColors.textSecondary)),
       actionsAlignment: MainAxisAlignment.spaceEvenly,
       actions: [
         TextButton(
@@ -900,8 +1018,7 @@ class RecordDeleteDialog extends StatelessWidget {
             Navigator.of(context).pop();
             onConfirm?.call();
           },
-          child: const Text('确认',
-              style: TextStyle(color: AppColors.error)),
+          child: const Text('确认', style: TextStyle(color: AppColors.error)),
         ),
       ],
     );

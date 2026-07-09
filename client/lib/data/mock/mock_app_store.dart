@@ -192,22 +192,30 @@ class AppStore extends ChangeNotifier {
     _hydrateRandomPracticeQuestions(count, catalogIds: catalogIds);
   }
 
-  void startFavoritePractice({int count = 6, bool notify = true}) {
-    if (remoteReady && favoriteQuestions.isEmpty) {
+  void startFavoritePractice({
+    int count = 6,
+    List<Question> questions = const [],
+    bool notify = true,
+  }) {
+    final sourceQuestions = questions.isNotEmpty
+        ? questions
+        : favoriteQuestions.take(count).toList();
+    if (remoteReady && sourceQuestions.isEmpty) {
       practiceSession = null;
       if (notify) notifyListeners();
       return;
     }
-    final cachedQuestions = favoriteQuestions.take(count).toList();
     practiceSession = PracticeSession(
       title: '收藏练习',
       mode: '收藏练习',
-      questions: cachedQuestions.isNotEmpty
-          ? cachedQuestions
+      questions: sourceQuestions.isNotEmpty
+          ? sourceQuestions
           : repository.buildFavoritePracticeQuestions(count: count),
     );
     if (notify) notifyListeners();
-    _hydrateFavoritePracticeQuestions(count);
+    if (questions.isEmpty) {
+      _hydrateFavoritePracticeQuestions(count);
+    }
   }
 
   void startWrongPractice({
@@ -388,6 +396,22 @@ class AppStore extends ChangeNotifier {
         question: question,
         content: content,
         type: type,
+      );
+    }
+    return true;
+  }
+
+  Future<bool> submitFeedback({
+    required String content,
+    String type = 'general_feedback',
+    Map<String, Object?> payload = const {},
+  }) async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      return current.submitGeneralFeedback(
+        content: content,
+        type: type,
+        payload: payload,
       );
     }
     return true;
