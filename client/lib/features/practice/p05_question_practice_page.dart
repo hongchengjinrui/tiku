@@ -24,8 +24,10 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
   void initState() {
     super.initState();
     if (mockStore.practiceSession == null) {
+      final firstSection =
+          _firstLeafSection(mockStore.selectedChapter.sections);
       mockStore.startPracticeFromSection(
-        mockStore.selectedChapter.sections.first.id,
+        firstSection.id,
         notify: false,
       );
     }
@@ -1247,6 +1249,11 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         .replaceAll(r'$', '')
         .replaceAll(RegExp(r'[ \t]+'), ' ')
         .trim();
+  }
+
+  Section _firstLeafSection(List<Section> sections) {
+    final first = sections.first;
+    return first.children.isEmpty ? first : _firstLeafSection(first.children);
   }
 }
 

@@ -93,6 +93,7 @@ class Section {
   final int total;
   final int correct;
   final int wrong;
+  final List<Section> children;
 
   const Section({
     required this.id,
@@ -102,12 +103,19 @@ class Section {
     required this.total,
     required this.correct,
     required this.wrong,
+    this.children = const [],
   });
 
   int get accuracy => done == 0 ? 0 : (correct * 100 / done).round();
   double get progress => total == 0 ? 0 : done / total;
+  bool get hasChildren => children.isNotEmpty;
 
-  Section copyWith({int? done, int? correct, int? wrong}) {
+  Section copyWith({
+    int? done,
+    int? correct,
+    int? wrong,
+    List<Section>? children,
+  }) {
     return Section(
       id: id,
       chapterId: chapterId,
@@ -116,6 +124,7 @@ class Section {
       total: total,
       correct: correct ?? this.correct,
       wrong: wrong ?? this.wrong,
+      children: children ?? this.children,
     );
   }
 }

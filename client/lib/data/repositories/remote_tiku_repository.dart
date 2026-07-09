@@ -584,6 +584,10 @@ class RemoteTikuRepository extends MockTikuRepository {
 
   Section _parseSection(Map<String, dynamic> item, String chapterId) {
     final progress = _progress(item);
+    final children = (item['children'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map((child) => _parseSection(child, chapterId))
+        .toList();
     return Section(
       id: item['id'].toString(),
       chapterId: chapterId,
@@ -592,6 +596,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       total: progress.total,
       correct: progress.correct,
       wrong: progress.wrong,
+      children: children,
     );
   }
 

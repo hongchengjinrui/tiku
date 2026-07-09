@@ -193,6 +193,60 @@ void main() {
     expect(store.examSession?.durationMinutes, 90);
   });
 
+  test('nested catalog sections can start, roll up, and reset progress',
+      () async {
+    final store = AppStore(repository: MockTikuRepository());
+    const leaf = Section(
+      id: 'nested_leaf',
+      chapterId: 'nested_chapter',
+      title: '第一节：末级小节',
+      done: 0,
+      total: 8,
+      correct: 0,
+      wrong: 0,
+    );
+    const parent = Section(
+      id: 'nested_parent',
+      chapterId: 'nested_chapter',
+      title: '第一章：父级目录',
+      done: 0,
+      total: 8,
+      correct: 0,
+      wrong: 0,
+      children: [leaf],
+    );
+    store.chapters = const [
+      Chapter(
+        id: 'nested_chapter',
+        title: '嵌套章节',
+        done: 0,
+        total: 8,
+        correct: 0,
+        wrong: 0,
+        sections: [parent],
+      ),
+    ];
+    store.selectedChapterId = 'nested_chapter';
+
+    store.startPracticeFromSection('nested_leaf');
+    final session = store.practiceSession!;
+    store.answerPractice(session.currentQuestion.answerIndexes);
+    store.finishPracticeSession();
+
+    var updatedParent = store.chapters.first.sections.first;
+    expect(store.practiceSession?.sectionId, 'nested_leaf');
+    expect(updatedParent.done, 1);
+    expect(updatedParent.children.first.done, 1);
+
+    final reset = await store.resetPracticeProgress(
+      catalogIds: const ['nested_parent'],
+    );
+    updatedParent = store.chapters.first.sections.first;
+    expect(reset, isTrue);
+    expect(updatedParent.done, 0);
+    expect(updatedParent.children.first.done, 0);
+  });
+
   test('exam record analysis opens a submitted session without adding records',
       () {
     final store = AppStore(repository: MockTikuRepository());

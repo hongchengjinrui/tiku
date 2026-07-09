@@ -32,7 +32,7 @@ class P03ChapterSectionListPage extends StatelessWidget {
                       const SizedBox(height: 14),
                       _buildChapterStatsPanel(chapter),
                       const SizedBox(height: 14),
-                      ...chapter.sections.expand(
+                      ..._leafSections(chapter.sections).expand(
                         (section) => [
                           _buildSectionCard(context, section),
                           const SizedBox(height: 14),
@@ -209,6 +209,14 @@ class P03ChapterSectionListPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<Section> _leafSections(List<Section> sections) {
+    return sections
+        .expand((section) => section.children.isEmpty
+            ? [section]
+            : _leafSections(section.children))
+        .toList();
   }
 
   Widget _buildActionButton({

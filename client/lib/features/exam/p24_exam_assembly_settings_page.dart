@@ -228,9 +228,7 @@ class _P24ExamAssemblySettingsPageState
     }
     if (_expandedChapterIds.isEmpty) {
       _expandedChapterIds.add(chapters.first.id);
-      _selectedSectionIds.addAll(
-        chapters.first.sections.map((section) => section.id),
-      );
+      _selectedSectionIds.addAll(_leafSectionIds(chapters.first.sections));
     }
     return Container(
       width: double.infinity,
@@ -244,7 +242,7 @@ class _P24ExamAssemblySettingsPageState
           for (var index = 0; index < chapters.length; index++) ...[
             _chapterSelectRow(chapters[index]),
             if (_expandedChapterIds.contains(chapters[index].id))
-              ...chapters[index].sections.map(_sectionSelectRow),
+              ..._sectionRows(chapters[index].sections, depth: 0),
             if (index != chapters.length - 1)
               const Divider(height: 1, color: AppColors.borderLight),
           ],
@@ -254,7 +252,7 @@ class _P24ExamAssemblySettingsPageState
   }
 
   Widget _chapterSelectRow(Chapter chapter) {
-    final sectionIds = chapter.sections.map((section) => section.id).toSet();
+    final sectionIds = _leafSectionIds(chapter.sections).toSet();
     final selectedCount = sectionIds.where(_selectedSectionIds.contains).length;
     final allSelected =
         sectionIds.isNotEmpty && selectedCount == sectionIds.length;
@@ -297,7 +295,7 @@ class _P24ExamAssemblySettingsPageState
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${chapter.sections.length}节 · ${chapter.total}题',
+                    '${sectionIds.length}节 · ${chapter.total}题',
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
@@ -319,14 +317,53 @@ class _P24ExamAssemblySettingsPageState
     );
   }
 
-  Widget _sectionSelectRow(Section section) {
-    final selected = _selectedSectionIds.contains(section.id);
+  List<Widget> _sectionRows(List<Section> sections, {required int depth}) {
+    return [
+      for (final section in sections) ...[
+        _sectionSelectRow(section, depth: depth),
+        if (section.children.isNotEmpty &&
+            _expandedChapterIds.contains(section.id))
+          ..._sectionRows(section.children, depth: depth + 1),
+      ],
+    ];
+  }
+
+  Widget _sectionSelectRow(Section section, {required int depth}) {
+    final leafIds = _leafSectionIds([section]).toSet();
+    final selectedCount = leafIds.where(_selectedSectionIds.contains).length;
+    final selected = leafIds.isNotEmpty && selectedCount == leafIds.length;
+    final partial = selectedCount > 0 && !selected;
+    final expandable = section.children.isNotEmpty;
+    final expanded = _expandedChapterIds.contains(section.id);
     return InkWell(
-      onTap: () => _toggleSection(section.id),
+      onTap: () {
+        if (expandable) {
+          setState(() {
+            if (expanded) {
+              _expandedChapterIds.remove(section.id);
+            } else {
+              _expandedChapterIds.add(section.id);
+            }
+          });
+        } else {
+          _toggleSection(section);
+        }
+      },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 9, 12, 9),
+        padding: EdgeInsets.fromLTRB(40 + depth * 18, 9, 12, 9),
         child: Row(
           children: [
+            SizedBox(
+              width: 20,
+              child: expandable
+                  ? Icon(
+                      expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 18,
+                      color: AppColors.textMuted,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 4),
             Expanded(
               child: Text(
                 section.title,
@@ -351,8 +388,8 @@ class _P24ExamAssemblySettingsPageState
             const SizedBox(width: 10),
             _selectionIcon(
               checked: selected,
-              partial: false,
-              onTap: () => _toggleSection(section.id),
+              partial: partial,
+              onTap: () => _toggleSection(section),
             ),
           ],
         ),
@@ -386,7 +423,7 @@ class _P24ExamAssemblySettingsPageState
 
   void _toggleChapter(Chapter chapter) {
     setState(() {
-      final ids = chapter.sections.map((section) => section.id);
+      final ids = _leafSectionIds(chapter.sections);
       final allSelected = ids.every(_selectedSectionIds.contains);
       if (allSelected) {
         _selectedSectionIds.removeAll(ids);
@@ -397,12 +434,17 @@ class _P24ExamAssemblySettingsPageState
     });
   }
 
-  void _toggleSection(String sectionId) {
+  void _toggleSection(Section section) {
     setState(() {
-      if (_selectedSectionIds.contains(sectionId)) {
-        _selectedSectionIds.remove(sectionId);
+      final ids = _leafSectionIds([section]);
+      final allSelected = ids.every(_selectedSectionIds.contains);
+      if (allSelected) {
+        _selectedSectionIds.removeAll(ids);
       } else {
-        _selectedSectionIds.add(sectionId);
+        _selectedSectionIds.addAll(ids);
+        if (section.children.isNotEmpty) {
+          _expandedChapterIds.add(section.id);
+        }
       }
     });
   }
@@ -411,9 +453,15 @@ class _P24ExamAssemblySettingsPageState
     final chapters = mockStore.examChapters;
     if (chapters.isEmpty) return;
     _expandedChapterIds.add(chapters.first.id);
-    _selectedSectionIds.addAll(
-      chapters.first.sections.map((section) => section.id),
-    );
+    _selectedSectionIds.addAll(_leafSectionIds(chapters.first.sections));
+  }
+
+  List<String> _leafSectionIds(List<Section> sections) {
+    return sections
+        .expand((section) => section.children.isEmpty
+            ? [section.id]
+            : _leafSectionIds(section.children))
+        .toList();
   }
 
   Widget _settingRow(String label, String value) {

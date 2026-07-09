@@ -125,9 +125,8 @@ class AppStore extends ChangeNotifier {
   }
 
   void startPracticeFromSection(String sectionId, {bool notify = true}) {
-    final section = chapters
-        .expand((chapter) => chapter.sections)
-        .firstWhere((item) => item.id == sectionId);
+    final section =
+        _allSections(chapters).firstWhere((item) => item.id == sectionId);
     practiceSession = PracticeSession(
       title: section.title,
       mode: '章节练习',
@@ -172,8 +171,8 @@ class AppStore extends ChangeNotifier {
       if (!restart) _movePracticeIndexToProgress(record.metric);
       return;
     }
-    final section = _findPracticeSection(record.title) ??
-        chapters.expand((chapter) => chapter.sections).first;
+    final section =
+        _findPracticeSection(record.title) ?? _allSections(chapters).first;
     startPracticeFromSection(section.id);
     if (!restart) _movePracticeIndexToProgress(record.metric);
   }
@@ -572,9 +571,8 @@ class AppStore extends ChangeNotifier {
   }
 
   void startExamFromSection(String sectionId, {bool notify = true}) {
-    final section = examChapters
-        .expand((chapter) => chapter.sections)
-        .firstWhere((item) => item.id == sectionId);
+    final section =
+        _allSections(examChapters).firstWhere((item) => item.id == sectionId);
     examSession = ExamSession(
       title: section.title,
       mode: '章节考试',
@@ -611,8 +609,8 @@ class AppStore extends ChangeNotifier {
       _applyRecordResultToExamSession(record);
       return;
     }
-    final section = _findExamSection(record.title) ??
-        examChapters.expand((chapter) => chapter.sections).first;
+    final section =
+        _findExamSection(record.title) ?? _allSections(examChapters).first;
     startExamFromSection(section.id);
     _applyRecordResultToExamSession(record);
   }
@@ -958,6 +956,71 @@ class AppStore extends ChangeNotifier {
     );
   }
 
+  List<Section> _allSections(List<Chapter> source) {
+    return source
+        .expand((chapter) => _flattenSections(chapter.sections))
+        .toList();
+  }
+
+  Iterable<Section> _flattenSections(List<Section> sections) sync* {
+    for (final section in sections) {
+      yield section;
+      yield* _flattenSections(section.children);
+    }
+  }
+
+  Section _updateSectionProgressNode(
+    Section section,
+    String sectionId,
+    int answered,
+    int correct,
+    int wrong,
+  ) {
+    if (section.id == sectionId) {
+      return section.copyWith(
+        done: (section.done + answered).clamp(0, section.total).toInt(),
+        correct: section.correct + correct,
+        wrong: section.wrong + wrong,
+      );
+    }
+    if (section.children.isEmpty) return section;
+    final nextChildren = section.children
+        .map((child) => _updateSectionProgressNode(
+            child, sectionId, answered, correct, wrong))
+        .toList();
+    return _rollupSectionChildren(section, nextChildren);
+  }
+
+  Section _resetSectionProgressNode(
+    Section section,
+    Set<String> ids,
+    bool inheritedReset,
+  ) {
+    final shouldReset = inheritedReset || ids.contains(section.id);
+    final nextChildren = section.children
+        .map((child) => _resetSectionProgressNode(child, ids, shouldReset))
+        .toList();
+    final next = section.copyWith(
+      done: shouldReset ? 0 : section.done,
+      correct: shouldReset ? 0 : section.correct,
+      wrong: shouldReset ? 0 : section.wrong,
+      children: nextChildren,
+    );
+    return nextChildren.isEmpty
+        ? next
+        : _rollupSectionChildren(next, nextChildren);
+  }
+
+  Section _rollupSectionChildren(Section section, List<Section> children) {
+    if (children.isEmpty) return section.copyWith(children: children);
+    return section.copyWith(
+      done: children.fold<int>(0, (sum, item) => sum + item.done),
+      correct: children.fold<int>(0, (sum, item) => sum + item.correct),
+      wrong: children.fold<int>(0, (sum, item) => sum + item.wrong),
+      children: children,
+    );
+  }
+
   void _updateSectionProgress(
     String sectionId,
     int answered,
@@ -965,14 +1028,15 @@ class AppStore extends ChangeNotifier {
     int wrong,
   ) {
     chapters = chapters.map((chapter) {
-      final nextSections = chapter.sections.map((section) {
-        if (section.id != sectionId) return section;
-        return section.copyWith(
-          done: (section.done + answered).clamp(0, section.total).toInt(),
-          correct: section.correct + correct,
-          wrong: section.wrong + wrong,
-        );
-      }).toList();
+      final nextSections = chapter.sections
+          .map((section) => _updateSectionProgressNode(
+                section,
+                sectionId,
+                answered,
+                correct,
+                wrong,
+              ))
+          .toList();
       return chapter.copyWith(
         done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
         correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
@@ -1005,14 +1069,15 @@ class AppStore extends ChangeNotifier {
     int wrong,
   ) {
     examChapters = examChapters.map((chapter) {
-      final nextSections = chapter.sections.map((section) {
-        if (section.id != sectionId) return section;
-        return section.copyWith(
-          done: (section.done + answered).clamp(0, section.total).toInt(),
-          correct: section.correct + correct,
-          wrong: section.wrong + wrong,
-        );
-      }).toList();
+      final nextSections = chapter.sections
+          .map((section) => _updateSectionProgressNode(
+                section,
+                sectionId,
+                answered,
+                correct,
+                wrong,
+              ))
+          .toList();
       return chapter.copyWith(
         done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
         correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
@@ -1118,7 +1183,7 @@ class AppStore extends ChangeNotifier {
 
   Section? _findPracticeSection(String title) {
     final normalizedTitle = _normalizeCatalogTitle(title);
-    for (final section in chapters.expand((chapter) => chapter.sections)) {
+    for (final section in _allSections(chapters)) {
       final normalizedSection = _normalizeCatalogTitle(section.title);
       if (normalizedSection == normalizedTitle ||
           normalizedSection.contains(normalizedTitle) ||
@@ -1144,7 +1209,7 @@ class AppStore extends ChangeNotifier {
 
   Section? _findExamSection(String title) {
     final normalizedTitle = _normalizeCatalogTitle(title);
-    for (final section in examChapters.expand((chapter) => chapter.sections)) {
+    for (final section in _allSections(examChapters)) {
       final normalizedSection = _normalizeCatalogTitle(section.title);
       if (normalizedSection == normalizedTitle ||
           normalizedSection.contains(normalizedTitle) ||
@@ -1241,27 +1306,23 @@ class AppStore extends ChangeNotifier {
 
   List<String> _allPracticeCatalogIds() => [
         ...chapters.map((item) => item.id),
-        ...chapters
-            .expand((chapter) => chapter.sections)
-            .map((item) => item.id),
+        ..._allSections(chapters).map((item) => item.id),
         ...practicePapers.map((item) => item.id),
       ];
 
   List<String> _allExamCatalogIds() => [
         ...examChapters.map((item) => item.id),
-        ...examChapters
-            .expand((chapter) => chapter.sections)
-            .map((item) => item.id),
+        ..._allSections(examChapters).map((item) => item.id),
         ...examPapers.map((item) => item.id),
       ];
 
   void _resetPracticeCatalogs(Set<String> ids) {
     chapters = chapters.map((chapter) {
       final resetWholeChapter = ids.contains(chapter.id);
-      final nextSections = chapter.sections.map((section) {
-        if (!resetWholeChapter && !ids.contains(section.id)) return section;
-        return section.copyWith(done: 0, correct: 0, wrong: 0);
-      }).toList();
+      final nextSections = chapter.sections
+          .map((section) =>
+              _resetSectionProgressNode(section, ids, resetWholeChapter))
+          .toList();
       return chapter.copyWith(
         done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
         correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
@@ -1279,10 +1340,10 @@ class AppStore extends ChangeNotifier {
   void _resetExamCatalogs(Set<String> ids) {
     examChapters = examChapters.map((chapter) {
       final resetWholeChapter = ids.contains(chapter.id);
-      final nextSections = chapter.sections.map((section) {
-        if (!resetWholeChapter && !ids.contains(section.id)) return section;
-        return section.copyWith(done: 0, correct: 0, wrong: 0);
-      }).toList();
+      final nextSections = chapter.sections
+          .map((section) =>
+              _resetSectionProgressNode(section, ids, resetWholeChapter))
+          .toList();
       return chapter.copyWith(
         done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
         correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
