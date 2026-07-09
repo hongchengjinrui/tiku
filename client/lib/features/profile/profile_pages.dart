@@ -534,12 +534,12 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSummaryCard(feedbacks.length),
+                        _buildSummaryCard(context, feedbacks.length),
                         const SizedBox(height: 14),
                         if (feedbacks.isEmpty)
                           _buildEmptyState(context)
                         else
-                          _buildFeedbackList(feedbacks),
+                          _buildFeedbackList(context, feedbacks),
                       ],
                     ),
                   );
@@ -552,7 +552,7 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard(int count) {
+  Widget _buildSummaryCard(BuildContext context, int count) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -596,6 +596,28 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
               ],
             ),
           ),
+          if (count > 0) ...[
+            const SizedBox(width: 10),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _confirmClearFeedback(context),
+              child: Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.errorBg,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Text('清空',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.error)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -653,17 +675,24 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFeedbackList(List<FeedbackSubmission> feedbacks) {
+  Widget _buildFeedbackList(
+    BuildContext context,
+    List<FeedbackSubmission> feedbacks,
+  ) {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: feedbacks.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => _buildFeedbackCard(feedbacks[index]),
+      itemBuilder: (context, index) =>
+          _buildFeedbackCard(context, feedbacks[index]),
     );
   }
 
-  Widget _buildFeedbackCard(FeedbackSubmission feedback) {
+  Widget _buildFeedbackCard(
+    BuildContext context,
+    FeedbackSubmission feedback,
+  ) {
     final label = _feedbackTypeLabel(feedback);
     return Container(
       width: double.infinity,
@@ -723,8 +752,94 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
                     fontSize: 12,
                     color: AppColors.textMuted)),
           ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _confirmRemoveFeedback(context, feedback),
+              child: Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_outline,
+                        size: 15, color: AppColors.textMuted),
+                    SizedBox(width: 4),
+                    Text('移除',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _confirmRemoveFeedback(
+    BuildContext context,
+    FeedbackSubmission feedback,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('移除这条反馈？'),
+        content: const Text('移除后仅从本机待同步列表中删除，不会影响已经提交到服务端的内容。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ok = await mockStore.removeFeedbackSubmission(feedback);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '反馈记录已移除' : '移除失败，请稍后重试')),
+    );
+  }
+
+  Future<void> _confirmClearFeedback(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('清空待同步反馈？'),
+        content: const Text('将清空当前本机保存的全部待同步反馈记录，此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('再想想'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ok = await mockStore.clearFeedbackSubmissions();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '待同步反馈已清空' : '清空失败，请稍后重试')),
     );
   }
 

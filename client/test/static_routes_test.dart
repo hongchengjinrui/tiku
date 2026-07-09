@@ -210,6 +210,41 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('feedback records can remove a pending item', (tester) async {
+    final previousFeedbacks = mockStore.feedbackSubmissions;
+    addTearDown(() => mockStore.feedbackSubmissions = previousFeedbacks);
+    mockStore.feedbackSubmissions = [
+      FeedbackSubmission(
+        id: 'feedback_remove_1',
+        type: 'app_feedback',
+        content: '这条反馈准备移除',
+        payload: const {'source': 'remove_test'},
+        createdAt: DateTime(2026, 7, 9, 12, 10),
+      ),
+    ];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/profile/feedback-records');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('移除').first);
+    await tester.pumpAndSettle();
+    expect(find.text('移除这条反馈？'), findsOneWidget);
+
+    await tester.tap(find.text('移除').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无待同步反馈'), findsOneWidget);
+    expect(mockStore.feedbackSubmissions, isEmpty);
+
+    appRouter.go('/profile/cache');
+    await tester.pumpAndSettle();
+    expect(find.text('0条'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('cache pending feedback count opens feedback records',
       (tester) async {
     final previousFeedbacks = mockStore.feedbackSubmissions;
@@ -234,6 +269,25 @@ void main() {
 
     expect(find.text('反馈记录'), findsOneWidget);
     expect(find.text('缓存页跳转反馈记录'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('all chapter assembly starts an exam session', (tester) async {
+    final previousExamSession = mockStore.examSession;
+    addTearDown(() => mockStore.examSession = previousExamSession);
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/exam/assemble/all');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始考试'));
+    await tester.pumpAndSettle();
+
+    expect(mockStore.examSession?.mode, '组卷考试');
+    expect(mockStore.examSession?.questions.length, greaterThan(0));
+    expect(find.text('组卷考试'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });

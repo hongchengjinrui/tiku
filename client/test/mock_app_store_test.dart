@@ -835,6 +835,41 @@ void main() {
     ]);
   });
 
+  test('local feedback submissions can be removed and cleared', () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+
+    await store.submitFeedback(
+      content: '第一条反馈',
+      type: 'app_feedback',
+      payload: const {'source': 'profile_feedback'},
+    );
+    await store.submitFeedback(
+      content: '第二条反馈',
+      type: 'analysis_error',
+      payload: const {'label': '解析有误'},
+    );
+
+    final removed = await store.removeFeedbackSubmission(
+      store.feedbackSubmissions.first,
+    );
+    await store.flushLocalState();
+
+    expect(removed, isTrue);
+    expect(store.feedbackSubmissions.map((item) => item.content), ['第一条反馈']);
+    expect(storage.snapshot?.feedbackSubmissions.single.content, '第一条反馈');
+
+    final cleared = await store.clearFeedbackSubmissions();
+    await store.flushLocalState();
+
+    expect(cleared, isTrue);
+    expect(store.feedbackSubmissions, isEmpty);
+    expect(storage.snapshot?.feedbackSubmissions, isEmpty);
+  });
+
   test('single record deletion keeps other records', () async {
     final store = AppStore(repository: MockTikuRepository());
     final practiceTarget = store.practiceRecords.first;

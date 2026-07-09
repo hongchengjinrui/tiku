@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -36,9 +38,13 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                             const SizedBox(height: 10),
                             Row(
                               children: [
-                                _scopeOption('all', '全部章节', true),
+                                _scopeOption('全部章节', true),
                                 const SizedBox(width: 10),
-                                _scopeOption('custom', '自定义选择', false),
+                                _scopeOption(
+                                  '自定义选择',
+                                  false,
+                                  onTap: () => context.go('/exam/assemble'),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 12),
@@ -49,13 +55,15 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppColors.card,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.border, width: 1),
+                                border: Border.all(
+                                    color: AppColors.border, width: 1),
                               ),
                               child: Column(
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(Icons.check_box, size: 18, color: AppColors.primary),
+                                      Icon(Icons.check_box,
+                                          size: 18, color: AppColors.primary),
                                       const SizedBox(width: 8),
                                       const Expanded(
                                         child: Text('全部章节（共5章）',
@@ -98,7 +106,8 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                                     )),
                                 Container(
                                   height: 44,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
                                   decoration: BoxDecoration(
                                     color: AppColors.primary,
                                     borderRadius: BorderRadius.circular(10),
@@ -106,7 +115,8 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.tune, size: 16, color: Colors.white),
+                                      Icon(Icons.tune,
+                                          size: 16, color: Colors.white),
                                       SizedBox(width: 6),
                                       Text('标准考试组卷',
                                           style: TextStyle(
@@ -132,6 +142,15 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     GestureDetector(
+                      onTap: () {
+                        mockStore.startAssemblyExam(
+                          scope: 'all',
+                          questionCount: 100,
+                          duration: 120,
+                        );
+                        context.go('/exam/answer');
+                      },
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
                         width: double.infinity,
                         height: 46,
@@ -160,35 +179,44 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
     );
   }
 
-  Widget _scopeOption(String value, String label, bool selected) {
+  Widget _scopeOption(
+    String label,
+    bool selected, {
+    VoidCallback? onTap,
+  }) {
     return Expanded(
-      child: Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryBg : AppColors.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? AppColors.primary : AppColors.border,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              size: 16,
-              color: selected ? AppColors.primary : AppColors.textMuted,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryBg : AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border,
+              width: 1,
             ),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.primary : AppColors.textSecondary,
-                )),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                size: 16,
+                color: selected ? AppColors.primary : AppColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color:
+                        selected ? AppColors.primary : AppColors.textSecondary,
+                  )),
+            ],
+          ),
         ),
       ),
     );
@@ -221,7 +249,8 @@ class P24AAssemblyAllChaptersPage extends StatelessWidget {
                     color: AppColors.primary,
                   )),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+              const Icon(Icons.chevron_right,
+                  size: 16, color: AppColors.textMuted),
             ],
           ),
         ],

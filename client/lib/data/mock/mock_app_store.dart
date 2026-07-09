@@ -1192,6 +1192,27 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> removeFeedbackSubmission(FeedbackSubmission feedback) async {
+    final id = feedback.id.trim();
+    final before = feedbackSubmissions.length;
+    feedbackSubmissions = feedbackSubmissions.where((item) {
+      if (id.isNotEmpty && item.id == id) return false;
+      return !_sameFeedbackSubmission(item, feedback);
+    }).toList();
+    if (feedbackSubmissions.length == before) return true;
+    _markLocalStateDirty();
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> clearFeedbackSubmissions() async {
+    if (feedbackSubmissions.isEmpty) return true;
+    feedbackSubmissions = const [];
+    _markLocalStateDirty();
+    notifyListeners();
+    return true;
+  }
+
   void _enqueueFeedbackSubmission({
     required String content,
     required String type,
@@ -2203,6 +2224,15 @@ class AppStore extends ChangeNotifier {
         left.mode == right.mode &&
         left.metric == right.metric &&
         left.time == right.time;
+  }
+
+  bool _sameFeedbackSubmission(
+    FeedbackSubmission left,
+    FeedbackSubmission right,
+  ) {
+    return left.type == right.type &&
+        left.content == right.content &&
+        left.createdAt == right.createdAt;
   }
 
   void _movePracticeIndexToProgress(String metric) {
