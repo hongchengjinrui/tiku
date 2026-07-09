@@ -507,6 +507,45 @@ export class ClientApiService {
     }));
   }
 
+  async removeWrongQuestion(userId = DEFAULT_DEV_USER_ID, questionId: string) {
+    await this.ensureDevUser(userId);
+    const result = await this.prisma.userWrongQuestion.updateMany({
+      where: {
+        userId,
+        questionId,
+        active: true,
+      },
+      data: {
+        active: false,
+      },
+    });
+    return { removed: result.count };
+  }
+
+  async clearWrongQuestions(input: {
+    userId?: string;
+    questionIds?: string[];
+    subjectId?: string;
+  }) {
+    const userId = input.userId ?? DEFAULT_DEV_USER_ID;
+    await this.ensureDevUser(userId);
+    const questionIds = [...new Set(input.questionIds ?? [])].filter(Boolean);
+    const result = await this.prisma.userWrongQuestion.updateMany({
+      where: {
+        userId,
+        active: true,
+        ...(questionIds.length > 0 ? { questionId: { in: questionIds } } : {}),
+        ...(questionIds.length === 0 && input.subjectId
+          ? { question: { catalog: { subjectId: input.subjectId } } }
+          : {}),
+      },
+      data: {
+        active: false,
+      },
+    });
+    return { removed: result.count };
+  }
+
   async resetProgress(input: {
     userId?: string;
     appKey?: string;

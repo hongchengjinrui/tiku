@@ -165,6 +165,8 @@ class Question {
   final String analysis;
   final String analysisHtml;
   final List<String> imageUrls;
+  final int wrongCount;
+  final DateTime? lastWrongAt;
 
   const Question({
     required this.id,
@@ -177,7 +179,29 @@ class Question {
     required this.analysis,
     this.analysisHtml = '',
     this.imageUrls = const [],
+    this.wrongCount = 0,
+    this.lastWrongAt,
   });
+
+  Question copyWith({
+    int? wrongCount,
+    DateTime? lastWrongAt,
+  }) {
+    return Question(
+      id: id,
+      type: type,
+      stem: stem,
+      stemHtml: stemHtml,
+      options: options,
+      answerIndexes: answerIndexes,
+      answerText: answerText,
+      analysis: analysis,
+      analysisHtml: analysisHtml,
+      imageUrls: imageUrls,
+      wrongCount: wrongCount ?? this.wrongCount,
+      lastWrongAt: lastWrongAt ?? this.lastWrongAt,
+    );
+  }
 }
 
 class PracticeAnswerResult {

@@ -218,4 +218,47 @@ void main() {
     expect(result?.isCorrect, isTrue);
     expect(result?.correctAnswerText, '巴西利亚大学');
   });
+
+  test('wrong question removal updates list and active session', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    final now = DateTime.now();
+    final questions = [
+      Question(
+        id: 'wrong_q1',
+        type: QuestionType.single,
+        stem: '第一道错题',
+        options: const ['A', 'B'],
+        answerIndexes: const {0},
+        analysis: '解析',
+        wrongCount: 3,
+        lastWrongAt: now,
+      ),
+      Question(
+        id: 'wrong_q2',
+        type: QuestionType.multiple,
+        stem: '第二道错题',
+        options: const ['A', 'B', 'C'],
+        answerIndexes: const {0, 1},
+        analysis: '解析',
+        wrongCount: 1,
+        lastWrongAt: now,
+      ),
+    ];
+    store.wrongQuestions = questions;
+
+    store.startWrongPractice(count: 2, questions: questions, notify: false);
+    expect(store.practiceSession?.questions.length, 2);
+
+    final removed = await store.removeWrongQuestion(questions.first);
+    expect(removed, isTrue);
+    expect(store.wrongQuestions.map((question) => question.id), ['wrong_q2']);
+    expect(store.practiceSession?.questions.map((question) => question.id),
+        ['wrong_q2']);
+
+    final cleared =
+        await store.clearWrongQuestions(questions: [questions.last]);
+    expect(cleared, isTrue);
+    expect(store.wrongQuestions, isEmpty);
+    expect(store.practiceSession, isNull);
+  });
 }

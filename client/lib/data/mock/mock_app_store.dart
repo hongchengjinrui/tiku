@@ -210,18 +210,23 @@ class AppStore extends ChangeNotifier {
     _hydrateFavoritePracticeQuestions(count);
   }
 
-  void startWrongPractice({int count = 8, bool notify = true}) {
-    if (remoteReady && wrongQuestions.isEmpty) {
+  void startWrongPractice({
+    int count = 8,
+    List<Question> questions = const [],
+    bool notify = true,
+  }) {
+    final sourceQuestions =
+        questions.isNotEmpty ? questions : wrongQuestions.take(count).toList();
+    if (remoteReady && sourceQuestions.isEmpty) {
       practiceSession = null;
       if (notify) notifyListeners();
       return;
     }
-    final cachedQuestions = wrongQuestions.take(count).toList();
     practiceSession = PracticeSession(
       title: '错题练习',
       mode: '错题练习',
-      questions: cachedQuestions.isNotEmpty
-          ? cachedQuestions
+      questions: sourceQuestions.isNotEmpty
+          ? sourceQuestions
           : repository.buildWrongPracticeQuestions(count: count),
     );
     if (notify) notifyListeners();
@@ -281,6 +286,37 @@ class AppStore extends ChangeNotifier {
         ? favoriteQuestions.where((item) => item.id != question.id).toList()
         : [question, ...favoriteQuestions];
     notifyListeners();
+  }
+
+  Future<bool> removeWrongQuestion(Question question) async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.removeWrongQuestion(question.id);
+      if (!ok) return false;
+    }
+    _dropWrongQuestions({question.id});
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> clearWrongQuestions(
+      {List<Question> questions = const []}) async {
+    final ids = questions.isEmpty
+        ? wrongQuestions.map((question) => question.id).toSet()
+        : questions.map((question) => question.id).toSet();
+    if (ids.isEmpty) return true;
+
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.clearWrongQuestions(
+        questionIds: ids.toList(),
+        subjectId: selectedSubjectId,
+      );
+      if (!ok) return false;
+    }
+    _dropWrongQuestions(ids);
+    notifyListeners();
+    return true;
   }
 
   Future<bool> resetPracticeProgress(
@@ -359,6 +395,35 @@ class AppStore extends ChangeNotifier {
 
   bool isQuestionFavorite(String questionId) =>
       favoriteQuestions.any((item) => item.id == questionId);
+
+  void _dropWrongQuestions(Set<String> questionIds) {
+    wrongQuestions = wrongQuestions
+        .where((question) => !questionIds.contains(question.id))
+        .toList();
+    final session = practiceSession;
+    if (session == null || session.mode != '错题练习') return;
+    final nextQuestions = session.questions
+        .where((question) => !questionIds.contains(question.id))
+        .toList();
+    if (nextQuestions.isEmpty) {
+      practiceSession = null;
+      return;
+    }
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: nextQuestions,
+      currentIndex:
+          session.currentIndex.clamp(0, nextQuestions.length - 1).toInt(),
+      finished: session.finished,
+      answers: session.answers,
+      textAnswers: session.textAnswers,
+      answerResults: session.answerResults,
+      submittingQuestionIds: session.submittingQuestionIds,
+    );
+  }
 
   Future<void> _submitPracticeAnswer({
     required Question question,

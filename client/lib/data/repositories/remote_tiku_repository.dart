@@ -180,11 +180,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       );
       final questions = (response.data ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((item) {
-            final question = item['question'];
-            return question is Map<String, dynamic> ? question : item;
-          })
-          .map(_parseQuestion)
+          .map(_parseWrongQuestion)
           .toList();
       _wrongQuestions = questions;
       return questions;
@@ -217,6 +213,42 @@ class RemoteTikuRepository extends MockTikuRepository {
       _favoriteQuestions ?? const [];
 
   List<Question> loadCachedWrongQuestions() => _wrongQuestions ?? const [];
+
+  Future<bool> removeWrongQuestion(String questionId) async {
+    try {
+      await _dio.delete(
+        '/client/wrong-questions/$questionId',
+        queryParameters: {'userId': userId},
+      );
+      _wrongQuestions =
+          [...?_wrongQuestions].where((item) => item.id != questionId).toList();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> clearWrongQuestions({
+    List<String> questionIds = const [],
+    String? subjectId,
+  }) async {
+    try {
+      await _dio.post('/client/wrong-questions/clear', data: {
+        'userId': userId,
+        if (questionIds.isNotEmpty) 'questionIds': questionIds,
+        if (subjectId != null) 'subjectId': subjectId,
+      });
+      final ids = questionIds.toSet();
+      _wrongQuestions = ids.isEmpty
+          ? const []
+          : [...?_wrongQuestions]
+              .where((item) => !ids.contains(item.id))
+              .toList();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   Future<void> refreshRecords() async {
     _practiceRecords = await _loadRecords('practice');
@@ -536,6 +568,17 @@ class RemoteTikuRepository extends MockTikuRepository {
       analysis: (item['analysisText'] ?? item['analysisHtml'] ?? '').toString(),
       analysisHtml: analysisHtml,
       imageUrls: _imageUrls(stemHtml),
+    );
+  }
+
+  Question _parseWrongQuestion(Map<String, dynamic> item) {
+    final question = item['question'];
+    final parsed = _parseQuestion(
+      question is Map<String, dynamic> ? question : item,
+    );
+    return parsed.copyWith(
+      wrongCount: _int(item['wrongCount']),
+      lastWrongAt: DateTime.tryParse(item['lastWrongAt']?.toString() ?? ''),
     );
   }
 

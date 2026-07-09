@@ -93,6 +93,15 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          if (session.mode == '错题练习') ...[
+                            _buildActionChip(
+                              icon: Icons.remove_circle_outline,
+                              text: '移出错题',
+                              danger: true,
+                              onTap: () => _removeWrongQuestion(question),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
                           _buildActionChip(
                             icon: isFavorite ? Icons.star : Icons.star_border,
                             text: isFavorite ? '已收藏' : '收藏',
@@ -642,8 +651,14 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required IconData icon,
     required String text,
     bool selected = false,
+    bool danger = false,
     VoidCallback? onTap,
   }) {
+    final color = danger
+        ? AppColors.error
+        : selected
+            ? AppColors.primary
+            : AppColors.textSecondary;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -653,20 +668,23 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           color: selected ? AppColors.primaryBg : null,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border, width: 1),
+              color: danger
+                  ? AppColors.error
+                  : selected
+                      ? AppColors.primary
+                      : AppColors.border,
+              width: 1),
         ),
         child: Row(
           children: [
-            Icon(icon,
-                size: 18,
-                color: selected ? AppColors.primary : AppColors.textSecondary),
+            Icon(icon, size: 18, color: color),
             const SizedBox(width: 4),
             Text(
               text,
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
-                color: selected ? AppColors.primary : AppColors.textSecondary,
+                color: color,
               ),
             ),
           ],
@@ -731,6 +749,17 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _removeWrongQuestion(Question question) async {
+    final ok = await mockStore.removeWrongQuestion(question);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '已移出错题本' : '移出失败，请稍后重试')),
+    );
+    if (mockStore.practiceSession == null && mounted) {
+      context.go('/practice/wrong');
+    }
   }
 
   void _showQuestionFeedbackSheet(Question question) {

@@ -165,6 +165,26 @@ export class ClientApiController {
     return this.clientApi.listWrongQuestions(userId, Number(limit ?? 50), subjectId);
   }
 
+  @Post('wrong-questions/clear')
+  clearWrongQuestions(
+    @Body()
+    body: {
+      userId?: string;
+      questionIds?: string[];
+      subjectId?: string;
+    },
+  ) {
+    return this.clientApi.clearWrongQuestions(body);
+  }
+
+  @Delete('wrong-questions/:questionId')
+  removeWrongQuestion(
+    @Param('questionId') questionId: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.clientApi.removeWrongQuestion(userId, questionId);
+  }
+
   @Post('progress/reset')
   resetProgress(
     @Body()

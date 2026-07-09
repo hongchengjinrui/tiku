@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -18,7 +19,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   int _selectedFilter = 0;
   final _filters = ['全部', '近7日', '多次错误', '未掌握'];
   final _questionTypes = ['单选', '多选', '判断', '填空', '简答', '材料'];
-  final _selectedTypes = <int>{0};
+  final _selectedTypes = <int>{};
   int _removeRule = 2;
 
   @override
@@ -41,7 +42,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 14),
-                        _buildRangeCard(),
+                        _buildRangeCard(_filteredWrongQuestions()),
                         const SizedBox(height: 14),
                         const Text('条件筛选',
                             style: TextStyle(
@@ -63,12 +64,12 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                         const SizedBox(height: 14),
                         _buildRemoveRuleSection(),
                         const SizedBox(height: 14),
-                        _buildEmptyHint(),
+                        _buildEmptyHint(_filteredWrongQuestions()),
                       ],
                     ),
                   ),
                 ),
-                _buildBottomBar(),
+                _buildBottomBar(_filteredWrongQuestions()),
               ],
             ),
           );
@@ -78,7 +79,15 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   }
 
   /// 错题练习范围卡 - 渐变面板
-  Widget _buildRangeCard() {
+  Widget _buildRangeCard(List<Question> filteredQuestions) {
+    final todayAdded = mockStore.wrongQuestions.where((question) {
+      final lastWrongAt = question.lastWrongAt;
+      if (lastWrongAt == null) return false;
+      final now = DateTime.now();
+      return lastWrongAt.year == now.year &&
+          lastWrongAt.month == now.month &&
+          lastWrongAt.day == now.day;
+    }).length;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -134,7 +143,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('今日新增 ${mockStore.wrongQuestions.length}题',
+                  child: Text('今日新增 $todayAdded题',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -146,7 +155,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Text('已掌握 0题',
+                  child: Text('当前筛选 ${filteredQuestions.length}题',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -304,7 +313,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
     );
   }
 
-  Widget _buildEmptyHint() {
+  Widget _buildEmptyHint(List<Question> filteredQuestions) {
     final hasWrongQuestions = mockStore.wrongPracticeCount > 0;
     return Container(
       width: double.infinity,
@@ -322,7 +331,9 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
           Expanded(
             child: Text(
                 hasWrongQuestions
-                    ? '做对题目达到设定次数后，将自动从错题练习中移出。'
+                    ? filteredQuestions.isEmpty
+                        ? '当前筛选条件下暂无错题，可调整条件或题型后再开始练习。'
+                        : '做对题目达到设定次数后，将自动从错题练习中移出。'
                     : '暂无错题。完成练习并出现答错题目后，可从这里进入错题练习。',
                 style: const TextStyle(
                     fontFamily: 'Inter',
@@ -334,8 +345,8 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
     );
   }
 
-  Widget _buildBottomBar() {
-    final canStart = mockStore.wrongPracticeCount > 0;
+  Widget _buildBottomBar(List<Question> filteredQuestions) {
+    final canStart = filteredQuestions.isNotEmpty;
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -347,15 +358,18 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
         children: [
           // 清空错题入口
           GestureDetector(
-            onTap: () => context.go('/practice/wrong/clear-confirm'),
+            onTap: canStart
+                ? () => _showClearWrongDialog(filteredQuestions)
+                : null,
             behavior: HitTestBehavior.opaque,
             child: Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primaryBg,
+                color: canStart ? AppColors.primaryBg : AppColors.border,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primary),
+                border: Border.all(
+                    color: canStart ? AppColors.primary : AppColors.border),
               ),
               child: const Icon(Icons.delete_outline,
                   size: 20, color: AppColors.primary),
@@ -368,7 +382,9 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
               onTap: canStart
                   ? () {
                       mockStore.startWrongPractice(
-                          count: mockStore.wrongPracticeCount);
+                        count: filteredQuestions.length,
+                        questions: filteredQuestions,
+                      );
                       context.go('/practice/quiz');
                     }
                   : null,
@@ -384,7 +400,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('开始错题练习（${mockStore.wrongPracticeCount}题）',
+                    Text('开始错题练习（${filteredQuestions.length}题）',
                         style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 15,
@@ -400,6 +416,51 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
           ),
         ],
       ),
+    );
+  }
+
+  List<Question> _filteredWrongQuestions() {
+    final now = DateTime.now();
+    return mockStore.wrongQuestions.where((question) {
+      final filterMatched = switch (_filters[_selectedFilter]) {
+        '近7日' => question.lastWrongAt != null &&
+            now.difference(question.lastWrongAt!).inDays <= 7,
+        '多次错误' => question.wrongCount >= 2,
+        '未掌握' => question.wrongCount > 0,
+        _ => true,
+      };
+      final typeMatched = _selectedTypes.isEmpty ||
+          _selectedTypes.any(
+            (index) => _typeShortLabel(question.type) == _questionTypes[index],
+          );
+      return filterMatched && typeMatched;
+    }).toList();
+  }
+
+  String _typeShortLabel(QuestionType type) {
+    return switch (type) {
+      QuestionType.single => '单选',
+      QuestionType.multiple => '多选',
+      QuestionType.trueFalse => '判断',
+      QuestionType.fillBlank => '填空',
+      QuestionType.shortAnswer => '简答',
+    };
+  }
+
+  Future<void> _showClearWrongDialog(List<Question> questions) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (_) => P08AClearWrongDialog(
+        onCancel: () => Navigator.of(context).pop(false),
+        onConfirm: () => Navigator.of(context).pop(true),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final ok = await mockStore.clearWrongQuestions(questions: questions);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '已移出当前筛选错题' : '移出失败，请稍后重试')),
     );
   }
 }
