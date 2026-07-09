@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tiku_muban/data/mock/models.dart';
 import 'package:tiku_muban/data/mock/mock_app_store.dart';
 import 'package:tiku_muban/main.dart';
 import 'package:tiku_muban/routes/app_router.dart';
@@ -61,6 +62,7 @@ void main() {
     '/profile/exam-records',
     '/profile/exam-records/delete',
     '/profile/exam-records/delete-all',
+    '/profile/resource-claims',
     '/profile/wrong',
     '/profile/upload',
     '/profile/correction',
@@ -139,6 +141,37 @@ void main() {
     await tester.tap(find.text('练习').last);
     await tester.pumpAndSettle();
     expect(find.text('练习入口'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('profile opens resource claim records', (tester) async {
+    final previousClaims = mockStore.resourceClaims;
+    addTearDown(() => mockStore.resourceClaims = previousClaims);
+    mockStore.resourceClaims = [
+      ResourceClaim(
+        resourceId: 'claim_test_1',
+        title: '资料领取测试',
+        link: 'local://claim-test',
+        subjectName: '小学教师',
+        isFree: true,
+        count: 2,
+        lastClaimedAt: DateTime(2026, 7, 9, 9, 30),
+      ),
+    ];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/profile');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资料领取'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('资料领取记录'), findsOneWidget);
+    expect(find.text('资料领取测试'), findsOneWidget);
+    expect(find.text('已领取2次'), findsOneWidget);
+    expect(find.text('复制链接'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });

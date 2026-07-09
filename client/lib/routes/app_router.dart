@@ -283,6 +283,10 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const P52BDeleteAllExamRecordsConfirmPage(),
     ),
     GoRoute(
+      path: '/profile/resource-claims',
+      builder: (context, state) => const P53ResourceClaimsPage(),
+    ),
+    GoRoute(
       path: '/profile/wrong',
       builder: (context, state) => const P53WrongEntryPage(),
     ),
