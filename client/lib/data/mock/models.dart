@@ -61,6 +61,45 @@ class FeedbackSubmission {
   });
 }
 
+class ResourceClaim {
+  final String resourceId;
+  final String title;
+  final String link;
+  final String? subjectName;
+  final bool isFree;
+  final int count;
+  final DateTime lastClaimedAt;
+
+  const ResourceClaim({
+    required this.resourceId,
+    required this.title,
+    required this.link,
+    this.subjectName,
+    required this.isFree,
+    required this.count,
+    required this.lastClaimedAt,
+  });
+
+  ResourceClaim copyWith({
+    String? title,
+    String? link,
+    String? subjectName,
+    bool? isFree,
+    int? count,
+    DateTime? lastClaimedAt,
+  }) {
+    return ResourceClaim(
+      resourceId: resourceId,
+      title: title ?? this.title,
+      link: link ?? this.link,
+      subjectName: subjectName ?? this.subjectName,
+      isFree: isFree ?? this.isFree,
+      count: count ?? this.count,
+      lastClaimedAt: lastClaimedAt ?? this.lastClaimedAt,
+    );
+  }
+}
+
 class Chapter {
   final String id;
   final String title;

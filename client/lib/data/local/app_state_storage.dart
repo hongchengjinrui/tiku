@@ -67,7 +67,7 @@ class MemoryAppStateStorage implements AppStateStorage {
 }
 
 class AppStateSnapshot {
-  static const currentVersion = 2;
+  static const currentVersion = 3;
 
   final int version;
   final DateTime savedAt;
@@ -84,6 +84,7 @@ class AppStateSnapshot {
   final List<Question> wrongQuestions;
   final Map<String, int> wrongCorrectCounts;
   final List<FeedbackSubmission> feedbackSubmissions;
+  final List<ResourceClaim> resourceClaims;
   final Map<String, List<Question>> catalogQuestionCache;
   final Map<String, SubjectStateSnapshot> localSubjectStates;
 
@@ -103,6 +104,7 @@ class AppStateSnapshot {
     required this.wrongQuestions,
     this.wrongCorrectCounts = const {},
     this.feedbackSubmissions = const [],
+    this.resourceClaims = const [],
     this.catalogQuestionCache = const {},
     this.localSubjectStates = const {},
   });
@@ -126,6 +128,7 @@ class AppStateSnapshot {
       wrongCorrectCounts: _intMap(json['wrongCorrectCounts']),
       feedbackSubmissions:
           _mapList(json['feedbackSubmissions'], _feedbackFromJson),
+      resourceClaims: _mapList(json['resourceClaims'], _resourceClaimFromJson),
       catalogQuestionCache:
           _questionCacheFromJson(json['catalogQuestionCache']),
       localSubjectStates: _subjectStatesFromJson(json['localSubjectStates']),
@@ -149,6 +152,7 @@ class AppStateSnapshot {
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
       'wrongCorrectCounts': wrongCorrectCounts,
       'feedbackSubmissions': feedbackSubmissions.map(_feedbackToJson).toList(),
+      'resourceClaims': resourceClaims.map(_resourceClaimToJson).toList(),
       'catalogQuestionCache': catalogQuestionCache.map(
         (key, value) => MapEntry(key, value.map(_questionToJson).toList()),
       ),
@@ -361,6 +365,31 @@ FeedbackSubmission _feedbackFromJson(Map<String, dynamic> json) {
     content: json['content']?.toString() ?? '',
     payload: payload is Map ? Map<String, Object?>.from(payload) : const {},
     createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+  );
+}
+
+Map<String, Object?> _resourceClaimToJson(ResourceClaim claim) {
+  return {
+    'resourceId': claim.resourceId,
+    'title': claim.title,
+    'link': claim.link,
+    'subjectName': claim.subjectName,
+    'isFree': claim.isFree,
+    'count': claim.count,
+    'lastClaimedAt': claim.lastClaimedAt.toIso8601String(),
+  };
+}
+
+ResourceClaim _resourceClaimFromJson(Map<String, dynamic> json) {
+  return ResourceClaim(
+    resourceId: json['resourceId']?.toString() ?? '',
+    title: json['title']?.toString() ?? '',
+    link: json['link']?.toString() ?? '',
+    subjectName: json['subjectName']?.toString(),
+    isFree: json['isFree'] == true,
+    count: _int(json['count'], fallback: 1).clamp(1, 9999).toInt(),
+    lastClaimedAt: DateTime.tryParse(json['lastClaimedAt']?.toString() ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0),
   );
 }

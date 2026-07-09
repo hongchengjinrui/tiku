@@ -120,17 +120,22 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
   }
 
   Widget _buildResourceList() {
-    return FutureBuilder<List<_ResourceItem>>(
-      future: _resourcesFuture,
-      builder: (context, snapshot) {
-        final resources = snapshot.data ?? _fallbackResources;
-        return Column(
-          children: [
-            for (var index = 0; index < resources.length; index++) ...[
-              _buildResourceCard(context, resources[index]),
-              if (index < resources.length - 1) const SizedBox(height: 10),
-            ],
-          ],
+    return AnimatedBuilder(
+      animation: mockStore,
+      builder: (context, _) {
+        return FutureBuilder<List<_ResourceItem>>(
+          future: _resourcesFuture,
+          builder: (context, snapshot) {
+            final resources = snapshot.data ?? _fallbackResources;
+            return Column(
+              children: [
+                for (var index = 0; index < resources.length; index++) ...[
+                  _buildResourceCard(context, resources[index]),
+                  if (index < resources.length - 1) const SizedBox(height: 10),
+                ],
+              ],
+            );
+          },
         );
       },
     );
@@ -141,6 +146,7 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
         resource.isFree ? Icons.description_outlined : Icons.workspace_premium;
     final iconColor =
         resource.isFree ? AppColors.success : const Color(0xFFD6A84A);
+    final claimCount = mockStore.resourceClaimCount(resource.trackingId);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -193,31 +199,50 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
               ),
             ),
             const SizedBox(width: 8),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: resource.isFree
-                        ? AppColors.successBg
-                        : const Color(0xFFFFF9DF),
-                    borderRadius: BorderRadius.circular(6),
+            SizedBox(
+              width: 66,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: resource.isFree
+                          ? AppColors.successBg
+                          : const Color(0xFFFFF9DF),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(resource.isFree ? '免费' : 'VIP',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: resource.isFree
+                                ? AppColors.success
+                                : const Color(0xFF8A5B16))),
                   ),
-                  child: Text(resource.isFree ? '免费' : 'VIP',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: resource.isFree
-                              ? AppColors.success
-                              : const Color(0xFF8A5B16))),
-                ),
-                const SizedBox(height: 8),
-                const Icon(Icons.chevron_right,
-                    size: 18, color: AppColors.textMuted),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    claimCount > 0 ? '已领取$claimCount次' : '去领取',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight:
+                          claimCount > 0 ? FontWeight.w600 : FontWeight.w400,
+                      color: claimCount > 0
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: AppColors.textMuted),
+                ],
+              ),
             ),
           ],
         ),
@@ -422,6 +447,8 @@ class _ResourceItem {
     final pageText = pages.isEmpty ? '在线文档' : '${pages.length}页';
     return '$access · $fileType · $pageText${subject == null || subject.isEmpty ? '' : ' · $subject'}';
   }
+
+  String get trackingId => id.trim().isEmpty ? title : id.trim();
 }
 
 _ResourceItem? _activeResource;
@@ -447,78 +474,93 @@ class _ResourceDocumentScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resource = _activeResource ?? _fallbackResources.first;
-    final pages = resource.pages.isEmpty
-        ? ['${resource.title}\n\n${resource.description ?? '资料内容待同步。'}']
-        : resource.pages;
-    return Scaffold(
-      body: SizedBox(
-        width: 390,
-        child: Column(
-          children: [
-            const StatusBar(),
-            NavBar(title: resource.title),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    _ResourceMetaBar(
-                        resource: resource, totalPages: pages.length),
-                    const SizedBox(height: 10),
-                    for (var index = 0; index < pages.length; index++) ...[
-                      _DocumentPage(
-                        text: pages[index],
-                        page: index + 1,
-                        total: pages.length,
+    return AnimatedBuilder(
+      animation: mockStore,
+      builder: (context, _) {
+        final resource = _activeResource ?? _fallbackResources.first;
+        final pages = resource.pages.isEmpty
+            ? ['${resource.title}\n\n${resource.description ?? '资料内容待同步。'}']
+            : resource.pages;
+        final claimCount = mockStore.resourceClaimCount(resource.trackingId);
+        return Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: Column(
+              children: [
+                const StatusBar(),
+                NavBar(title: resource.title),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        _ResourceMetaBar(
+                          resource: resource,
+                          totalPages: pages.length,
+                          claimCount: claimCount,
+                        ),
+                        const SizedBox(height: 10),
+                        for (var index = 0; index < pages.length; index++) ...[
+                          _DocumentPage(
+                            text: pages[index],
+                            page: index + 1,
+                            total: pages.length,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      final link = resource.fileUrl?.trim().isNotEmpty == true
+                          ? resource.fileUrl!.trim()
+                          : resource.title;
+                      mockStore.claimResourceDownloadLink(
+                        resourceId: resource.trackingId,
+                        title: resource.title,
+                        link: link,
+                        subjectName: resource.subjectName,
+                        isFree: resource.isFree,
+                      );
+                      await Clipboard.setData(ClipboardData(text: link));
+                      if (context.mounted) {
+                        P40BLinkCopiedToast.show(context);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      const SizedBox(height: 10),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () async {
-                  await Clipboard.setData(
-                    ClipboardData(text: resource.fileUrl ?? resource.title),
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('资料链接已经复制')),
-                    );
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.link, size: 20, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text('获取下载链接',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                    ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.link, size: 20, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(claimCount > 0 ? '再次获取下载链接' : '获取下载链接',
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -526,10 +568,12 @@ class _ResourceDocumentScaffold extends StatelessWidget {
 class _ResourceMetaBar extends StatelessWidget {
   final _ResourceItem resource;
   final int totalPages;
+  final int claimCount;
 
   const _ResourceMetaBar({
     required this.resource,
     required this.totalPages,
+    required this.claimCount,
   });
 
   @override
@@ -577,13 +621,13 @@ class _ResourceMetaBar extends StatelessWidget {
               ),
             ),
           ),
-          const Text(
-            '完整开放',
+          Text(
+            claimCount > 0 ? '已领取$claimCount次' : '完整开放',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+              color: claimCount > 0 ? AppColors.success : AppColors.primary,
             ),
           ),
         ],

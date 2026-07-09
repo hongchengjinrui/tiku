@@ -82,6 +82,7 @@ class AppStore extends ChangeNotifier {
   List<Question> wrongQuestions = const [];
   Map<String, int> wrongCorrectCounts = {};
   List<FeedbackSubmission> feedbackSubmissions = const [];
+  List<ResourceClaim> resourceClaims = const [];
 
   String selectedSubjectId = 'primary_teacher';
   String selectedChapterId = 'chapter_1';
@@ -185,6 +186,9 @@ class AppStore extends ChangeNotifier {
     wrongQuestions = snapshot.wrongQuestions;
     wrongCorrectCounts = Map<String, int>.from(snapshot.wrongCorrectCounts);
     feedbackSubmissions = snapshot.feedbackSubmissions;
+    resourceClaims = snapshot.resourceClaims
+        .where((claim) => claim.resourceId.isNotEmpty)
+        .toList();
     final current = repository;
     if (current is RemoteTikuRepository) {
       current.restoreQuestionCache(snapshot.catalogQuestionCache);
@@ -216,6 +220,7 @@ class AppStore extends ChangeNotifier {
       wrongQuestions: wrongQuestions,
       wrongCorrectCounts: wrongCorrectCounts,
       feedbackSubmissions: feedbackSubmissions,
+      resourceClaims: resourceClaims,
       catalogQuestionCache: current is RemoteTikuRepository
           ? current.exportQuestionCache()
           : const {},
@@ -583,6 +588,69 @@ class AppStore extends ChangeNotifier {
   int get wrongPracticeCount => wrongQuestions.length;
 
   int get favoritePracticeCount => favoriteQuestions.length;
+
+  int get claimedResourceCount => resourceClaims.length;
+
+  int get resourceClaimTotalCount => resourceClaims.fold<int>(
+        0,
+        (sum, claim) => sum + claim.count,
+      );
+
+  ResourceClaim? resourceClaimFor(String resourceId) {
+    final normalizedId = resourceId.trim();
+    if (normalizedId.isEmpty) return null;
+    return _firstWhereOrNull(
+      resourceClaims,
+      (claim) => claim.resourceId == normalizedId,
+    );
+  }
+
+  int resourceClaimCount(String resourceId) =>
+      resourceClaimFor(resourceId)?.count ?? 0;
+
+  ResourceClaim claimResourceDownloadLink({
+    required String resourceId,
+    required String title,
+    required String link,
+    String? subjectName,
+    required bool isFree,
+  }) {
+    final normalizedId =
+        resourceId.trim().isEmpty ? title.trim() : resourceId.trim();
+    final now = DateTime.now();
+    final index =
+        resourceClaims.indexWhere((claim) => claim.resourceId == normalizedId);
+    late final ResourceClaim claim;
+    if (index >= 0) {
+      claim = resourceClaims[index].copyWith(
+        title: title,
+        link: link,
+        subjectName: subjectName,
+        isFree: isFree,
+        count: resourceClaims[index].count + 1,
+        lastClaimedAt: now,
+      );
+      resourceClaims = [
+        ...resourceClaims.take(index),
+        claim,
+        ...resourceClaims.skip(index + 1),
+      ];
+    } else {
+      claim = ResourceClaim(
+        resourceId: normalizedId,
+        title: title,
+        link: link,
+        subjectName: subjectName,
+        isFree: isFree,
+        count: 1,
+        lastClaimedAt: now,
+      );
+      resourceClaims = [claim, ...resourceClaims];
+    }
+    _markLocalStateDirty();
+    notifyListeners();
+    return claim;
+  }
 
   Future<void> selectSubject(String subjectId) async {
     if (subjectId == selectedSubjectId) return;

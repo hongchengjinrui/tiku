@@ -958,4 +958,43 @@ void main() {
     expect(store.selectedSubjectId, 'middle_teacher');
     expect(store.practiceRecords, isNotEmpty);
   });
+
+  test('resource download link claims persist in local snapshot', () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+
+    store.claimResourceDownloadLink(
+      resourceId: 'resource_free_1',
+      title: '入门备考规划清单',
+      link: 'local://free',
+      subjectName: '小学教师',
+      isFree: true,
+    );
+    store.claimResourceDownloadLink(
+      resourceId: 'resource_free_1',
+      title: '入门备考规划清单',
+      link: 'local://free-updated',
+      subjectName: '小学教师',
+      isFree: true,
+    );
+    await store.flushLocalState();
+
+    expect(store.claimedResourceCount, 1);
+    expect(store.resourceClaimTotalCount, 2);
+    expect(storage.snapshot?.resourceClaims.single.count, 2);
+    expect(
+        storage.snapshot?.resourceClaims.single.link, 'local://free-updated');
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+
+    expect(restored.resourceClaimCount('resource_free_1'), 2);
+    expect(restored.resourceClaimFor('resource_free_1')?.subjectName, '小学教师');
+  });
 }
