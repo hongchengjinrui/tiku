@@ -19,7 +19,10 @@ abstract class TikuRepository {
 
   List<Question> buildPracticePaperQuestions(Paper paper);
 
-  List<Question> buildRandomPracticeQuestions({required int count});
+  List<Question> buildRandomPracticeQuestions({
+    required int count,
+    List<String> catalogIds = const [],
+  });
 
   List<Question> buildFavoritePracticeQuestions({required int count});
 
@@ -29,5 +32,8 @@ abstract class TikuRepository {
 
   List<Question> buildExamPaperQuestions(Paper paper);
 
-  List<Question> buildAssemblyExamQuestions({required int count});
+  List<Question> buildAssemblyExamQuestions({
+    required int count,
+    List<String> catalogIds = const [],
+  });
 }

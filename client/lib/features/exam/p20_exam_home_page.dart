@@ -4,6 +4,7 @@ import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
+import '../../core/widgets.dart';
 import '../common/progress_reset_sheet.dart';
 
 /// P20 考试模式首页 - Exam mode home page
@@ -33,6 +34,11 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                          child: CacheStatusBanner(store: mockStore),
+                        ),
+                        const SizedBox(height: 10),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: _ExamProgressPanel(store: mockStore),

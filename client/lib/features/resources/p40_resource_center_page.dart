@@ -1,16 +1,16 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
+import '../../data/local/resource_cache_storage.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/repositories/remote_tiku_repository.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
+import '../../core/widgets.dart';
 
 /// P40 资料中心页
 class P40ResourceCenterPage extends StatefulWidget {
@@ -38,6 +38,8 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SizedBox(height: 14),
+                    CacheStatusBanner(store: mockStore),
                     const SizedBox(height: 14),
                     _buildRightsCard(),
                     const SizedBox(height: 14),
@@ -289,7 +291,7 @@ Future<List<_ResourceItem>> _loadResources() async {
 
 Future<List<_ResourceItem>> _readCachedResources() async {
   try {
-    final file = await _resourceCacheFile();
+    final file = await resourceCacheFile();
     if (!await file.exists()) return const [];
     final decoded = jsonDecode(await file.readAsString());
     if (decoded is! List) return const [];
@@ -304,17 +306,12 @@ Future<List<_ResourceItem>> _readCachedResources() async {
 
 Future<void> _writeCachedResources(List<_ResourceItem> resources) async {
   try {
-    final file = await _resourceCacheFile();
+    final file = await resourceCacheFile();
     await file.parent.create(recursive: true);
     await file.writeAsString(
       jsonEncode(resources.map((item) => item.toJson()).toList()),
     );
   } catch (_) {}
-}
-
-Future<File> _resourceCacheFile() async {
-  final directory = await getApplicationSupportDirectory();
-  return File('${directory.path}/tiku_resource_cache_v1.json');
 }
 
 const _fallbackResources = [

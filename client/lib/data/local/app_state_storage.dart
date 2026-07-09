@@ -82,6 +82,7 @@ class AppStateSnapshot {
   final List<StudyRecord> examRecords;
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
+  final Map<String, int> wrongCorrectCounts;
   final Map<String, List<Question>> catalogQuestionCache;
 
   const AppStateSnapshot({
@@ -98,6 +99,7 @@ class AppStateSnapshot {
     required this.examRecords,
     required this.favoriteQuestions,
     required this.wrongQuestions,
+    this.wrongCorrectCounts = const {},
     this.catalogQuestionCache = const {},
   });
 
@@ -117,6 +119,7 @@ class AppStateSnapshot {
       examRecords: _mapList(json['examRecords'], _recordFromJson),
       favoriteQuestions: _mapList(json['favoriteQuestions'], _questionFromJson),
       wrongQuestions: _mapList(json['wrongQuestions'], _questionFromJson),
+      wrongCorrectCounts: _intMap(json['wrongCorrectCounts']),
       catalogQuestionCache:
           _questionCacheFromJson(json['catalogQuestionCache']),
     );
@@ -137,6 +140,7 @@ class AppStateSnapshot {
       'examRecords': examRecords.map(_recordToJson).toList(),
       'favoriteQuestions': favoriteQuestions.map(_questionToJson).toList(),
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
+      'wrongCorrectCounts': wrongCorrectCounts,
       'catalogQuestionCache': catalogQuestionCache.map(
         (key, value) => MapEntry(key, value.map(_questionToJson).toList()),
       ),
@@ -161,6 +165,13 @@ Map<String, List<Question>> _questionCacheFromJson(Object? value) {
     );
   })
     ..removeWhere((_, questions) => questions.isEmpty);
+}
+
+Map<String, int> _intMap(Object? value) {
+  if (value is! Map) return const {};
+  return value.map(
+    (key, rawValue) => MapEntry(key.toString(), _int(rawValue)),
+  )..removeWhere((key, count) => key.isEmpty || count <= 0);
 }
 
 Map<String, Object?> _chapterToJson(Chapter chapter) {

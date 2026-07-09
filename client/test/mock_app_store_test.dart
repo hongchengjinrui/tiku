@@ -209,6 +209,10 @@ void main() {
     store.startRandomPractice(count: 20, catalogIds: practiceSectionIds);
     expect(store.practiceSession?.title, '自选章节随机练习');
     expect(store.practiceSession?.mode, '随机练习');
+    expect(
+      store.practiceSession?.questions.first.id,
+      startsWith('${practiceSectionIds.first}_'),
+    );
 
     store.startAssemblyExam(
       scope: 'custom',
@@ -219,6 +223,49 @@ void main() {
     expect(store.examSession?.title, '自选章节组卷');
     expect(store.examSession?.mode, '组卷考试');
     expect(store.examSession?.durationMinutes, 90);
+    expect(
+      store.examSession?.questions.first.id,
+      startsWith('${examSectionIds.first}_'),
+    );
+  });
+
+  test('practice range helpers return practiced and unpracticed leaf catalogs',
+      () {
+    final store = AppStore(repository: MockTikuRepository());
+    store.chapters = const [
+      Chapter(
+        id: 'range_chapter',
+        title: '范围章节',
+        done: 3,
+        total: 8,
+        correct: 3,
+        wrong: 0,
+        sections: [
+          Section(
+            id: 'range_done',
+            chapterId: 'range_chapter',
+            title: '已练小节',
+            done: 3,
+            total: 4,
+            correct: 3,
+            wrong: 0,
+          ),
+          Section(
+            id: 'range_empty',
+            chapterId: 'range_chapter',
+            title: '未练小节',
+            done: 0,
+            total: 4,
+            correct: 0,
+            wrong: 0,
+          ),
+        ],
+      ),
+    ];
+
+    expect(store.practiceCatalogIdsForRange('已练习章节'), ['range_done']);
+    expect(store.practiceCatalogIdsForRange('未练习章节'), ['range_empty']);
+    expect(store.practiceCatalogIdsForRange('全部章节'), isEmpty);
   });
 
   test('nested catalog sections can start, roll up, and reset progress',
@@ -295,6 +342,24 @@ void main() {
     expect(session.answeredCount, session.questions.length);
     expect(session.accuracy, closeTo(80, 5));
     expect(store.examRecords.length, beforeRecords);
+  });
+
+  test('unfinished exam record resumes an answer session at saved progress',
+      () {
+    final store = AppStore(repository: MockTikuRepository());
+    final section = store.examChapters.first.sections.first;
+    final record = StudyRecord(
+      title: section.title,
+      mode: '章节考试',
+      metric: '5/${section.total}题 · 未交卷',
+      time: '刚刚',
+    );
+
+    store.startExamFromRecord(record, restart: false);
+
+    expect(store.examSession?.sectionId, section.id);
+    expect(store.examSession?.submitted, isFalse);
+    expect(store.examSession?.currentIndex, 5);
   });
 
   test('exam session supports fill blank text answers', () {
@@ -454,6 +519,66 @@ void main() {
     expect(store.practiceSession, isNull);
   });
 
+  test('wrong practice remove rule counts correct answers in local cache',
+      () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    const question = Question(
+      id: 'wrong_rule_q1',
+      type: QuestionType.single,
+      stem: '错题规则题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+      wrongCount: 2,
+    );
+    store.wrongQuestions = const [question];
+
+    store.startWrongPractice(
+      questions: const [question],
+      removeAfterCorrect: 2,
+      notify: false,
+    );
+    store.answerPractice(question.answerIndexes);
+    await store.flushLocalState();
+
+    expect(store.wrongQuestions.map((item) => item.id), ['wrong_rule_q1']);
+    expect(store.wrongCorrectCounts['wrong_rule_q1'], 1);
+    expect(storage.snapshot?.wrongCorrectCounts['wrong_rule_q1'], 1);
+  });
+
+  test('wrong practice auto removes after reaching correct threshold', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const question = Question(
+      id: 'wrong_rule_q2',
+      type: QuestionType.single,
+      stem: '错题自动移出题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+      wrongCount: 3,
+    );
+    store.wrongQuestions = const [question];
+    store.wrongCorrectCounts = const {'wrong_rule_q2': 1};
+
+    store.startWrongPractice(
+      questions: const [question],
+      removeAfterCorrect: 2,
+      notify: false,
+    );
+    store.answerPractice(question.answerIndexes);
+
+    expect(store.wrongQuestions, isEmpty);
+    expect(store.wrongCorrectCounts.containsKey('wrong_rule_q2'), isFalse);
+    expect(store.practiceSession?.questions.map((item) => item.id),
+        ['wrong_rule_q2']);
+    expect(store.practiceSession?.answerResults['wrong_rule_q2']?.isCorrect,
+        isTrue);
+  });
+
   test('favorite practice can start from a filtered question list', () {
     final store = AppStore(repository: MockTikuRepository());
     const singleQuestion = Question(
@@ -588,5 +713,25 @@ void main() {
     expect(store.practiceSession?.questions.map((item) => item.id),
         ['cached_catalog_q1']);
     expect(store.practiceSession?.currentQuestion.stem, '缓存章节题');
+  });
+
+  test('local app state can be flushed and cleared without wiping memory',
+      () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+
+    await store.selectSubject('middle_teacher');
+    await store.flushLocalState();
+
+    expect(storage.snapshot?.selectedSubjectId, 'middle_teacher');
+
+    await store.clearLocalState();
+
+    expect(storage.snapshot, isNull);
+    expect(store.selectedSubjectId, 'middle_teacher');
+    expect(store.practiceRecords, isNotEmpty);
   });
 }

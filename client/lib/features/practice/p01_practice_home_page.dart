@@ -28,6 +28,13 @@ class P01PracticeHomePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        child: CacheStatusBanner(store: mockStore),
+                      ),
+
+                      const SizedBox(height: 10),
+
                       // ===== 练习进度面板 - 渐变背景 =====
                       _buildProgressPanel(context, mockStore),
 

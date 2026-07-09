@@ -5,6 +5,7 @@ import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
+import '../../core/widgets.dart';
 
 /// P50 我的页面
 class P50ProfilePage extends StatelessWidget {
@@ -26,6 +27,8 @@ class P50ProfilePage extends StatelessWidget {
                   children: [
                     const SizedBox(height: 16),
                     _buildAccountCard(),
+                    const SizedBox(height: 12),
+                    CacheStatusBanner(store: mockStore),
                     const SizedBox(height: 16),
                     _buildOpenExperienceBanner(context),
                     const SizedBox(height: 16),
@@ -181,6 +184,11 @@ class P50ProfilePage extends StatelessWidget {
             'icon': Icons.feedback_outlined,
             'label': '意见反馈',
             'route': '/profile/feedback'
+          },
+          {
+            'icon': Icons.storage_outlined,
+            'label': '缓存管理',
+            'route': '/profile/cache'
           },
         ],
       },
@@ -742,8 +750,13 @@ class P52ExamRecordsPage extends StatelessWidget {
                 submitted ? '查看解析' : '继续考试',
                 submitted ? Icons.visibility_outlined : Icons.play_arrow,
                 () {
-                  mockStore.openExamRecordAnalysis(record);
-                  context.go('/exam/analysis');
+                  if (submitted) {
+                    mockStore.openExamRecordAnalysis(record);
+                    context.go('/exam/analysis');
+                  } else {
+                    mockStore.startExamFromRecord(record, restart: false);
+                    context.go('/exam/answer');
+                  }
                 },
               ),
               const Spacer(),

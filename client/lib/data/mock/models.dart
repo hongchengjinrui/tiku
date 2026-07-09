@@ -328,6 +328,7 @@ class PracticeSession {
   final Map<String, String> textAnswers;
   final Map<String, PracticeAnswerResult> answerResults;
   final Set<String> submittingQuestionIds;
+  final int wrongRemovalThreshold;
 
   PracticeSession({
     required this.title,
@@ -341,6 +342,7 @@ class PracticeSession {
     Map<String, String>? textAnswers,
     Map<String, PracticeAnswerResult>? answerResults,
     Set<String>? submittingQuestionIds,
+    this.wrongRemovalThreshold = 0,
   })  : answers = answers ?? {},
         textAnswers = textAnswers ?? {},
         answerResults = answerResults ?? {},

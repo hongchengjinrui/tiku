@@ -51,6 +51,7 @@ class AppStore extends ChangeNotifier {
   late List<StudyRecord> examRecords;
   List<Question> favoriteQuestions = const [];
   List<Question> wrongQuestions = const [];
+  Map<String, int> wrongCorrectCounts = {};
 
   String selectedSubjectId = 'primary_teacher';
   String selectedChapterId = 'chapter_1';
@@ -101,6 +102,15 @@ class AppStore extends ChangeNotifier {
     await storage.write(_snapshot());
   }
 
+  Future<void> clearLocalState() async {
+    _localPersistTimer?.cancel();
+    _localPersistTimer = null;
+    _localStateDirty = false;
+    final storage = stateStorage;
+    if (storage == null) return;
+    await storage.clear();
+  }
+
   void _applySnapshot(AppStateSnapshot snapshot) {
     if (snapshot.selectedSubjectId.isNotEmpty) {
       selectedSubjectId = snapshot.selectedSubjectId;
@@ -127,6 +137,7 @@ class AppStore extends ChangeNotifier {
     examRecords = snapshot.examRecords;
     favoriteQuestions = snapshot.favoriteQuestions;
     wrongQuestions = snapshot.wrongQuestions;
+    wrongCorrectCounts = Map<String, int>.from(snapshot.wrongCorrectCounts);
     final current = repository;
     if (current is RemoteTikuRepository) {
       current.restoreQuestionCache(snapshot.catalogQuestionCache);
@@ -148,6 +159,7 @@ class AppStore extends ChangeNotifier {
       examRecords: examRecords,
       favoriteQuestions: favoriteQuestions,
       wrongQuestions: wrongQuestions,
+      wrongCorrectCounts: wrongCorrectCounts,
       catalogQuestionCache: current is RemoteTikuRepository
           ? current.exportQuestionCache()
           : const {},
@@ -229,6 +241,21 @@ class AppStore extends ChangeNotifier {
   PracticeStat get examChapterStat => _chapterStat(examChapters);
 
   PracticeStat get examPaperStat => _paperStat(examPapers);
+
+  List<String> practiceCatalogIdsForRange(String range) {
+    final sections = _allSections(chapters).where(
+      (section) => section.children.isEmpty,
+    );
+    return switch (range) {
+      '已练习章节' =>
+        sections.where((section) => section.done > 0).map((e) => e.id).toList(),
+      '未练习章节' => sections
+          .where((section) => section.done == 0)
+          .map((e) => e.id)
+          .toList(),
+      _ => const [],
+    };
+  }
 
   int get wrongPracticeCount =>
       remoteReady ? wrongQuestions.length : practiceStat.wrong;
@@ -340,12 +367,16 @@ class AppStore extends ChangeNotifier {
   void startRandomPractice({
     int count = 10,
     List<String> catalogIds = const [],
+    String? title,
     bool notify = true,
   }) {
     practiceSession = PracticeSession(
-      title: catalogIds.isEmpty ? '随机练习' : '自选章节随机练习',
+      title: title ?? (catalogIds.isEmpty ? '随机练习' : '自选章节随机练习'),
       mode: '随机练习',
-      questions: repository.buildRandomPracticeQuestions(count: count),
+      questions: repository.buildRandomPracticeQuestions(
+        count: count,
+        catalogIds: catalogIds,
+      ),
     );
     if (notify) notifyListeners();
     _hydrateRandomPracticeQuestions(count, catalogIds: catalogIds);
@@ -380,6 +411,7 @@ class AppStore extends ChangeNotifier {
   void startWrongPractice({
     int count = 8,
     List<Question> questions = const [],
+    int removeAfterCorrect = 2,
     bool notify = true,
   }) {
     final sourceQuestions =
@@ -395,6 +427,7 @@ class AppStore extends ChangeNotifier {
       questions: sourceQuestions.isNotEmpty
           ? sourceQuestions
           : repository.buildWrongPracticeQuestions(count: count),
+      wrongRemovalThreshold: removeAfterCorrect.clamp(1, 99).toInt(),
     );
     if (notify) notifyListeners();
     _hydrateWrongPracticeQuestions(count);
@@ -410,7 +443,9 @@ class AppStore extends ChangeNotifier {
     } else {
       session.answers[question.id] = answer;
       session.textAnswers.remove(question.id);
-      session.answerResults[question.id] = _localChoiceResult(question, answer);
+      final result = _localChoiceResult(question, answer);
+      session.answerResults[question.id] = result;
+      _applyWrongPracticeRemoval(question, result.isCorrect);
     }
     final current = repository;
     if (current is RemoteTikuRepository && answer.isNotEmpty) {
@@ -432,7 +467,9 @@ class AppStore extends ChangeNotifier {
     }
     session.textAnswers[question.id] = trimmed;
     session.answers.remove(question.id);
-    session.answerResults[question.id] = _localTextResult(question, trimmed);
+    final result = _localTextResult(question, trimmed);
+    session.answerResults[question.id] = result;
+    _applyWrongPracticeRemoval(question, result.isCorrect);
     final current = repository;
     if (current is RemoteTikuRepository) {
       unawaited(_submitPracticeAnswer(question: question, text: trimmed));
@@ -616,9 +653,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions.any((item) => item.id == questionId);
 
   void _dropWrongQuestions(Set<String> questionIds) {
-    wrongQuestions = wrongQuestions
-        .where((question) => !questionIds.contains(question.id))
-        .toList();
+    _dropWrongQuestionsFromState(questionIds);
     final session = practiceSession;
     if (session == null || session.mode != '错题练习') return;
     final nextQuestions = session.questions
@@ -641,7 +676,45 @@ class AppStore extends ChangeNotifier {
       textAnswers: session.textAnswers,
       answerResults: session.answerResults,
       submittingQuestionIds: session.submittingQuestionIds,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
+  }
+
+  void _dropWrongQuestionsFromState(Set<String> questionIds) {
+    wrongQuestions = wrongQuestions
+        .where((question) => !questionIds.contains(question.id))
+        .toList();
+    wrongCorrectCounts = Map<String, int>.from(wrongCorrectCounts)
+      ..removeWhere((id, _) => questionIds.contains(id));
+  }
+
+  void _applyWrongPracticeRemoval(Question question, bool? isCorrect) {
+    final session = practiceSession;
+    if (session == null || session.mode != '错题练习' || isCorrect == null) {
+      return;
+    }
+    if (!isCorrect) {
+      _setWrongCorrectCount(question.id, 0);
+      _markLocalStateDirty();
+      return;
+    }
+
+    final nextCount = (wrongCorrectCounts[question.id] ?? 0) + 1;
+    final threshold =
+        session.wrongRemovalThreshold <= 0 ? 2 : session.wrongRemovalThreshold;
+    if (nextCount >= threshold) {
+      _dropWrongQuestionsFromState({question.id});
+    } else {
+      _setWrongCorrectCount(question.id, nextCount);
+    }
+    _markLocalStateDirty();
+  }
+
+  void _setWrongCorrectCount(String questionId, int count) {
+    wrongCorrectCounts = {
+      ...wrongCorrectCounts,
+      questionId: count,
+    };
   }
 
   Future<void> _submitPracticeAnswer({
@@ -666,12 +739,17 @@ class AppStore extends ChangeNotifier {
     }
     latest.submittingQuestionIds.remove(question.id);
     if (result != null) {
+      final previous = latest.answerResults[question.id];
       latest.answerResults[question.id] = result;
+      if (previous?.isCorrect == null) {
+        _applyWrongPracticeRemoval(question, result.isCorrect);
+      }
       if (result.isCorrect == false) {
         wrongQuestions = [
           question,
           ...wrongQuestions.where((item) => item.id != question.id),
         ];
+        _setWrongCorrectCount(question.id, 0);
         _markLocalStateDirty();
       }
       unawaited(_refreshRemoteRecords());
@@ -816,6 +894,33 @@ class AppStore extends ChangeNotifier {
     _applyRecordResultToExamSession(record);
   }
 
+  void startExamFromRecord(StudyRecord record, {required bool restart}) {
+    if (record.mode.contains('真题')) {
+      final paper = _findExamPaper(record.title);
+      if (paper == null && examPapers.isEmpty) {
+        startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+      } else {
+        startExamFromPaper((paper ?? examPapers.first).id);
+      }
+      if (!restart) _moveExamIndexToProgress(record.metric);
+      return;
+    }
+    if (record.mode.contains('组卷') || record.mode.contains('模拟')) {
+      startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+      if (!restart) _moveExamIndexToProgress(record.metric);
+      return;
+    }
+    final sections = _allSections(examChapters).toList();
+    final section = _findExamSection(record.title) ??
+        (sections.isEmpty ? null : sections.first);
+    if (section == null) {
+      startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+    } else {
+      startExamFromSection(section.id);
+    }
+    if (!restart) _moveExamIndexToProgress(record.metric);
+  }
+
   void startAssemblyExam({
     required String scope,
     required int questionCount,
@@ -826,7 +931,10 @@ class AppStore extends ChangeNotifier {
     examSession = ExamSession(
       title: scope == 'all' ? '全部章节组卷' : '自选章节组卷',
       mode: '组卷考试',
-      questions: repository.buildAssemblyExamQuestions(count: questionCount),
+      questions: repository.buildAssemblyExamQuestions(
+        count: questionCount,
+        catalogIds: catalogIds,
+      ),
       durationMinutes: duration,
     );
     if (notify) notifyListeners();
@@ -971,6 +1079,7 @@ class AppStore extends ChangeNotifier {
       answers: session.answers,
       textAnswers: session.textAnswers,
       answerResults: session.answerResults,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
     _markLocalStateDirty();
     notifyListeners();
@@ -995,6 +1104,7 @@ class AppStore extends ChangeNotifier {
       questions: questions,
       currentIndex: 0,
       finished: false,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
     _markLocalStateDirty();
     notifyListeners();
@@ -1052,6 +1162,7 @@ class AppStore extends ChangeNotifier {
       questions: questions,
       currentIndex: 0,
       finished: false,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
     _markLocalStateDirty();
     notifyListeners();
@@ -1082,6 +1193,7 @@ class AppStore extends ChangeNotifier {
       questions: questions,
       currentIndex: 0,
       finished: false,
+      wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
     _markLocalStateDirty();
     notifyListeners();
@@ -1466,6 +1578,16 @@ class AppStore extends ChangeNotifier {
 
   void _movePracticeIndexToProgress(String metric) {
     final session = practiceSession;
+    if (session == null || session.questions.isEmpty) return;
+    final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
+    final answered = int.tryParse(match?.group(1) ?? '') ?? 0;
+    session.currentIndex =
+        answered.clamp(0, session.questions.length - 1).toInt();
+    notifyListeners();
+  }
+
+  void _moveExamIndexToProgress(String metric) {
+    final session = examSession;
     if (session == null || session.questions.isEmpty) return;
     final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
     final answered = int.tryParse(match?.group(1) ?? '') ?? 0;

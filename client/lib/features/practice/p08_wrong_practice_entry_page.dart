@@ -384,6 +384,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                       mockStore.startWrongPractice(
                         count: filteredQuestions.length,
                         questions: filteredQuestions,
+                        removeAfterCorrect: _removeRule,
                       );
                       context.go('/practice/quiz');
                     }

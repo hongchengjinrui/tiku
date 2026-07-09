@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/mock/mock_app_store.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 
@@ -196,8 +197,7 @@ class ProgressBar extends StatelessWidget {
         child: LinearProgressIndicator(
           value: progress,
           backgroundColor: AppColors.border,
-          valueColor:
-              const AlwaysStoppedAnimation<Color>(AppColors.primary),
+          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
         ),
       ),
     );
@@ -222,8 +222,7 @@ class HintBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline,
-              size: 16, color: AppColors.textMuted),
+          const Icon(Icons.info_outline, size: 16, color: AppColors.textMuted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
@@ -235,6 +234,88 @@ class HintBox extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class CacheStatusBanner extends StatelessWidget {
+  final MockAppStore store;
+
+  const CacheStatusBanner({
+    super.key,
+    required this.store,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        final online = store.remoteReady;
+        final hasLocalCache = store.stateStorage != null;
+        final color = online
+            ? AppColors.success
+            : hasLocalCache
+                ? AppColors.warning
+                : AppColors.textMuted;
+        final title = online
+            ? '在线同步'
+            : hasLocalCache
+                ? '正在使用本地缓存'
+                : '本地示例数据';
+        final subtitle = online
+            ? '题库数据已连接服务端'
+            : hasLocalCache
+                ? '答题进度会继续保存在本机'
+                : '当前设备未启用持久缓存';
+        final icon = online
+            ? Icons.cloud_done_outlined
+            : hasLocalCache
+                ? Icons.sd_storage_outlined
+                : Icons.info_outline;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 17, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

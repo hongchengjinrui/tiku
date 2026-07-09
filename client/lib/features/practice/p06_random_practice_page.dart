@@ -169,17 +169,17 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
   Widget _buildStartButton() {
     return GestureDetector(
       onTap: () {
-        if (_selectedRange == '自选章节' && _selectedSectionIds.isEmpty) {
+        final catalogIds = _selectedCatalogIds();
+        if (_selectedRange != '全部章节' && catalogIds.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请选择至少一个章节')),
+            SnackBar(content: Text(_emptyRangeMessage())),
           );
           return;
         }
         mockStore.startRandomPractice(
           count: _selectedCount,
-          catalogIds: _selectedRange == '自选章节'
-              ? _selectedSectionIds.toList()
-              : const [],
+          catalogIds: catalogIds,
+          title: _selectedRange == '全部章节' ? '随机练习' : '${_selectedRange}随机练习',
         );
         context.go('/practice/quiz');
       },
@@ -464,6 +464,15 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
     if (chapters.isEmpty) return;
     _expandedChapterIds.add(chapters.first.id);
     _selectedSectionIds.addAll(_leafSectionIds(chapters.first.sections));
+  }
+
+  List<String> _selectedCatalogIds() {
+    if (_selectedRange == '自选章节') return _selectedSectionIds.toList();
+    return mockStore.practiceCatalogIdsForRange(_selectedRange);
+  }
+
+  String _emptyRangeMessage() {
+    return _selectedRange == '自选章节' ? '请选择至少一个章节' : '当前范围暂无可抽题章节';
   }
 
   List<String> _leafSectionIds(List<Section> sections) {

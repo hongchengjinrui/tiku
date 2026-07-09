@@ -64,6 +64,7 @@ void main() {
     '/profile/upload',
     '/profile/correction',
     '/profile/feedback',
+    '/profile/cache',
     '/profile/about',
     '/profile/vip',
     '/login',

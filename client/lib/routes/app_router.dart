@@ -24,6 +24,7 @@ import '../features/resources/p40_resource_center_page.dart';
 
 // Profile
 import '../features/profile/p50_profile_page.dart';
+import '../features/profile/p60_cache_management_page.dart';
 import '../features/profile/profile_pages.dart';
 import '../features/profile/profile_record_confirm_pages.dart';
 
@@ -296,6 +297,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/profile/feedback',
       builder: (context, state) => const P56FeedbackPage(),
+    ),
+    GoRoute(
+      path: '/profile/cache',
+      builder: (context, state) => const P60CacheManagementPage(),
     ),
     GoRoute(
       path: '/profile/about',

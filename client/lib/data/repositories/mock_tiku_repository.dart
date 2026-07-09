@@ -379,9 +379,15 @@ class MockTikuRepository implements TikuRepository {
   }
 
   @override
-  List<Question> buildRandomPracticeQuestions({required int count}) {
-    return _sampleQuestions(
-        prefix: 'random', count: count.clamp(5, 50).toInt());
+  List<Question> buildRandomPracticeQuestions({
+    required int count,
+    List<String> catalogIds = const [],
+  }) {
+    return _catalogSampleQuestions(
+      fallbackPrefix: 'random',
+      count: count.clamp(5, 50).toInt(),
+      catalogIds: catalogIds,
+    );
   }
 
   @override
@@ -408,11 +414,34 @@ class MockTikuRepository implements TikuRepository {
   }
 
   @override
-  List<Question> buildAssemblyExamQuestions({required int count}) {
-    return _sampleQuestions(
-      prefix: 'assembly',
+  List<Question> buildAssemblyExamQuestions({
+    required int count,
+    List<String> catalogIds = const [],
+  }) {
+    return _catalogSampleQuestions(
+      fallbackPrefix: 'assembly',
       count: count.clamp(8, 20).toInt(),
+      catalogIds: catalogIds,
     );
+  }
+
+  List<Question> _catalogSampleQuestions({
+    required String fallbackPrefix,
+    required int count,
+    required List<String> catalogIds,
+  }) {
+    final ids = catalogIds.where((id) => id.trim().isNotEmpty).toList();
+    if (ids.isEmpty) {
+      return _sampleQuestions(prefix: fallbackPrefix, count: count);
+    }
+    final questions = <Question>[];
+    for (final id in ids) {
+      questions.addAll(_sampleQuestions(prefix: id, count: count));
+      if (questions.length >= count) {
+        break;
+      }
+    }
+    return questions.take(count).toList();
   }
 
   List<Question> _sampleQuestions(
