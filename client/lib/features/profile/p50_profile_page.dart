@@ -437,10 +437,103 @@ class P51PracticeRecordsPage extends StatelessWidget {
                           color: AppColors.textSecondary)),
                 ],
               ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _recordAction(
+                    '重新练习',
+                    Icons.replay,
+                    () {
+                      mockStore.startPracticeFromRecord(record, restart: true);
+                      context.go('/practice/quiz');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _recordAction(
+                    '继续练习',
+                    Icons.play_arrow,
+                    () {
+                      mockStore.startPracticeFromRecord(record, restart: false);
+                      context.go('/practice/quiz');
+                    },
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _confirmDeletePracticeRecord(context, record),
+                    child: const SizedBox(
+                      width: 36,
+                      height: 32,
+                      child: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _recordAction(String text, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primaryBg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(text,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeletePracticeRecord(
+    BuildContext context,
+    StudyRecord record,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除这条练习记录？'),
+        content: const Text('删除后仅移除本条记录展示，不会影响题目进度。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final ok = await mockStore.deletePracticeRecord(record);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '练习记录已删除' : '删除失败，请稍后重试')),
     );
   }
 
@@ -514,7 +607,7 @@ class P52ExamRecordsPage extends StatelessWidget {
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 10),
                                 itemBuilder: (context, i) =>
-                                    _buildExamRecordCard(records[i]),
+                                    _buildExamRecordCard(context, records[i]),
                               ),
                       ],
                     ),
@@ -578,7 +671,7 @@ class P52ExamRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildExamRecordCard(StudyRecord record) {
+  Widget _buildExamRecordCard(BuildContext context, StudyRecord record) {
     final submitted = !record.metric.contains('未交卷');
     final parts = record.metric.split(' · ');
     final scoreText = parts.isNotEmpty ? parts.first : record.metric;
@@ -642,8 +735,92 @@ class P52ExamRecordsPage extends StatelessWidget {
                       color: AppColors.textMuted)),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _examRecordAction(
+                submitted ? '查看解析' : '继续考试',
+                submitted ? Icons.visibility_outlined : Icons.play_arrow,
+                () {
+                  mockStore.openExamRecordAnalysis(record);
+                  context.go('/exam/analysis');
+                },
+              ),
+              const Spacer(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _confirmDeleteExamRecord(context, record),
+                child: const SizedBox(
+                  width: 36,
+                  height: 32,
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _examRecordAction(String text, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primaryBg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(text,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteExamRecord(
+    BuildContext context,
+    StudyRecord record,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除这条考试记录？'),
+        content: const Text('删除后将不再展示本次考试成绩和解析入口。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final ok = await mockStore.deleteExamRecord(record);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '考试记录已删除' : '删除失败，请稍后重试')),
     );
   }
 

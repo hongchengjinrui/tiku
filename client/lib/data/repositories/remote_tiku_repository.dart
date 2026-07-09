@@ -276,6 +276,31 @@ class RemoteTikuRepository extends MockTikuRepository {
     }
   }
 
+  Future<bool> deleteRecord(String mode, String recordId) async {
+    try {
+      await _dio.delete(
+        '/client/records',
+        queryParameters: {
+          'userId': userId,
+          'appKey': appKey,
+          'mode': mode,
+          'recordId': recordId,
+        },
+      );
+      if (mode == 'practice') {
+        _practiceRecords = [...?_practiceRecords]
+            .where((item) => item.id != recordId)
+            .toList();
+      } else {
+        _examRecords =
+            [...?_examRecords].where((item) => item.id != recordId).toList();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> resetProgress({
     required String mode,
     required List<String> catalogIds,
@@ -475,6 +500,7 @@ class RemoteTikuRepository extends MockTikuRepository {
         final accuracy = item['accuracy'] ?? score;
         final createdAt = item['createdAt']?.toString();
         return StudyRecord(
+          id: item['id']?.toString() ?? '',
           title: mode == 'practice'
               ? (item['mode'] ?? item['questionTitle'] ?? '练习记录').toString()
               : (item['title'] ?? '考试记录').toString(),

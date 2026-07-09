@@ -173,6 +173,8 @@ class P01PracticeHomePage extends StatelessWidget {
   /// 练习进度面板 - 渐变背景
   Widget _buildProgressPanel(BuildContext context, MockAppStore store) {
     final stat = store.practiceStat;
+    final todayDone = _todayQuestionCount(store.practiceRecords);
+    final activeDays = _activeDayCount(store.practiceRecords);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(18),
@@ -243,7 +245,7 @@ class P01PracticeHomePage extends StatelessWidget {
           const SizedBox(height: 8),
           // 今日新增进度描述
           Text(
-            '今日新增进度：24题      已累计练习：14天',
+            '今日新增进度：$todayDone题      已累计练习：$activeDays天',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 13,
@@ -402,6 +404,35 @@ class P01PracticeHomePage extends StatelessWidget {
     final done = int.tryParse(match.group(1) ?? '') ?? 0;
     final total = int.tryParse(match.group(2) ?? '') ?? 1;
     return total == 0 ? 0 : done / total;
+  }
+
+  int _todayQuestionCount(List<StudyRecord> records) {
+    return records.where((record) => _isTodayRecord(record.time)).fold<int>(
+        0, (sum, record) => sum + _answeredQuestionCount(record.metric));
+  }
+
+  int _activeDayCount(List<StudyRecord> records) {
+    if (records.isEmpty) return 0;
+    return records.map((record) => _dayKey(record.time)).toSet().length;
+  }
+
+  bool _isTodayRecord(String time) {
+    return time == '刚刚' ||
+        time.contains('分钟前') ||
+        time.contains('小时前') ||
+        time.startsWith('今天');
+  }
+
+  String _dayKey(String time) {
+    if (time == '刚刚' || time.contains('分钟前') || time.contains('小时前')) {
+      return '今天';
+    }
+    return time.split(' ').first;
+  }
+
+  int _answeredQuestionCount(String metric) {
+    final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
+    return int.tryParse(match?.group(1) ?? '') ?? 0;
   }
 
   /// 最近练习卡片

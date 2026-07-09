@@ -135,8 +135,9 @@ export class ClientApiController {
     @Query('mode') mode: 'practice' | 'exam' = 'practice',
     @Query('userId') userId?: string,
     @Query('appKey') appKey?: string,
+    @Query('recordId') recordId?: string,
   ) {
-    return this.clientApi.deleteRecords({ userId, appKey, mode });
+    return this.clientApi.deleteRecords({ userId, appKey, mode, recordId });
   }
 
   @Get('favorites')

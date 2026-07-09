@@ -445,18 +445,19 @@ export class ClientApiService {
     userId?: string;
     appKey?: string;
     mode: 'practice' | 'exam';
+    recordId?: string;
   }) {
     const userId = input.userId ?? DEFAULT_DEV_USER_ID;
     const appKey = input.appKey ?? DEFAULT_APP_KEY;
     await this.ensureDevUser(userId);
     if (input.mode === 'practice') {
       const result = await this.prisma.practiceRecord.deleteMany({
-        where: { userId, appKey },
+        where: { userId, appKey, ...(input.recordId ? { id: input.recordId } : {}) },
       });
       return { deleted: result.count };
     }
     const result = await this.prisma.examRecord.deleteMany({
-      where: { userId, appKey },
+      where: { userId, appKey, ...(input.recordId ? { id: input.recordId } : {}) },
     });
     return { deleted: result.count };
   }

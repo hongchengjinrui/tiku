@@ -97,6 +97,9 @@ class _ExamProgressPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stat = store.examStat;
+    final todayExamCount =
+        store.examRecords.where((record) => _isTodayRecord(record.time)).length;
+    final activeDays = _activeDayCount(store.examRecords);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -121,31 +124,35 @@ class _ExamProgressPanel extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   )),
-              Container(
-                height: 26,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.swap_horiz, size: 14, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text('切换科目',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: Colors.white,
-                        )),
-                  ],
+              GestureDetector(
+                onTap: () => context.go('/practice/switch-subject'),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('切换科目',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: Colors.white,
+                          )),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          const Text('今日新增进度：3题      已累计考核：12天',
+          Text('今日新增考核：$todayExamCount次      已累计考核：$activeDays天',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
@@ -194,6 +201,25 @@ class _ExamProgressPanel extends StatelessWidget {
             )),
       ],
     );
+  }
+
+  int _activeDayCount(List<StudyRecord> records) {
+    if (records.isEmpty) return 0;
+    return records.map((record) => _dayKey(record.time)).toSet().length;
+  }
+
+  bool _isTodayRecord(String time) {
+    return time == '刚刚' ||
+        time.contains('分钟前') ||
+        time.contains('小时前') ||
+        time.startsWith('今天');
+  }
+
+  String _dayKey(String time) {
+    if (time == '刚刚' || time.contains('分钟前') || time.contains('小时前')) {
+      return '今天';
+    }
+    return time.split(' ').first;
   }
 }
 

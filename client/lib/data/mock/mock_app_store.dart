@@ -374,6 +374,18 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> deletePracticeRecord(StudyRecord record) async {
+    final current = repository;
+    if (current is RemoteTikuRepository && record.id.isNotEmpty) {
+      final ok = await current.deleteRecord('practice', record.id);
+      if (!ok) return false;
+    }
+    practiceRecords =
+        practiceRecords.where((item) => !_sameRecord(item, record)).toList();
+    notifyListeners();
+    return true;
+  }
+
   Future<bool> deleteExamRecords() async {
     final current = repository;
     if (current is RemoteTikuRepository) {
@@ -381,6 +393,18 @@ class AppStore extends ChangeNotifier {
       if (!ok) return false;
     }
     examRecords = const [];
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> deleteExamRecord(StudyRecord record) async {
+    final current = repository;
+    if (current is RemoteTikuRepository && record.id.isNotEmpty) {
+      final ok = await current.deleteRecord('exam', record.id);
+      if (!ok) return false;
+    }
+    examRecords =
+        examRecords.where((item) => !_sameRecord(item, record)).toList();
     notifyListeners();
     return true;
   }
@@ -533,6 +557,7 @@ class AppStore extends ChangeNotifier {
 
     practiceRecords = [
       StudyRecord(
+        id: 'practice-${DateTime.now().microsecondsSinceEpoch}',
         title: _displayRecordTitle(session.title),
         mode: session.mode,
         metric:
@@ -683,6 +708,7 @@ class AppStore extends ChangeNotifier {
     }
     examRecords = [
       StudyRecord(
+        id: 'exam-${DateTime.now().microsecondsSinceEpoch}',
         title: _displayRecordTitle(session.title),
         mode: session.mode,
         metric: '${session.score}分 · 正确率 ${session.accuracy}%',
@@ -1139,6 +1165,14 @@ class AppStore extends ChangeNotifier {
     return _displayRecordTitle(value)
         .replaceAll(RegExp(r'[\s:：·（）()]'), '')
         .toLowerCase();
+  }
+
+  bool _sameRecord(StudyRecord left, StudyRecord right) {
+    if (left.id.isNotEmpty && right.id.isNotEmpty) return left.id == right.id;
+    return left.title == right.title &&
+        left.mode == right.mode &&
+        left.metric == right.metric &&
+        left.time == right.time;
   }
 
   void _movePracticeIndexToProgress(String metric) {

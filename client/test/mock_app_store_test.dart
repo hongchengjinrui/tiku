@@ -293,4 +293,20 @@ void main() {
     expect(store.practiceSession?.questions.map((question) => question.id),
         ['fav_fill']);
   });
+
+  test('single record deletion keeps other records', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    final practiceTarget = store.practiceRecords.first;
+    final practiceRemain = store.practiceRecords.last;
+    final examTarget = store.examRecords.first;
+    final examRemain = store.examRecords.last;
+
+    final practiceDeleted = await store.deletePracticeRecord(practiceTarget);
+    final examDeleted = await store.deleteExamRecord(examTarget);
+
+    expect(practiceDeleted, isTrue);
+    expect(examDeleted, isTrue);
+    expect(store.practiceRecords, [practiceRemain]);
+    expect(store.examRecords, [examRemain]);
+  });
 }

@@ -362,12 +362,14 @@ String _stripWrappingQuotes(String value) {
 }
 
 class StudyRecord {
+  final String id;
   final String title;
   final String mode;
   final String metric;
   final String time;
 
   const StudyRecord({
+    this.id = '',
     required this.title,
     required this.mode,
     required this.metric,
