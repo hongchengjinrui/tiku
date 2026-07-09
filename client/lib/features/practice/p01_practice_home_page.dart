@@ -38,6 +38,17 @@ class P01PracticeHomePage extends StatelessWidget {
                       // ===== 练习进度面板 - 渐变背景 =====
                       _buildProgressPanel(context, mockStore),
 
+                      if (_hasActivePracticeSession(mockStore)) ...[
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _buildActivePracticeCard(
+                            context,
+                            mockStore.practiceSession!,
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 16),
 
                       // ===== 练习入口 标题 =====
@@ -178,6 +189,94 @@ class P01PracticeHomePage extends StatelessWidget {
           // ===== 底部 TabBar =====
           const BottomTabBar(currentIndex: 0),
         ],
+      ),
+    );
+  }
+
+  bool _hasActivePracticeSession(MockAppStore store) {
+    final session = store.practiceSession;
+    return session != null && !session.finished && session.questions.isNotEmpty;
+  }
+
+  Widget _buildActivePracticeCard(
+    BuildContext context,
+    PracticeSession session,
+  ) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.go('/practice/quiz'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.play_circle_outline,
+                size: 22,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '继续上次练习',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${session.mode} · ${session.title} · 已作答 ${session.answeredCount}/${session.questions.length}题',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: const Text(
+                '继续',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

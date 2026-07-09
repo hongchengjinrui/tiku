@@ -43,6 +43,16 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: _ExamProgressPanel(store: mockStore),
                         ),
+                        if (_hasActiveExamSession(mockStore)) ...[
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildActiveExamCard(
+                              context,
+                              mockStore.examSession!,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 20),
@@ -92,6 +102,96 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
         ),
       ),
     );
+  }
+
+  bool _hasActiveExamSession(MockAppStore store) {
+    final session = store.examSession;
+    return session != null &&
+        !session.submitted &&
+        session.questions.isNotEmpty;
+  }
+
+  Widget _buildActiveExamCard(BuildContext context, ExamSession session) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.go('/exam/answer'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.timer_outlined,
+                size: 22,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('继续未交卷考试',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      )),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${session.mode} · 已作答 ${session.answeredCount}/${session.questions.length}题 · 剩余 ${_formatRemaining(session.remainingSeconds)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text('继续',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatRemaining(int seconds) {
+    final safeSeconds = seconds.clamp(0, 99 * 3600).toInt();
+    final minutes = safeSeconds ~/ 60;
+    final second = safeSeconds % 60;
+    return '$minutes:${second.toString().padLeft(2, '0')}';
   }
 }
 

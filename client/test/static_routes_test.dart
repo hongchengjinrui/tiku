@@ -176,6 +176,66 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('home pages resume active practice and exam sessions',
+      (tester) async {
+    final previousPracticeSession = mockStore.practiceSession;
+    final previousExamSession = mockStore.examSession;
+    addTearDown(() {
+      mockStore.practiceSession = previousPracticeSession;
+      mockStore.examSession = previousExamSession;
+    });
+
+    mockStore.practiceSession = PracticeSession(
+      title: '恢复练习小节',
+      mode: '章节练习',
+      questions: const [
+        Question(
+          id: 'resume_practice_q1',
+          type: QuestionType.single,
+          stem: '恢复练习题干',
+          options: ['A', 'B'],
+          answerIndexes: {0},
+          analysis: '解析',
+        ),
+      ],
+    );
+    mockStore.examSession = ExamSession(
+      title: '恢复考试小节',
+      mode: '章节考试',
+      durationMinutes: 45,
+      remainingSeconds: 120,
+      questions: const [
+        Question(
+          id: 'resume_exam_q1',
+          type: QuestionType.single,
+          stem: '恢复考试题干',
+          options: ['A', 'B'],
+          answerIndexes: {0},
+          analysis: '解析',
+        ),
+      ],
+    );
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/practice');
+    await tester.pumpAndSettle();
+    expect(find.text('继续上次练习'), findsOneWidget);
+    await tester.tap(find.text('继续上次练习'));
+    await tester.pumpAndSettle();
+    expect(find.text('恢复练习题干'), findsOneWidget);
+
+    appRouter.go('/exam');
+    await tester.pumpAndSettle();
+    expect(find.text('继续未交卷考试'), findsOneWidget);
+    await tester.tap(find.text('继续未交卷考试'));
+    await tester.pumpAndSettle();
+    expect(find.text('恢复考试题干'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('home record sections show empty states after records cleared',
       (tester) async {
     final previousPracticeRecords = mockStore.practiceRecords;
