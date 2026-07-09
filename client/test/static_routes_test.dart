@@ -114,4 +114,31 @@ void main() {
 
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets('bottom tab bar switches between main roots', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/practice');
+    await tester.pumpAndSettle();
+    expect(find.text('练习入口'), findsOneWidget);
+
+    await tester.tap(find.text('考试').last);
+    await tester.pumpAndSettle();
+    expect(find.text('考试入口'), findsOneWidget);
+
+    await tester.tap(find.text('资料').last);
+    await tester.pumpAndSettle();
+    expect(find.text('免费资料 · VIP专享资料'), findsOneWidget);
+
+    await tester.tap(find.text('我的').last);
+    await tester.pumpAndSettle();
+    expect(find.text('本地体验用户'), findsOneWidget);
+
+    await tester.tap(find.text('练习').last);
+    await tester.pumpAndSettle();
+    expect(find.text('练习入口'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
 }
