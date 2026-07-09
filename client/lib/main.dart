@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'data/local/app_state_storage.dart';
 import 'data/mock/mock_app_store.dart';
 import 'routes/app_router.dart';
 import 'theme/app_theme.dart';
@@ -13,6 +14,12 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+  try {
+    await appStore
+        .attachStateStorage(await FileAppStateStorage.createDefault());
+  } catch (_) {
+    // Local cache should never block app startup.
+  }
   unawaited(appStore.hydrateRemote());
   runApp(const ProviderScope(child: TikuApp()));
 }

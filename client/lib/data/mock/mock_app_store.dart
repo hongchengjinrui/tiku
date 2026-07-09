@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../local/app_state_storage.dart';
 import '../repositories/remote_tiku_repository.dart';
 import '../repositories/tiku_repository.dart';
 import 'models.dart';
@@ -16,10 +17,29 @@ typedef MockAppStore = AppStore;
 
 class AppStore extends ChangeNotifier {
   TikuRepository repository;
+  AppStateStorage? stateStorage;
   bool remoteReady = false;
+  bool _restoringLocalState = false;
+  bool _localStateDirty = false;
+  Timer? _localPersistTimer;
 
-  AppStore({required this.repository}) {
+  AppStore({required this.repository, this.stateStorage}) {
     _loadInitialState();
+  }
+
+  @override
+  void dispose() {
+    _localPersistTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_localStateDirty && !_restoringLocalState) {
+      _localStateDirty = false;
+      _scheduleLocalStatePersist();
+    }
+    super.notifyListeners();
   }
 
   late List<Subject> subjects;
@@ -54,6 +74,91 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  Future<void> attachStateStorage(AppStateStorage storage) async {
+    stateStorage = storage;
+    await restoreLocalState();
+  }
+
+  Future<void> restoreLocalState() async {
+    final storage = stateStorage;
+    if (storage == null) return;
+    final snapshot = await storage.read();
+    if (snapshot == null) return;
+    _restoringLocalState = true;
+    try {
+      _applySnapshot(snapshot);
+    } finally {
+      _restoringLocalState = false;
+    }
+    super.notifyListeners();
+  }
+
+  Future<void> flushLocalState() async {
+    _localPersistTimer?.cancel();
+    _localPersistTimer = null;
+    final storage = stateStorage;
+    if (storage == null) return;
+    await storage.write(_snapshot());
+  }
+
+  void _applySnapshot(AppStateSnapshot snapshot) {
+    if (snapshot.selectedSubjectId.isNotEmpty) {
+      selectedSubjectId = snapshot.selectedSubjectId;
+    }
+    if (snapshot.selectedChapterId.isNotEmpty) {
+      selectedChapterId = snapshot.selectedChapterId;
+    }
+    if (snapshot.selectedExamChapterId.isNotEmpty) {
+      selectedExamChapterId = snapshot.selectedExamChapterId;
+    }
+    if (snapshot.practiceChapters.isNotEmpty) {
+      chapters = snapshot.practiceChapters;
+    }
+    if (snapshot.examChapters.isNotEmpty) {
+      examChapters = snapshot.examChapters;
+    }
+    if (snapshot.practicePapers.isNotEmpty) {
+      practicePapers = snapshot.practicePapers;
+    }
+    if (snapshot.examPapers.isNotEmpty) {
+      examPapers = snapshot.examPapers;
+    }
+    practiceRecords = snapshot.practiceRecords;
+    examRecords = snapshot.examRecords;
+    favoriteQuestions = snapshot.favoriteQuestions;
+    wrongQuestions = snapshot.wrongQuestions;
+  }
+
+  AppStateSnapshot _snapshot() {
+    return AppStateSnapshot(
+      savedAt: DateTime.now(),
+      selectedSubjectId: selectedSubjectId,
+      selectedChapterId: selectedChapterId,
+      selectedExamChapterId: selectedExamChapterId,
+      practiceChapters: chapters,
+      examChapters: examChapters,
+      practicePapers: practicePapers,
+      examPapers: examPapers,
+      practiceRecords: practiceRecords,
+      examRecords: examRecords,
+      favoriteQuestions: favoriteQuestions,
+      wrongQuestions: wrongQuestions,
+    );
+  }
+
+  void _markLocalStateDirty() {
+    _localStateDirty = true;
+  }
+
+  void _scheduleLocalStatePersist() {
+    final storage = stateStorage;
+    if (storage == null) return;
+    _localPersistTimer?.cancel();
+    _localPersistTimer = Timer(const Duration(milliseconds: 250), () {
+      unawaited(storage.write(_snapshot()));
+    });
+  }
+
   Future<void> hydrateRemote() async {
     final current = repository;
     if (current is! RemoteTikuRepository) return;
@@ -66,6 +171,7 @@ class AppStore extends ChangeNotifier {
         chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
     selectedExamChapterId =
         examChapters.isNotEmpty ? examChapters.first.id : selectedExamChapterId;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -127,6 +233,7 @@ class AppStore extends ChangeNotifier {
     selectedSubjectId = subjectId;
     practiceSession = null;
     examSession = null;
+    _markLocalStateDirty();
     notifyListeners();
     final current = repository;
     if (current is! RemoteTikuRepository) return;
@@ -135,16 +242,19 @@ class AppStore extends ChangeNotifier {
     _loadInitialState();
     selectedSubjectId = subjectId;
     _resetSelectedCatalogs();
+    _markLocalStateDirty();
     notifyListeners();
   }
 
   void selectChapter(String chapterId) {
     selectedChapterId = chapterId;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
   void selectExamChapter(String chapterId) {
     selectedExamChapterId = chapterId;
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -327,6 +437,7 @@ class AppStore extends ChangeNotifier {
     if (current is RemoteTikuRepository) {
       await current.toggleFavorite(question);
       favoriteQuestions = current.loadCachedFavoriteQuestions();
+      _markLocalStateDirty();
       notifyListeners();
       return;
     }
@@ -334,6 +445,7 @@ class AppStore extends ChangeNotifier {
     favoriteQuestions = exists
         ? favoriteQuestions.where((item) => item.id != question.id).toList()
         : [question, ...favoriteQuestions];
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -344,6 +456,7 @@ class AppStore extends ChangeNotifier {
       if (!ok) return false;
     }
     _dropWrongQuestions({question.id});
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -364,6 +477,7 @@ class AppStore extends ChangeNotifier {
       if (!ok) return false;
     }
     _dropWrongQuestions(ids);
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -378,10 +492,12 @@ class AppStore extends ChangeNotifier {
       _loadInitialState();
       selectedChapterId =
           chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
+      _markLocalStateDirty();
       notifyListeners();
       return true;
     }
     _resetPracticeCatalogs(ids.toSet());
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -396,10 +512,12 @@ class AppStore extends ChangeNotifier {
       selectedExamChapterId = examChapters.isNotEmpty
           ? examChapters.first.id
           : selectedExamChapterId;
+      _markLocalStateDirty();
       notifyListeners();
       return true;
     }
     _resetExamCatalogs(ids.toSet());
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -411,6 +529,7 @@ class AppStore extends ChangeNotifier {
       if (!ok) return false;
     }
     practiceRecords = const [];
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -423,6 +542,7 @@ class AppStore extends ChangeNotifier {
     }
     practiceRecords =
         practiceRecords.where((item) => !_sameRecord(item, record)).toList();
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -434,6 +554,7 @@ class AppStore extends ChangeNotifier {
       if (!ok) return false;
     }
     examRecords = const [];
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -446,6 +567,7 @@ class AppStore extends ChangeNotifier {
     }
     examRecords =
         examRecords.where((item) => !_sameRecord(item, record)).toList();
+    _markLocalStateDirty();
     notifyListeners();
     return true;
   }
@@ -542,6 +664,7 @@ class AppStore extends ChangeNotifier {
           question,
           ...wrongQuestions.where((item) => item.id != question.id),
         ];
+        _markLocalStateDirty();
       }
       unawaited(_refreshRemoteRecords());
     }
@@ -608,6 +731,7 @@ class AppStore extends ChangeNotifier {
       ...practiceRecords.take(7),
     ];
     session.finished = true;
+    _markLocalStateDirty();
     unawaited(_refreshRemoteRecords());
     notifyListeners();
   }
@@ -801,6 +925,7 @@ class AppStore extends ChangeNotifier {
       current.submitExamResult(session);
       unawaited(_refreshRemoteRecords());
     }
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -899,6 +1024,7 @@ class AppStore extends ChangeNotifier {
       subjectId: selectedSubjectId,
     );
     favoriteQuestions = current.loadCachedFavoriteQuestions();
+    _markLocalStateDirty();
     final session = practiceSession;
     if (session == null || session.mode != '收藏练习') {
       notifyListeners();
@@ -927,6 +1053,7 @@ class AppStore extends ChangeNotifier {
       subjectId: selectedSubjectId,
     );
     wrongQuestions = current.loadCachedWrongQuestions();
+    _markLocalStateDirty();
     final session = practiceSession;
     if (session == null || session.mode != '错题练习') {
       notifyListeners();
@@ -998,6 +1125,7 @@ class AppStore extends ChangeNotifier {
     examRecords = current.loadExamRecords();
     favoriteQuestions = current.loadCachedFavoriteQuestions();
     wrongQuestions = current.loadCachedWrongQuestions();
+    _markLocalStateDirty();
     notifyListeners();
   }
 

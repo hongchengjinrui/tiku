@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tiku_muban/data/local/app_state_storage.dart';
 import 'package:tiku_muban/data/mock/mock_app_store.dart';
 import 'package:tiku_muban/data/mock/models.dart';
 import 'package:tiku_muban/data/repositories/mock_tiku_repository.dart';
@@ -498,5 +499,54 @@ void main() {
     expect(examDeleted, isTrue);
     expect(store.practiceRecords, [practiceRemain]);
     expect(store.examRecords, [examRemain]);
+  });
+
+  test('local app state storage restores user progress and selections',
+      () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await store.selectSubject('middle_teacher');
+    store.selectChapter('chapter_2');
+    store.selectExamChapter('chapter_2');
+
+    final section = store.chapters.first.sections.first;
+    final beforeDone = section.done;
+    store.startPracticeFromSection(section.id, notify: false);
+    store.answerPractice(store.practiceSession!.currentQuestion.answerIndexes);
+    store.finishPracticeSession();
+
+    const favorite = Question(
+      id: 'cached_favorite_q1',
+      type: QuestionType.single,
+      stem: '收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    final wrong = favorite.copyWith(wrongCount: 2, lastWrongAt: DateTime(2026));
+    await store.toggleFavorite(favorite);
+    store.wrongQuestions = [wrong];
+    await store.flushLocalState();
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+    final restoredSection = restored.chapters
+        .expand((chapter) => chapter.sections)
+        .firstWhere((item) => item.id == section.id);
+
+    expect(restored.selectedSubjectId, 'middle_teacher');
+    expect(restored.selectedChapterId, 'chapter_2');
+    expect(restored.selectedExamChapterId, 'chapter_2');
+    expect(restoredSection.done, beforeDone + 1);
+    expect(restored.practiceRecords.first.mode, '章节练习');
+    expect(restored.favoriteQuestions.map((item) => item.id),
+        ['cached_favorite_q1']);
+    expect(restored.wrongQuestions.single.wrongCount, 2);
   });
 }
