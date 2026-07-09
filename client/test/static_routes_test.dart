@@ -375,6 +375,34 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('advanced question type answer pages keep navigation chain',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/qt/short');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('第1题（单选）：该教师采用的教学方法属于？'), findsOneWidget);
+
+    await tester.tap(find.text('上一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('简述建构主义学习理论的基本观点。'), findsOneWidget);
+
+    appRouter.go('/qt/material');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('根据下方图片回答问题：'), findsOneWidget);
+
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.text('图片加载失败'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('question type result pages navigate through review states',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));

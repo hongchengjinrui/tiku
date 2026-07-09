@@ -695,6 +695,10 @@ class QT05ShortAnswerPage extends StatelessWidget {
                   ]),
             ),
           ),
+          const _QTBottomNavBar(
+            previousRoute: '/qt/fillblank',
+            nextRoute: '/qt/material',
+          ),
         ]),
       ),
     );
@@ -823,6 +827,10 @@ class QT06MaterialPage extends StatelessWidget {
                   ]),
             ),
           ),
+          const _QTBottomNavBar(
+            previousRoute: '/qt/short',
+            nextRoute: '/qt/image',
+          ),
         ]),
       ),
     );
@@ -905,6 +913,10 @@ class QT07ImageQuestionPage extends StatelessWidget {
                         )),
                   ]),
             ),
+          ),
+          const _QTBottomNavBar(
+            previousRoute: '/qt/material',
+            nextRoute: '/qt/image-error',
           ),
         ]),
       ),
