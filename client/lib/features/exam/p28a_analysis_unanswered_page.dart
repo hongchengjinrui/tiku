@@ -334,8 +334,12 @@ class _AnalysisDetailPage extends StatelessWidget {
   }
 
   Widget _bottomBar(ExamSession session, int index) {
-    final canPrevious = index > 0;
-    final canNext = index < session.questions.length - 1;
+    final indexes = _matchingIndexes(session);
+    final position = indexes.indexOf(index);
+    final previousIndex = position > 0 ? indexes[position - 1] : null;
+    final nextIndex = position >= 0 && position < indexes.length - 1
+        ? indexes[position + 1]
+        : null;
     return Container(
       height: 64,
       decoration: const BoxDecoration(
@@ -348,14 +352,18 @@ class _AnalysisDetailPage extends StatelessWidget {
         children: [
           _bottomButton(
             '上一题',
-            enabled: canPrevious,
-            onTap: () => mockStore.jumpExamQuestion(index - 1),
+            enabled: previousIndex != null,
+            onTap: previousIndex == null
+                ? null
+                : () => mockStore.jumpExamQuestion(previousIndex),
           ),
           _bottomButton(
             '下一题',
             primary: true,
-            enabled: canNext,
-            onTap: () => mockStore.jumpExamQuestion(index + 1),
+            enabled: nextIndex != null,
+            onTap: nextIndex == null
+                ? null
+                : () => mockStore.jumpExamQuestion(nextIndex),
           ),
         ],
       ),
@@ -397,10 +405,14 @@ class _AnalysisDetailPage extends StatelessWidget {
   int? _targetIndex(ExamSession session) {
     final current = session.currentIndex;
     if (_matches(session, current)) return current;
-    for (var index = 0; index < session.questions.length; index++) {
-      if (_matches(session, index)) return index;
-    }
-    return null;
+    final indexes = _matchingIndexes(session);
+    return indexes.isEmpty ? null : indexes.first;
+  }
+
+  List<int> _matchingIndexes(ExamSession session) {
+    return List.generate(session.questions.length, (index) => index)
+        .where((index) => _matches(session, index))
+        .toList();
   }
 
   bool _matches(ExamSession session, int index) {

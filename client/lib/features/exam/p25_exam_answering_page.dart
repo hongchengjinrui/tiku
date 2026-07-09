@@ -53,7 +53,13 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
         _examTimer?.cancel();
         return;
       }
+      final wasSubmitted = session.submitted;
       mockStore.tickExamSecond();
+      final latestSession = mockStore.examSession;
+      if (!wasSubmitted && mounted && latestSession?.submitted == true) {
+        _examTimer?.cancel();
+        GoRouter.of(context).go('/exam/analysis');
+      }
     });
   }
 
