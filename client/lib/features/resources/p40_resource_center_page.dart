@@ -741,25 +741,43 @@ class P42UnlockedResourceDetailPage extends StatelessWidget {
                               color: AppColors.textPrimary)),
                     ),
                     const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.download, size: 20, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text('下载资料',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white)),
-                        ],
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () async {
+                        const link = 'local://教育基础高频考点速记';
+                        mockStore.claimResourceDownloadLink(
+                          resourceId: 'fallback_vip_1',
+                          title: '教育基础高频考点速记',
+                          link: link,
+                          subjectName: mockStore.selectedSubject.name,
+                          isFree: false,
+                        );
+                        await Clipboard.setData(
+                            const ClipboardData(text: link));
+                        if (context.mounted) {
+                          P40BLinkCopiedToast.show(context);
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.download, size: 20, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('下载资料',
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
+                          ],
+                        ),
                       ),
                     ),
                   ],

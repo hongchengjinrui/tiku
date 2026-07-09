@@ -177,6 +177,30 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('unlocked resource download creates a claim record',
+      (tester) async {
+    final previousClaims = mockStore.resourceClaims;
+    addTearDown(() => mockStore.resourceClaims = previousClaims);
+    mockStore.resourceClaims = const [];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/resources/unlocked');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('下载资料'));
+    await tester.pumpAndSettle();
+
+    expect(mockStore.resourceClaimFor('fallback_vip_1')?.count, 1);
+
+    appRouter.go('/profile/resource-claims');
+    await tester.pumpAndSettle();
+    expect(find.text('教育基础高频考点速记'), findsOneWidget);
+    expect(find.text('已领取1次'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('profile opens pending feedback records', (tester) async {
     final previousFeedbacks = mockStore.feedbackSubmissions;
     addTearDown(() => mockStore.feedbackSubmissions = previousFeedbacks);
@@ -288,6 +312,37 @@ void main() {
     expect(mockStore.examSession?.mode, '组卷考试');
     expect(mockStore.examSession?.questions.length, greaterThan(0));
     expect(find.text('组卷考试'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('empty state actions return to study roots', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/empty/practice');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去练习'));
+    await tester.pumpAndSettle();
+    expect(find.text('练习入口'), findsOneWidget);
+
+    appRouter.go('/empty/wrong');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去练习'));
+    await tester.pumpAndSettle();
+    expect(find.text('练习入口'), findsOneWidget);
+
+    appRouter.go('/empty/favorite');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去练习'));
+    await tester.pumpAndSettle();
+    expect(find.text('练习入口'), findsOneWidget);
+
+    appRouter.go('/empty/exam');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去考试'));
+    await tester.pumpAndSettle();
+    expect(find.text('考试入口'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });

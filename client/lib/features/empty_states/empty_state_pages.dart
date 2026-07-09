@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -94,13 +95,14 @@ class E01NoPracticeRecordPage extends StatelessWidget {
           children: [
             const StatusBar(),
             const NavBar(title: '练习记录'),
-            const Expanded(
+            Expanded(
               child: EmptyState(
                 icon: Icons.history,
                 iconColor: AppColors.primary,
                 title: '暂无练习记录',
                 subtitle: '开始你的第一次练习吧',
                 actionLabel: '去练习',
+                onAction: () => context.go('/practice'),
               ),
             ),
           ],
@@ -123,12 +125,14 @@ class E02NoWrongQuestionPage extends StatelessWidget {
           children: [
             const StatusBar(),
             const NavBar(title: '错题练习'),
-            const Expanded(
+            Expanded(
               child: EmptyState(
                 icon: Icons.check_circle_outline,
                 iconColor: AppColors.success,
                 title: '暂无错题',
                 subtitle: '全部题目都已掌握，太棒了！',
+                actionLabel: '去练习',
+                onAction: () => context.go('/practice'),
               ),
             ),
           ],
@@ -151,12 +155,14 @@ class E03NoFavoritePage extends StatelessWidget {
           children: [
             const StatusBar(),
             const NavBar(title: '收藏练习'),
-            const Expanded(
+            Expanded(
               child: EmptyState(
                 icon: Icons.star_border,
                 iconColor: AppColors.warning,
                 title: '暂无收藏题目',
                 subtitle: '在练习中点击星标即可收藏题目',
+                actionLabel: '去练习',
+                onAction: () => context.go('/practice'),
               ),
             ),
           ],
@@ -179,13 +185,14 @@ class E04NoExamRecordPage extends StatelessWidget {
           children: [
             const StatusBar(),
             const NavBar(title: '考试记录'),
-            const Expanded(
+            Expanded(
               child: EmptyState(
                 icon: Icons.assignment_outlined,
                 iconColor: AppColors.primary,
                 title: '暂无考试记录',
                 subtitle: '完成一次考试后记录将显示在这里',
                 actionLabel: '去考试',
+                onAction: () => context.go('/exam'),
               ),
             ),
           ],
