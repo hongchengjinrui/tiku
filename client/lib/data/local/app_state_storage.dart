@@ -82,6 +82,7 @@ class AppStateSnapshot {
   final List<StudyRecord> examRecords;
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
+  final Map<String, List<Question>> catalogQuestionCache;
 
   const AppStateSnapshot({
     this.version = currentVersion,
@@ -97,6 +98,7 @@ class AppStateSnapshot {
     required this.examRecords,
     required this.favoriteQuestions,
     required this.wrongQuestions,
+    this.catalogQuestionCache = const {},
   });
 
   factory AppStateSnapshot.fromJson(Map<String, dynamic> json) {
@@ -115,6 +117,8 @@ class AppStateSnapshot {
       examRecords: _mapList(json['examRecords'], _recordFromJson),
       favoriteQuestions: _mapList(json['favoriteQuestions'], _questionFromJson),
       wrongQuestions: _mapList(json['wrongQuestions'], _questionFromJson),
+      catalogQuestionCache:
+          _questionCacheFromJson(json['catalogQuestionCache']),
     );
   }
 
@@ -133,6 +137,9 @@ class AppStateSnapshot {
       'examRecords': examRecords.map(_recordToJson).toList(),
       'favoriteQuestions': favoriteQuestions.map(_questionToJson).toList(),
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
+      'catalogQuestionCache': catalogQuestionCache.map(
+        (key, value) => MapEntry(key, value.map(_questionToJson).toList()),
+      ),
     };
   }
 }
@@ -143,6 +150,17 @@ List<T> _mapList<T>(Object? value, T Function(Map<String, dynamic>) parser) {
       .whereType<Map>()
       .map((item) => parser(Map<String, dynamic>.from(item)))
       .toList();
+}
+
+Map<String, List<Question>> _questionCacheFromJson(Object? value) {
+  if (value is! Map) return const {};
+  return value.map((key, rawQuestions) {
+    return MapEntry(
+      key.toString(),
+      _mapList(rawQuestions, _questionFromJson),
+    );
+  })
+    ..removeWhere((_, questions) => questions.isEmpty);
 }
 
 Map<String, Object?> _chapterToJson(Chapter chapter) {

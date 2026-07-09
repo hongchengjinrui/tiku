@@ -3,6 +3,7 @@ import 'package:tiku_muban/data/local/app_state_storage.dart';
 import 'package:tiku_muban/data/mock/mock_app_store.dart';
 import 'package:tiku_muban/data/mock/models.dart';
 import 'package:tiku_muban/data/repositories/mock_tiku_repository.dart';
+import 'package:tiku_muban/data/repositories/remote_tiku_repository.dart';
 
 void main() {
   test('practice session records answers and updates section progress', () {
@@ -548,5 +549,44 @@ void main() {
     expect(restored.favoriteQuestions.map((item) => item.id),
         ['cached_favorite_q1']);
     expect(restored.wrongQuestions.single.wrongCount, 2);
+  });
+
+  test('local snapshot restores remote catalog question cache', () async {
+    final storage = MemoryAppStateStorage();
+    final repository = RemoteTikuRepository(baseUrl: 'http://127.0.0.1:1/api');
+    final section = repository.loadPracticeChapters().first.sections.first;
+    const cachedQuestion = Question(
+      id: 'cached_catalog_q1',
+      type: QuestionType.single,
+      stem: '缓存章节题',
+      options: ['A', 'B'],
+      answerIndexes: {1},
+      analysis: '缓存解析',
+    );
+    storage.snapshot = AppStateSnapshot(
+      savedAt: DateTime(2026),
+      selectedSubjectId: 'primary_teacher',
+      selectedChapterId: 'chapter_1',
+      selectedExamChapterId: 'chapter_1',
+      practiceChapters: repository.loadPracticeChapters(),
+      examChapters: repository.loadExamChapters(),
+      practicePapers: repository.loadPracticePapers(),
+      examPapers: repository.loadExamPapers(),
+      practiceRecords: const [],
+      examRecords: const [],
+      favoriteQuestions: const [],
+      wrongQuestions: const [],
+      catalogQuestionCache: {
+        section.id: const [cachedQuestion],
+      },
+    );
+
+    final store = AppStore(repository: repository, stateStorage: storage);
+    await store.restoreLocalState();
+    store.startPracticeFromSection(section.id, notify: false);
+
+    expect(store.practiceSession?.questions.map((item) => item.id),
+        ['cached_catalog_q1']);
+    expect(store.practiceSession?.currentQuestion.stem, '缓存章节题');
   });
 }

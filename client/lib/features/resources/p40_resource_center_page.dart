@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/repositories/remote_tiku_repository.dart';
 import '../../theme/app_colors.dart';
@@ -239,6 +243,7 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
 }
 
 Future<List<_ResourceItem>> _loadResources() async {
+  final cached = await _readCachedResources();
   try {
     final dio = Dio(
       BaseOptions(
@@ -272,10 +277,44 @@ Future<List<_ResourceItem>> _loadResources() async {
         unlocked: item['unlocked'] == true,
       );
     }).toList();
-    return parsed.isEmpty ? _fallbackResources : parsed;
+    if (parsed.isNotEmpty) {
+      await _writeCachedResources(parsed);
+      return parsed;
+    }
+    return cached.isNotEmpty ? cached : _fallbackResources;
   } catch (_) {
-    return _fallbackResources;
+    return cached.isNotEmpty ? cached : _fallbackResources;
   }
+}
+
+Future<List<_ResourceItem>> _readCachedResources() async {
+  try {
+    final file = await _resourceCacheFile();
+    if (!await file.exists()) return const [];
+    final decoded = jsonDecode(await file.readAsString());
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((item) => _ResourceItem.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
+Future<void> _writeCachedResources(List<_ResourceItem> resources) async {
+  try {
+    final file = await _resourceCacheFile();
+    await file.parent.create(recursive: true);
+    await file.writeAsString(
+      jsonEncode(resources.map((item) => item.toJson()).toList()),
+    );
+  } catch (_) {}
+}
+
+Future<File> _resourceCacheFile() async {
+  final directory = await getApplicationSupportDirectory();
+  return File('${directory.path}/tiku_resource_cache_v1.json');
 }
 
 const _fallbackResources = [
@@ -348,6 +387,37 @@ class _ResourceItem {
     required this.isFree,
     required this.unlocked,
   });
+
+  factory _ResourceItem.fromJson(Map<String, dynamic> json) {
+    return _ResourceItem(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '备考资料',
+      subjectName: json['subjectName']?.toString(),
+      description: json['description']?.toString(),
+      fileType: json['fileType']?.toString() ?? 'PDF',
+      fileUrl: json['fileUrl']?.toString(),
+      pages: (json['pages'] as List<dynamic>? ?? [])
+          .map((page) => page.toString())
+          .where((page) => page.trim().isNotEmpty)
+          .toList(),
+      isFree: json['isFree'] == true,
+      unlocked: json['unlocked'] == true,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'subjectName': subjectName,
+      'description': description,
+      'fileType': fileType,
+      'fileUrl': fileUrl,
+      'pages': pages,
+      'isFree': isFree,
+      'unlocked': unlocked,
+    };
+  }
 
   String get subtitle {
     final access = isFree ? '免费' : 'VIP';

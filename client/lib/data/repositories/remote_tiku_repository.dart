@@ -214,6 +214,23 @@ class RemoteTikuRepository extends MockTikuRepository {
 
   List<Question> loadCachedWrongQuestions() => _wrongQuestions ?? const [];
 
+  Map<String, List<Question>> exportQuestionCache() {
+    return _questionCache.map(
+      (catalogId, questions) =>
+          MapEntry(catalogId, List<Question>.of(questions)),
+    );
+  }
+
+  void restoreQuestionCache(Map<String, List<Question>> cache) {
+    if (cache.isEmpty) return;
+    _questionCache
+      ..clear()
+      ..addAll(cache.map(
+        (catalogId, questions) =>
+            MapEntry(catalogId, List<Question>.of(questions)),
+      ));
+  }
+
   Future<bool> removeWrongQuestion(String questionId) async {
     try {
       await _dio.delete(

@@ -127,9 +127,14 @@ class AppStore extends ChangeNotifier {
     examRecords = snapshot.examRecords;
     favoriteQuestions = snapshot.favoriteQuestions;
     wrongQuestions = snapshot.wrongQuestions;
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      current.restoreQuestionCache(snapshot.catalogQuestionCache);
+    }
   }
 
   AppStateSnapshot _snapshot() {
+    final current = repository;
     return AppStateSnapshot(
       savedAt: DateTime.now(),
       selectedSubjectId: selectedSubjectId,
@@ -143,6 +148,9 @@ class AppStore extends ChangeNotifier {
       examRecords: examRecords,
       favoriteQuestions: favoriteQuestions,
       wrongQuestions: wrongQuestions,
+      catalogQuestionCache: current is RemoteTikuRepository
+          ? current.exportQuestionCache()
+          : const {},
     );
   }
 
@@ -964,6 +972,7 @@ class AppStore extends ChangeNotifier {
       textAnswers: session.textAnswers,
       answerResults: session.answerResults,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -987,6 +996,7 @@ class AppStore extends ChangeNotifier {
       currentIndex: 0,
       finished: false,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1013,6 +1023,7 @@ class AppStore extends ChangeNotifier {
       answers: session.answers,
       textAnswers: session.textAnswers,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1042,6 +1053,7 @@ class AppStore extends ChangeNotifier {
       currentIndex: 0,
       finished: false,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1071,6 +1083,7 @@ class AppStore extends ChangeNotifier {
       currentIndex: 0,
       finished: false,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
@@ -1109,6 +1122,7 @@ class AppStore extends ChangeNotifier {
       answers: session.answers,
       textAnswers: session.textAnswers,
     );
+    _markLocalStateDirty();
     notifyListeners();
   }
 
