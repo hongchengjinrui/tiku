@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../repositories/mock_tiku_repository.dart';
+import '../repositories/remote_tiku_repository.dart';
 import '../repositories/tiku_repository.dart';
 import 'models.dart';
 
-final appStore = AppStore(repository: MockTikuRepository());
+final _remoteRepository = RemoteTikuRepository();
+final appStore = AppStore(repository: _remoteRepository);
 
 // Backward-compatible alias while screens are migrated to provider injection.
 final mockStore = appStore;
@@ -12,7 +15,8 @@ final mockStore = appStore;
 typedef MockAppStore = AppStore;
 
 class AppStore extends ChangeNotifier {
-  final TikuRepository repository;
+  TikuRepository repository;
+  bool remoteReady = false;
 
   AppStore({required this.repository}) {
     _loadInitialState();
@@ -25,6 +29,8 @@ class AppStore extends ChangeNotifier {
   late List<Paper> examPapers;
   late List<StudyRecord> practiceRecords;
   late List<StudyRecord> examRecords;
+  List<Question> favoriteQuestions = const [];
+  List<Question> wrongQuestions = const [];
 
   String selectedSubjectId = 'primary_teacher';
   String selectedChapterId = 'chapter_1';
@@ -41,10 +47,32 @@ class AppStore extends ChangeNotifier {
     examPapers = repository.loadExamPapers();
     practiceRecords = repository.loadPracticeRecords();
     examRecords = repository.loadExamRecords();
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      favoriteQuestions = current.loadCachedFavoriteQuestions();
+      wrongQuestions = current.loadCachedWrongQuestions();
+    }
   }
 
-  Subject get selectedSubject =>
-      subjects.firstWhere((subject) => subject.id == selectedSubjectId);
+  Future<void> hydrateRemote() async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final loaded = await current.warmUp();
+    if (!loaded) return;
+    remoteReady = true;
+    _loadInitialState();
+    selectedSubjectId = current.selectedSubjectId ?? subjects.first.id;
+    selectedChapterId =
+        chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
+    selectedExamChapterId =
+        examChapters.isNotEmpty ? examChapters.first.id : selectedExamChapterId;
+    notifyListeners();
+  }
+
+  Subject get selectedSubject => subjects.firstWhere(
+        (subject) => subject.id == selectedSubjectId,
+        orElse: () => subjects.first,
+      );
 
   Chapter get selectedChapter =>
       chapters.firstWhere((chapter) => chapter.id == selectedChapterId);
@@ -64,12 +92,25 @@ class AppStore extends ChangeNotifier {
 
   PracticeStat get examPaperStat => _paperStat(examPapers);
 
-  int get wrongPracticeCount => practiceStat.wrong;
+  int get wrongPracticeCount =>
+      remoteReady ? wrongQuestions.length : practiceStat.wrong;
 
-  int get favoritePracticeCount => 16;
+  int get favoritePracticeCount => remoteReady
+      ? favoriteQuestions.length
+      : (favoriteQuestions.isNotEmpty ? favoriteQuestions.length : 16);
 
-  void selectSubject(String subjectId) {
+  Future<void> selectSubject(String subjectId) async {
     selectedSubjectId = subjectId;
+    practiceSession = null;
+    examSession = null;
+    notifyListeners();
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final loaded = await current.loadSubject(subjectId);
+    if (!loaded || selectedSubjectId != subjectId) return;
+    _loadInitialState();
+    selectedSubjectId = subjectId;
+    _resetSelectedCatalogs();
     notifyListeners();
   }
 
@@ -94,6 +135,7 @@ class AppStore extends ChangeNotifier {
       questions: repository.buildPracticeSectionQuestions(section),
     );
     if (notify) notifyListeners();
+    _hydratePracticeQuestionsFromRemote(section);
   }
 
   void startPracticeFromPaper(String paperId, {bool notify = true}) {
@@ -105,42 +147,249 @@ class AppStore extends ChangeNotifier {
       questions: repository.buildPracticePaperQuestions(paper),
     );
     if (notify) notifyListeners();
+    _hydratePracticeQuestionsFromRemote(paper);
   }
 
-  void startRandomPractice({int count = 10, bool notify = true}) {
+  void startPracticeFromRecord(StudyRecord record, {required bool restart}) {
+    if (record.mode.contains('随机')) {
+      startRandomPractice();
+      if (!restart) _movePracticeIndexToProgress(record.metric);
+      return;
+    }
+    if (record.mode.contains('收藏')) {
+      startFavoritePractice();
+      if (!restart) _movePracticeIndexToProgress(record.metric);
+      return;
+    }
+    if (record.mode.contains('错题')) {
+      startWrongPractice();
+      if (!restart) _movePracticeIndexToProgress(record.metric);
+      return;
+    }
+    if (record.mode.contains('真题')) {
+      final paper = _findPracticePaper(record.title);
+      startPracticeFromPaper((paper ?? practicePapers.first).id);
+      if (!restart) _movePracticeIndexToProgress(record.metric);
+      return;
+    }
+    final section = _findPracticeSection(record.title) ??
+        chapters.expand((chapter) => chapter.sections).first;
+    startPracticeFromSection(section.id);
+    if (!restart) _movePracticeIndexToProgress(record.metric);
+  }
+
+  void startRandomPractice({
+    int count = 10,
+    List<String> catalogIds = const [],
+    bool notify = true,
+  }) {
     practiceSession = PracticeSession(
-      title: '随机练习',
+      title: catalogIds.isEmpty ? '随机练习' : '自选章节随机练习',
       mode: '随机练习',
       questions: repository.buildRandomPracticeQuestions(count: count),
     );
     if (notify) notifyListeners();
+    _hydrateRandomPracticeQuestions(count, catalogIds: catalogIds);
   }
 
   void startFavoritePractice({int count = 6, bool notify = true}) {
+    if (remoteReady && favoriteQuestions.isEmpty) {
+      practiceSession = null;
+      if (notify) notifyListeners();
+      return;
+    }
+    final cachedQuestions = favoriteQuestions.take(count).toList();
     practiceSession = PracticeSession(
       title: '收藏练习',
       mode: '收藏练习',
-      questions: repository.buildFavoritePracticeQuestions(count: count),
+      questions: cachedQuestions.isNotEmpty
+          ? cachedQuestions
+          : repository.buildFavoritePracticeQuestions(count: count),
     );
     if (notify) notifyListeners();
+    _hydrateFavoritePracticeQuestions(count);
   }
 
   void startWrongPractice({int count = 8, bool notify = true}) {
+    if (remoteReady && wrongQuestions.isEmpty) {
+      practiceSession = null;
+      if (notify) notifyListeners();
+      return;
+    }
+    final cachedQuestions = wrongQuestions.take(count).toList();
     practiceSession = PracticeSession(
       title: '错题练习',
       mode: '错题练习',
-      questions: repository.buildWrongPracticeQuestions(count: count),
+      questions: cachedQuestions.isNotEmpty
+          ? cachedQuestions
+          : repository.buildWrongPracticeQuestions(count: count),
     );
     if (notify) notifyListeners();
+    _hydrateWrongPracticeQuestions(count);
   }
 
   void answerPractice(Set<int> answer) {
     final session = practiceSession;
     if (session == null) return;
+    final question = session.currentQuestion;
     if (answer.isEmpty) {
-      session.answers.remove(session.currentQuestion.id);
+      session.answers.remove(question.id);
+      session.answerResults.remove(question.id);
     } else {
-      session.answers[session.currentQuestion.id] = answer;
+      session.answers[question.id] = answer;
+      session.textAnswers.remove(question.id);
+      session.answerResults[question.id] = _localChoiceResult(question, answer);
+    }
+    final current = repository;
+    if (current is RemoteTikuRepository && answer.isNotEmpty) {
+      unawaited(_submitPracticeAnswer(question: question, selected: answer));
+    }
+    notifyListeners();
+  }
+
+  void answerPracticeText(String text) {
+    final session = practiceSession;
+    if (session == null) return;
+    final question = session.currentQuestion;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      session.textAnswers.remove(question.id);
+      session.answerResults.remove(question.id);
+      notifyListeners();
+      return;
+    }
+    session.textAnswers[question.id] = trimmed;
+    session.answers.remove(question.id);
+    session.answerResults[question.id] = _localTextResult(question, trimmed);
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      unawaited(_submitPracticeAnswer(question: question, text: trimmed));
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleFavorite(Question question) async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      await current.toggleFavorite(question);
+      favoriteQuestions = current.loadCachedFavoriteQuestions();
+      notifyListeners();
+      return;
+    }
+    final exists = favoriteQuestions.any((item) => item.id == question.id);
+    favoriteQuestions = exists
+        ? favoriteQuestions.where((item) => item.id != question.id).toList()
+        : [question, ...favoriteQuestions];
+    notifyListeners();
+  }
+
+  Future<bool> resetPracticeProgress(
+      {List<String> catalogIds = const []}) async {
+    final ids = catalogIds.isEmpty ? _allPracticeCatalogIds() : catalogIds;
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.resetProgress(mode: 'practice', catalogIds: ids);
+      if (!ok) return false;
+      _loadInitialState();
+      selectedChapterId =
+          chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
+      notifyListeners();
+      return true;
+    }
+    _resetPracticeCatalogs(ids.toSet());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> resetExamProgress({List<String> catalogIds = const []}) async {
+    final ids = catalogIds.isEmpty ? _allExamCatalogIds() : catalogIds;
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.resetProgress(mode: 'exam', catalogIds: ids);
+      if (!ok) return false;
+      _loadInitialState();
+      selectedExamChapterId = examChapters.isNotEmpty
+          ? examChapters.first.id
+          : selectedExamChapterId;
+      notifyListeners();
+      return true;
+    }
+    _resetExamCatalogs(ids.toSet());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> deletePracticeRecords() async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.deleteRecords('practice');
+      if (!ok) return false;
+    }
+    practiceRecords = const [];
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> deleteExamRecords() async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      final ok = await current.deleteRecords('exam');
+      if (!ok) return false;
+    }
+    examRecords = const [];
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> submitQuestionFeedback(
+    Question question, {
+    required String content,
+    String type = 'question_error',
+  }) async {
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      return current.submitQuestionFeedback(
+        question: question,
+        content: content,
+        type: type,
+      );
+    }
+    return true;
+  }
+
+  bool isQuestionFavorite(String questionId) =>
+      favoriteQuestions.any((item) => item.id == questionId);
+
+  Future<void> _submitPracticeAnswer({
+    required Question question,
+    Set<int> selected = const {},
+    String? text,
+  }) async {
+    final current = repository;
+    final session = practiceSession;
+    if (current is! RemoteTikuRepository || session == null) return;
+    session.submittingQuestionIds.add(question.id);
+    notifyListeners();
+    final result = await current.submitPracticeAnswer(
+      question: question,
+      selected: selected,
+      text: text,
+    );
+    final latest = practiceSession;
+    if (latest == null ||
+        !latest.questions.any((item) => item.id == question.id)) {
+      return;
+    }
+    latest.submittingQuestionIds.remove(question.id);
+    if (result != null) {
+      latest.answerResults[question.id] = result;
+      if (result.isCorrect == false) {
+        wrongQuestions = [
+          question,
+          ...wrongQuestions.where((item) => item.id != question.id),
+        ];
+      }
+      unawaited(_refreshRemoteRecords());
     }
     notifyListeners();
   }
@@ -158,6 +407,15 @@ class AppStore extends ChangeNotifier {
     final session = practiceSession;
     if (session == null || session.currentIndex == 0) return;
     session.currentIndex -= 1;
+    notifyListeners();
+  }
+
+  void jumpPracticeQuestion(int index) {
+    final session = practiceSession;
+    if (session == null || index < 0 || index >= session.questions.length) {
+      return;
+    }
+    session.currentIndex = index;
     notifyListeners();
   }
 
@@ -195,6 +453,7 @@ class AppStore extends ChangeNotifier {
       ...practiceRecords.take(7),
     ];
     session.finished = true;
+    unawaited(_refreshRemoteRecords());
     notifyListeners();
   }
 
@@ -210,6 +469,7 @@ class AppStore extends ChangeNotifier {
       durationMinutes: 45,
     );
     if (notify) notifyListeners();
+    _hydrateExamQuestionsFromRemote(section);
   }
 
   void startExamFromPaper(String paperId, {bool notify = true}) {
@@ -222,12 +482,32 @@ class AppStore extends ChangeNotifier {
       durationMinutes: 100,
     );
     if (notify) notifyListeners();
+    _hydrateExamQuestionsFromRemote(paper);
+  }
+
+  void openExamRecordAnalysis(StudyRecord record) {
+    if (record.mode.contains('真题')) {
+      final paper = _findExamPaper(record.title);
+      startExamFromPaper((paper ?? examPapers.first).id);
+      _applyRecordResultToExamSession(record);
+      return;
+    }
+    if (record.mode.contains('组卷') || record.mode.contains('模拟')) {
+      startAssemblyExam(scope: 'all', questionCount: 20, duration: 100);
+      _applyRecordResultToExamSession(record);
+      return;
+    }
+    final section = _findExamSection(record.title) ??
+        examChapters.expand((chapter) => chapter.sections).first;
+    startExamFromSection(section.id);
+    _applyRecordResultToExamSession(record);
   }
 
   void startAssemblyExam({
     required String scope,
     required int questionCount,
     required int duration,
+    List<String> catalogIds = const [],
     bool notify = true,
   }) {
     examSession = ExamSession(
@@ -237,15 +517,32 @@ class AppStore extends ChangeNotifier {
       durationMinutes: duration,
     );
     if (notify) notifyListeners();
+    _hydrateAssemblyExamQuestions(questionCount, catalogIds: catalogIds);
   }
 
   void answerExam(Set<int> answer) {
     final session = examSession;
     if (session == null || session.submitted) return;
+    final question = session.currentQuestion;
     if (answer.isEmpty) {
-      session.answers.remove(session.currentQuestion.id);
+      session.answers.remove(question.id);
     } else {
-      session.answers[session.currentQuestion.id] = answer;
+      session.answers[question.id] = answer;
+      session.textAnswers.remove(question.id);
+    }
+    notifyListeners();
+  }
+
+  void answerExamText(String text) {
+    final session = examSession;
+    if (session == null || session.submitted) return;
+    final question = session.currentQuestion;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      session.textAnswers.remove(question.id);
+    } else {
+      session.textAnswers[question.id] = trimmed;
+      session.answers.remove(question.id);
     }
     notifyListeners();
   }
@@ -304,6 +601,208 @@ class AppStore extends ChangeNotifier {
       ),
       ...examRecords.take(7),
     ];
+    final current = repository;
+    if (current is RemoteTikuRepository) {
+      current.submitExamResult(session);
+      unawaited(_refreshRemoteRecords());
+    }
+    notifyListeners();
+  }
+
+  Future<void> _hydratePracticeQuestionsFromRemote(Object source) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final catalogId = switch (source) {
+      Section section => section.id,
+      Paper paper => paper.id,
+      _ => '',
+    };
+    if (catalogId.isEmpty) return;
+    final limit = switch (source) {
+      Section section => section.total,
+      Paper paper => paper.total,
+      _ => 100,
+    };
+    final questions = await current.fetchCatalogQuestions(
+      catalogId,
+      limit: limit.clamp(20, 500).toInt(),
+    );
+    final session = practiceSession;
+    if (session == null || questions.isEmpty) return;
+    final sourceMatches =
+        session.sectionId == catalogId || session.paperId == catalogId;
+    if (!sourceMatches) return;
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: questions,
+      currentIndex: session.currentIndex.clamp(0, questions.length - 1).toInt(),
+      finished: false,
+      answers: session.answers,
+      textAnswers: session.textAnswers,
+      answerResults: session.answerResults,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _hydrateRandomPracticeQuestions(
+    int count, {
+    List<String> catalogIds = const [],
+  }) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final questions = await current.fetchRandomPracticeQuestions(
+      subjectId: selectedSubjectId,
+      catalogIds: catalogIds,
+      count: count,
+    );
+    final session = practiceSession;
+    if (session == null || session.mode != '随机练习' || questions.isEmpty) return;
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      questions: questions,
+      currentIndex: 0,
+      finished: false,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _hydrateAssemblyExamQuestions(
+    int count, {
+    List<String> catalogIds = const [],
+  }) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final questions = await current.fetchRandomPracticeQuestions(
+      subjectId: selectedSubjectId,
+      catalogIds: catalogIds,
+      count: count,
+    );
+    final session = examSession;
+    if (session == null || session.mode != '组卷考试' || questions.isEmpty) return;
+    examSession = ExamSession(
+      title: session.title,
+      mode: session.mode,
+      questions: questions,
+      durationMinutes: session.durationMinutes,
+      currentIndex: 0,
+      submitted: false,
+      answers: session.answers,
+      textAnswers: session.textAnswers,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _hydrateFavoritePracticeQuestions(int count) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final questions = await current.fetchFavoriteQuestions(
+      limit: count,
+      subjectId: selectedSubjectId,
+    );
+    favoriteQuestions = current.loadCachedFavoriteQuestions();
+    final session = practiceSession;
+    if (session == null || session.mode != '收藏练习') {
+      notifyListeners();
+      return;
+    }
+    if (questions.isEmpty) {
+      practiceSession = null;
+      notifyListeners();
+      return;
+    }
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      questions: questions,
+      currentIndex: 0,
+      finished: false,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _hydrateWrongPracticeQuestions(int count) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final questions = await current.fetchWrongQuestions(
+      limit: count,
+      subjectId: selectedSubjectId,
+    );
+    wrongQuestions = current.loadCachedWrongQuestions();
+    final session = practiceSession;
+    if (session == null || session.mode != '错题练习') {
+      notifyListeners();
+      return;
+    }
+    if (questions.isEmpty) {
+      practiceSession = null;
+      notifyListeners();
+      return;
+    }
+    practiceSession = PracticeSession(
+      title: session.title,
+      mode: session.mode,
+      questions: questions,
+      currentIndex: 0,
+      finished: false,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _hydrateExamQuestionsFromRemote(Object source) async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    final catalogId = switch (source) {
+      Section section => section.id,
+      Paper paper => paper.id,
+      _ => '',
+    };
+    if (catalogId.isEmpty) return;
+    final limit = switch (source) {
+      Section section => section.total,
+      Paper paper => paper.total,
+      _ => 100,
+    };
+    final questions = await current.fetchCatalogQuestions(
+      catalogId,
+      limit: limit.clamp(20, 500).toInt(),
+    );
+    final session = examSession;
+    if (session == null || questions.isEmpty) return;
+    final sourceMatches =
+        session.sectionId == catalogId || session.paperId == catalogId;
+    if (!sourceMatches) return;
+    examSession = ExamSession(
+      title: session.title,
+      mode: session.mode,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: questions,
+      durationMinutes: session.durationMinutes,
+      currentIndex: session.currentIndex.clamp(0, questions.length - 1).toInt(),
+      submitted: session.submitted,
+      answers: session.answers,
+      textAnswers: session.textAnswers,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _refreshRemoteRecords() async {
+    final current = repository;
+    if (current is! RemoteTikuRepository) return;
+    await current.refreshRecords();
+    await current.loadSubject(selectedSubjectId);
+    chapters = current.loadPracticeChapters();
+    examChapters = current.loadExamChapters();
+    practicePapers = current.loadPracticePapers();
+    examPapers = current.loadExamPapers();
+    practiceRecords = current.loadPracticeRecords();
+    examRecords = current.loadExamRecords();
+    favoriteQuestions = current.loadCachedFavoriteQuestions();
+    wrongQuestions = current.loadCachedWrongQuestions();
     notifyListeners();
   }
 
@@ -311,7 +810,7 @@ class AppStore extends ChangeNotifier {
     final session = examSession;
     if (session == null) return const [];
     return session.questions
-        .map((question) => session.answers.containsKey(question.id))
+        .map((question) => session.hasAnswered(question.id))
         .toList();
   }
 
@@ -429,7 +928,241 @@ class AppStore extends ChangeNotifier {
   int _rate(int correct, int total) =>
       total == 0 ? 0 : (correct * 100 / total).round();
 
+  PracticeAnswerResult _localChoiceResult(
+      Question question, Set<int> selected) {
+    final correct = sameAnswer(selected, question.answerIndexes);
+    return PracticeAnswerResult(
+      isCorrect: correct,
+      score: correct ? 100 : 0,
+      correctAnswerText: question.answerText.isNotEmpty
+          ? question.answerText
+          : _answerText(question.answerIndexes),
+      myAnswerText: _answerText(selected),
+      analysisText: question.analysis,
+    );
+  }
+
+  PracticeAnswerResult _localTextResult(Question question, String text) {
+    final expected = _cleanAnswerText(question.answerText);
+    final canCompare =
+        question.type == QuestionType.fillBlank && expected.isNotEmpty;
+    final correct =
+        canCompare ? _normalize(text) == _normalize(expected) : null;
+    return PracticeAnswerResult(
+      isCorrect: correct,
+      score: correct == null ? null : (correct ? 100 : 0),
+      correctAnswerText: expected,
+      myAnswerText: text,
+      analysisText: question.analysis,
+    );
+  }
+
+  String _answerText(Set<int> answers) {
+    if (answers.isEmpty) return '未作答';
+    final sorted = answers.toList()..sort();
+    return sorted.map((index) => String.fromCharCode(65 + index)).join('、');
+  }
+
+  String _normalize(String value) =>
+      _cleanAnswerText(value).replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+  String _cleanAnswerText(String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      final inner = trimmed
+          .substring(1, trimmed.length - 1)
+          .split(',')
+          .map((item) => _stripWrappingQuotes(item.trim()))
+          .where((item) => item.isNotEmpty)
+          .join('；');
+      if (inner.isNotEmpty) return inner;
+    }
+    return trimmed;
+  }
+
+  String _stripWrappingQuotes(String value) {
+    if (value.length < 2) return value;
+    final first = value[0];
+    final last = value[value.length - 1];
+    if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
   String _displayRecordTitle(String title) {
     return title.replaceAll(RegExp(r'^(第一章：|第二章：|第三章：|第四章：)'), '');
+  }
+
+  Section? _findPracticeSection(String title) {
+    final normalizedTitle = _normalizeCatalogTitle(title);
+    for (final section in chapters.expand((chapter) => chapter.sections)) {
+      final normalizedSection = _normalizeCatalogTitle(section.title);
+      if (normalizedSection == normalizedTitle ||
+          normalizedSection.contains(normalizedTitle) ||
+          normalizedTitle.contains(normalizedSection)) {
+        return section;
+      }
+    }
+    return null;
+  }
+
+  Paper? _findPracticePaper(String title) {
+    final normalizedTitle = _normalizeCatalogTitle(title);
+    for (final paper in practicePapers) {
+      final normalizedPaper = _normalizeCatalogTitle(paper.title);
+      if (normalizedPaper == normalizedTitle ||
+          normalizedPaper.contains(normalizedTitle) ||
+          normalizedTitle.contains(normalizedPaper)) {
+        return paper;
+      }
+    }
+    return null;
+  }
+
+  Section? _findExamSection(String title) {
+    final normalizedTitle = _normalizeCatalogTitle(title);
+    for (final section in examChapters.expand((chapter) => chapter.sections)) {
+      final normalizedSection = _normalizeCatalogTitle(section.title);
+      if (normalizedSection == normalizedTitle ||
+          normalizedSection.contains(normalizedTitle) ||
+          normalizedTitle.contains(normalizedSection)) {
+        return section;
+      }
+    }
+    return null;
+  }
+
+  Paper? _findExamPaper(String title) {
+    final normalizedTitle = _normalizeCatalogTitle(title);
+    for (final paper in examPapers) {
+      final normalizedPaper = _normalizeCatalogTitle(paper.title);
+      if (normalizedPaper == normalizedTitle ||
+          normalizedPaper.contains(normalizedTitle) ||
+          normalizedTitle.contains(normalizedPaper)) {
+        return paper;
+      }
+    }
+    return null;
+  }
+
+  String _normalizeCatalogTitle(String value) {
+    return _displayRecordTitle(value)
+        .replaceAll(RegExp(r'[\s:：·（）()]'), '')
+        .toLowerCase();
+  }
+
+  void _movePracticeIndexToProgress(String metric) {
+    final session = practiceSession;
+    if (session == null || session.questions.isEmpty) return;
+    final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
+    final answered = int.tryParse(match?.group(1) ?? '') ?? 0;
+    session.currentIndex =
+        answered.clamp(0, session.questions.length - 1).toInt();
+    notifyListeners();
+  }
+
+  void _applyRecordResultToExamSession(StudyRecord record) {
+    final session = examSession;
+    if (session == null) return;
+    final accuracyMatch = RegExp(r'正确率\s*(\d+)%').firstMatch(record.metric);
+    final scoreMatch = RegExp(r'(\d+)分').firstMatch(record.metric);
+    final accuracy = int.tryParse(
+          accuracyMatch?.group(1) ?? scoreMatch?.group(1) ?? '',
+        ) ??
+        0;
+    final correctTarget = (session.questions.length * accuracy / 100).round();
+    session.answers.clear();
+    session.textAnswers.clear();
+    for (var i = 0; i < session.questions.length; i++) {
+      final question = session.questions[i];
+      if (question.type == QuestionType.fillBlank ||
+          question.type == QuestionType.shortAnswer) {
+        final correctText = _cleanAnswerText(question.answerText);
+        session.textAnswers[question.id] =
+            i < correctTarget && correctText.isNotEmpty ? correctText : '未命中答案';
+      } else if (i < correctTarget) {
+        session.answers[question.id] = question.answerIndexes;
+      } else if (question.options.isNotEmpty) {
+        session.answers[question.id] = {
+          _firstWrongOptionIndex(question),
+        };
+      }
+    }
+    session.submitted = true;
+    session.currentIndex = 0;
+    notifyListeners();
+  }
+
+  int _firstWrongOptionIndex(Question question) {
+    for (var i = 0; i < question.options.length; i++) {
+      if (!question.answerIndexes.contains(i)) return i;
+    }
+    return 0;
+  }
+
+  void _resetSelectedCatalogs() {
+    selectedChapterId =
+        chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
+    selectedExamChapterId =
+        examChapters.isNotEmpty ? examChapters.first.id : selectedExamChapterId;
+  }
+
+  List<String> _allPracticeCatalogIds() => [
+        ...chapters.map((item) => item.id),
+        ...chapters
+            .expand((chapter) => chapter.sections)
+            .map((item) => item.id),
+        ...practicePapers.map((item) => item.id),
+      ];
+
+  List<String> _allExamCatalogIds() => [
+        ...examChapters.map((item) => item.id),
+        ...examChapters
+            .expand((chapter) => chapter.sections)
+            .map((item) => item.id),
+        ...examPapers.map((item) => item.id),
+      ];
+
+  void _resetPracticeCatalogs(Set<String> ids) {
+    chapters = chapters.map((chapter) {
+      final resetWholeChapter = ids.contains(chapter.id);
+      final nextSections = chapter.sections.map((section) {
+        if (!resetWholeChapter && !ids.contains(section.id)) return section;
+        return section.copyWith(done: 0, correct: 0, wrong: 0);
+      }).toList();
+      return chapter.copyWith(
+        done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
+        correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
+        wrong: nextSections.fold<int>(0, (sum, item) => sum + item.wrong),
+        sections: nextSections,
+      );
+    }).toList();
+    practicePapers = practicePapers
+        .map((paper) => ids.contains(paper.id)
+            ? paper.copyWith(done: 0, correct: 0, wrong: 0, minutes: 0)
+            : paper)
+        .toList();
+  }
+
+  void _resetExamCatalogs(Set<String> ids) {
+    examChapters = examChapters.map((chapter) {
+      final resetWholeChapter = ids.contains(chapter.id);
+      final nextSections = chapter.sections.map((section) {
+        if (!resetWholeChapter && !ids.contains(section.id)) return section;
+        return section.copyWith(done: 0, correct: 0, wrong: 0);
+      }).toList();
+      return chapter.copyWith(
+        done: nextSections.fold<int>(0, (sum, item) => sum + item.done),
+        correct: nextSections.fold<int>(0, (sum, item) => sum + item.correct),
+        wrong: nextSections.fold<int>(0, (sum, item) => sum + item.wrong),
+        sections: nextSections,
+      );
+    }).toList();
+    examPapers = examPapers
+        .map((paper) => ids.contains(paper.id)
+            ? paper.copyWith(done: 0, correct: 0, wrong: 0, minutes: 0)
+            : paper)
+        .toList();
   }
 }

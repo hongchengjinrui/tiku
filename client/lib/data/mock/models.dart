@@ -158,9 +158,13 @@ class Question {
   final String id;
   final QuestionType type;
   final String stem;
+  final String stemHtml;
   final List<String> options;
   final Set<int> answerIndexes;
+  final String answerText;
   final String analysis;
+  final String analysisHtml;
+  final List<String> imageUrls;
 
   const Question({
     required this.id,
@@ -168,7 +172,33 @@ class Question {
     required this.stem,
     required this.options,
     required this.answerIndexes,
+    this.stemHtml = '',
+    this.answerText = '',
     required this.analysis,
+    this.analysisHtml = '',
+    this.imageUrls = const [],
+  });
+}
+
+class PracticeAnswerResult {
+  final bool? isCorrect;
+  final num? score;
+  final String correctAnswerText;
+  final String myAnswerText;
+  final String analysisText;
+  final String? scoreText;
+  final List<String> matchedPoints;
+  final String? reviewReason;
+
+  const PracticeAnswerResult({
+    required this.isCorrect,
+    this.score,
+    required this.correctAnswerText,
+    required this.myAnswerText,
+    required this.analysisText,
+    this.scoreText,
+    this.matchedPoints = const [],
+    this.reviewReason,
   });
 }
 
@@ -181,6 +211,9 @@ class PracticeSession {
   int currentIndex;
   bool finished;
   final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
+  final Map<String, PracticeAnswerResult> answerResults;
+  final Set<String> submittingQuestionIds;
 
   PracticeSession({
     required this.title,
@@ -191,15 +224,35 @@ class PracticeSession {
     this.currentIndex = 0,
     this.finished = false,
     Map<String, Set<int>>? answers,
-  }) : answers = answers ?? {};
+    Map<String, String>? textAnswers,
+    Map<String, PracticeAnswerResult>? answerResults,
+    Set<String>? submittingQuestionIds,
+  })  : answers = answers ?? {},
+        textAnswers = textAnswers ?? {},
+        answerResults = answerResults ?? {},
+        submittingQuestionIds = submittingQuestionIds ?? {};
 
   Question get currentQuestion => questions[currentIndex];
-  int get answeredCount => answers.length;
-  int get correctCount => questions
-      .where((question) =>
-          sameAnswer(answers[question.id], question.answerIndexes))
+  bool hasAnswered(String questionId) =>
+      answers.containsKey(questionId) ||
+      (textAnswers[questionId]?.trim().isNotEmpty ?? false);
+  int get answeredCount => questions
+      .where((question) => hasAnswered(question.id))
+      .map((question) => question.id)
+      .toSet()
       .length;
-  int get wrongCount => answeredCount - correctCount;
+  int get correctCount => questions.where((question) {
+        final result = answerResults[question.id];
+        if (result?.isCorrect != null) return result!.isCorrect == true;
+        return sameAnswer(answers[question.id], question.answerIndexes);
+      }).length;
+  int get wrongCount => questions.where((question) {
+        if (!hasAnswered(question.id)) return false;
+        final result = answerResults[question.id];
+        if (result?.isCorrect != null) return result!.isCorrect == false;
+        if (textAnswers.containsKey(question.id)) return false;
+        return !sameAnswer(answers[question.id], question.answerIndexes);
+      }).length;
   int get accuracy =>
       answeredCount == 0 ? 0 : (correctCount * 100 / answeredCount).round();
 }
@@ -214,6 +267,7 @@ class ExamSession {
   int currentIndex;
   bool submitted;
   final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
 
   ExamSession({
     required this.title,
@@ -225,17 +279,62 @@ class ExamSession {
     this.currentIndex = 0,
     this.submitted = false,
     Map<String, Set<int>>? answers,
-  }) : answers = answers ?? {};
+    Map<String, String>? textAnswers,
+  })  : answers = answers ?? {},
+        textAnswers = textAnswers ?? {};
 
   Question get currentQuestion => questions[currentIndex];
-  int get answeredCount => answers.length;
-  int get correctCount => questions
-      .where((question) =>
-          sameAnswer(answers[question.id], question.answerIndexes))
+  bool hasAnswered(String questionId) =>
+      answers.containsKey(questionId) ||
+      (textAnswers[questionId]?.trim().isNotEmpty ?? false);
+  int get answeredCount => questions
+      .where((question) => hasAnswered(question.id))
+      .map((question) => question.id)
+      .toSet()
       .length;
+  int get correctCount => questions.where(isCorrect).length;
   int get wrongCount => submitted ? questions.length - correctCount : 0;
-  int get score => (correctCount * 100 / questions.length).round();
+  int get score =>
+      questions.isEmpty ? 0 : (correctCount * 100 / questions.length).round();
   int get accuracy => score;
+
+  bool isCorrect(Question question) {
+    if (question.type == QuestionType.fillBlank) {
+      final text = textAnswers[question.id]?.trim() ?? '';
+      final expected = _cleanAnswerText(question.answerText);
+      return text.isNotEmpty &&
+          expected.isNotEmpty &&
+          _normalizeAnswer(text) == _normalizeAnswer(expected);
+    }
+    return sameAnswer(answers[question.id], question.answerIndexes);
+  }
+}
+
+String _normalizeAnswer(String value) =>
+    _cleanAnswerText(value).replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+String _cleanAnswerText(String value) {
+  final trimmed = value.trim();
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    final inner = trimmed
+        .substring(1, trimmed.length - 1)
+        .split(',')
+        .map((item) => _stripWrappingQuotes(item.trim()))
+        .where((item) => item.isNotEmpty)
+        .join('；');
+    if (inner.isNotEmpty) return inner;
+  }
+  return trimmed;
+}
+
+String _stripWrappingQuotes(String value) {
+  if (value.length < 2) return value;
+  final first = value[0];
+  final last = value[value.length - 1];
+  if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+    return value.substring(1, value.length - 1);
+  }
+  return value;
 }
 
 class StudyRecord {

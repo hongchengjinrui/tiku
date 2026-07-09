@@ -7,9 +7,14 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "smoke:e2e": "tsx scripts/e2e-smoke.ts",
+    "seed:v4": "tsx scripts/import-v4-grid.ts",
+    "seed:grid": "V4_BANK_DIR=电网刷题真题库 BANK_SLUG=grid-exam DEFAULT_SUBJECT=电气工程类 tsx scripts/import-v4-grid.ts",
+    "seed:south-grid": "V4_BANK_DIR=南方电网真题库 BANK_SLUG=south-grid DEFAULT_SUBJECT=综合类 tsx scripts/import-v4-grid.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -33,6 +38,7 @@
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "prisma": "^6.0.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.8.0"
   }
 }

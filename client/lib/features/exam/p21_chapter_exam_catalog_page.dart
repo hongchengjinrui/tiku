@@ -5,6 +5,7 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import '../common/progress_reset_sheet.dart';
 
 /// P21 章节考试目录页 - Chapter exam catalog page
 class P21ChapterExamCatalogPage extends StatefulWidget {
@@ -84,7 +85,7 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
                 ),
               ),
               GestureDetector(
-                onTap: () => context.go('/exam/reset'),
+                onTap: () => _showResetSheet(store),
                 child: Container(
                   height: 24,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -355,4 +356,50 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
     fontWeight: FontWeight.w600,
     color: Colors.white,
   );
+
+  void _showResetSheet(MockAppStore store) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProgressResetSheet(
+        title: '重置进度',
+        description: '选择需要重置的考试目录，重置后将清空对应目录的考试记录。',
+        allDescription: '章节考试与模拟考试全部重置',
+        confirmMessage: '将清空已选目录的考试记录、正确率与错题统计，此操作不可撤销。',
+        groups: [
+          ResetCatalogGroup(
+            title: '章节考试（共${store.examChapters.length}章）',
+            subtitle:
+                '${store.examChapterStat.done}/${store.examChapterStat.total}',
+            entries: store.examChapters
+                .map(
+                  (chapter) => ResetCatalogEntry(
+                    id: chapter.id,
+                    title: chapter.title,
+                    progress: '${chapter.done}/${chapter.total}',
+                  ),
+                )
+                .toList(),
+          ),
+          ResetCatalogGroup(
+            title: '模拟考试（共${store.examPapers.length}套）',
+            subtitle:
+                '${store.examPaperStat.done}/${store.examPaperStat.total}',
+            entries: store.examPapers
+                .map(
+                  (paper) => ResetCatalogEntry(
+                    id: paper.id,
+                    title: paper.title,
+                    progress: '${paper.done}/${paper.total}',
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+        onConfirm: (catalogIds) =>
+            mockStore.resetExamProgress(catalogIds: catalogIds),
+      ),
+    );
+  }
 }

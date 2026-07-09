@@ -149,7 +149,7 @@ class P01PracticeHomePage extends StatelessWidget {
                           children: [
                             ...mockStore.practiceRecords.take(3).expand(
                                   (record) => [
-                                    _buildRecentRecordCard(record),
+                                    _buildRecentRecordCard(context, record),
                                     const SizedBox(height: 10),
                                   ],
                                 ),
@@ -365,7 +365,7 @@ class P01PracticeHomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentRecordCard(StudyRecord record) {
+  Widget _buildRecentRecordCard(BuildContext context, StudyRecord record) {
     final isLowAccuracy =
         record.metric.contains('正确率 5') || record.metric.contains('正确率 6');
     return _buildRecentCard(
@@ -380,6 +380,14 @@ class P01PracticeHomePage extends StatelessWidget {
       action2Bg: AppColors.primaryBg,
       action2Fg: AppColors.primary,
       progress: _recordProgress(record.metric),
+      onRestart: () {
+        mockStore.startPracticeFromRecord(record, restart: true);
+        context.go('/practice/quiz');
+      },
+      onContinue: () {
+        mockStore.startPracticeFromRecord(record, restart: false);
+        context.go('/practice/quiz');
+      },
     );
   }
 
@@ -409,6 +417,8 @@ class P01PracticeHomePage extends StatelessWidget {
     required Color action2Bg,
     required Color action2Fg,
     required double progress,
+    required VoidCallback onRestart,
+    required VoidCallback onContinue,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -466,41 +476,49 @@ class P01PracticeHomePage extends StatelessWidget {
                 child: Row(
                   children: [
                     // 操作按钮1
-                    Container(
-                      height: 25,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: action1Bg,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        action1Text,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: action1Fg,
+                    GestureDetector(
+                      onTap: onRestart,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 25,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: action1Bg,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          action1Text,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: action1Fg,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     // 操作按钮2
-                    Container(
-                      height: 25,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: action2Bg,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        action2Text,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: action2Fg,
+                    GestureDetector(
+                      onTap: onContinue,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 25,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: action2Bg,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          action2Text,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: action2Fg,
+                          ),
                         ),
                       ),
                     ),

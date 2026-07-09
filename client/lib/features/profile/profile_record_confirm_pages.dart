@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../theme/app_colors.dart';
 import '../common/static_overlay_page.dart';
 
@@ -27,8 +29,8 @@ class P51BDeleteAllPracticeRecordsConfirmPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const StaticDialogPage(
-      backgroundColor: Color(0x990F172A),
+    return StaticDialogPage(
+      backgroundColor: const Color(0x990F172A),
       child: StaticConfirmDialog(
         icon: Icons.delete_sweep_outlined,
         iconColor: AppColors.error,
@@ -37,6 +39,15 @@ class P51BDeleteAllPracticeRecordsConfirmPage extends StatelessWidget {
         message: '将清空当前科目下的全部练习记录列表，此操作不可撤销。',
         cancelText: '再想想',
         confirmText: '全部删除',
+        onCancel: () => context.go('/profile/practice-records'),
+        onConfirm: () async {
+          final ok = await mockStore.deletePracticeRecords();
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ok ? '练习记录已删除' : '删除失败，请稍后重试')),
+          );
+          context.go('/profile/practice-records');
+        },
       ),
     );
   }
@@ -67,8 +78,8 @@ class P52BDeleteAllExamRecordsConfirmPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const StaticDialogPage(
-      backgroundColor: Color(0x990F172A),
+    return StaticDialogPage(
+      backgroundColor: const Color(0x990F172A),
       child: StaticConfirmDialog(
         icon: Icons.delete_sweep_outlined,
         iconColor: AppColors.error,
@@ -77,6 +88,15 @@ class P52BDeleteAllExamRecordsConfirmPage extends StatelessWidget {
         message: '将清空当前科目下的全部考试记录列表，此操作不可撤销。',
         cancelText: '再想想',
         confirmText: '全部删除',
+        onCancel: () => context.go('/profile/exam-records'),
+        onConfirm: () async {
+          final ok = await mockStore.deleteExamRecords();
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ok ? '考试记录已删除' : '删除失败，请稍后重试')),
+          );
+          context.go('/profile/exam-records');
+        },
       ),
     );
   }

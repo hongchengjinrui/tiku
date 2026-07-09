@@ -310,8 +310,7 @@ class P28ExamAnalysisPage extends StatelessWidget {
 
   List<int> _unansweredIndexes(ExamSession session) {
     return List.generate(session.questions.length, (index) => index)
-        .where((index) =>
-            !session.answers.containsKey(session.questions[index].id))
+        .where((index) => !session.hasAnswered(session.questions[index].id))
         .map((index) => index + 1)
         .toList();
   }
@@ -320,8 +319,8 @@ class P28ExamAnalysisPage extends StatelessWidget {
     return List.generate(session.questions.length, (index) => index)
         .where((index) {
           final question = session.questions[index];
-          return session.answers.containsKey(question.id) &&
-              !sameAnswer(session.answers[question.id], question.answerIndexes);
+          return session.hasAnswered(question.id) &&
+              !session.isCorrect(question);
         })
         .map((index) => index + 1)
         .toList();
@@ -331,8 +330,7 @@ class P28ExamAnalysisPage extends StatelessWidget {
     return List.generate(session.questions.length, (index) => index)
         .where((index) {
           final question = session.questions[index];
-          return sameAnswer(
-              session.answers[question.id], question.answerIndexes);
+          return session.isCorrect(question);
         })
         .map((index) => index + 1)
         .toList();

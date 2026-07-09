@@ -14,6 +14,8 @@ class P25ExamAnsweringPage extends StatefulWidget {
 }
 
 class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
+  final _textControllers = <String, TextEditingController>{};
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +30,14 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   }
 
   @override
+  void dispose() {
+    for (final controller in _textControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: AnimatedBuilder(
@@ -39,6 +49,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
           }
           final question = session.currentQuestion;
           final selected = session.answers[question.id];
+          final textAnswer = session.textAnswers[question.id] ?? '';
           final isLast = session.currentIndex == session.questions.length - 1;
 
           return Container(
@@ -64,17 +75,12 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        ...List.generate(question.options.length, (index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _buildOption(
-                              _letter(index),
-                              question.options[index],
-                              selected?.contains(index) ?? false,
-                              () => _answerQuestion(question, selected, index),
-                            ),
-                          );
-                        }),
+                        _buildAnswerArea(
+                          question: question,
+                          selected: selected,
+                          textAnswer: textAnswer,
+                          submitted: session.submitted,
+                        ),
                       ],
                     ),
                   ),
@@ -220,11 +226,85 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
     mockStore.answerExam({index});
   }
 
+  Widget _buildAnswerArea({
+    required Question question,
+    required Set<int>? selected,
+    required String textAnswer,
+    required bool submitted,
+  }) {
+    if (question.type == QuestionType.fillBlank ||
+        question.type == QuestionType.shortAnswer) {
+      return _buildTextAnswerArea(
+        question: question,
+        textAnswer: textAnswer,
+        submitted: submitted,
+      );
+    }
+    if (question.options.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      children: List.generate(question.options.length, (index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _buildOption(
+            _letter(index),
+            question.options[index],
+            selected?.contains(index) ?? false,
+            submitted ? null : () => _answerQuestion(question, selected, index),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildTextAnswerArea({
+    required Question question,
+    required String textAnswer,
+    required bool submitted,
+  }) {
+    final controller = _textControllerFor(question.id, textAnswer);
+    final isShortAnswer = question.type == QuestionType.shortAnswer;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: TextField(
+        controller: controller,
+        enabled: !submitted,
+        minLines: isShortAnswer ? 6 : 1,
+        maxLines: isShortAnswer ? 10 : 3,
+        textInputAction:
+            isShortAnswer ? TextInputAction.newline : TextInputAction.done,
+        onChanged: mockStore.answerExamText,
+        decoration: InputDecoration(
+          hintText: isShortAnswer ? '请输入简答题答案' : '请输入答案',
+          border: InputBorder.none,
+          hintStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppColors.textMuted,
+          ),
+        ),
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 15,
+          height: 1.5,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
   Widget _buildOption(
     String label,
     String text,
     bool selected,
-    VoidCallback onTap,
+    VoidCallback? onTap,
   ) {
     return GestureDetector(
       onTap: onTap,
@@ -380,6 +460,18 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   void _submitExam(BuildContext context) {
     mockStore.submitExam();
     context.go('/exam/analysis');
+  }
+
+  TextEditingController _textControllerFor(String questionId, String value) {
+    final controller = _textControllers.putIfAbsent(
+      questionId,
+      () => TextEditingController(text: value),
+    );
+    if (value != controller.text) {
+      controller.text = value;
+      controller.selection = TextSelection.collapsed(offset: value.length);
+    }
+    return controller;
   }
 
   String _letter(int index) => String.fromCharCode(65 + index);

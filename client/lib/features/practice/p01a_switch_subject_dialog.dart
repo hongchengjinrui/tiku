@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 
 /// P01A 切换科目弹窗
@@ -17,20 +21,14 @@ class P01ASwitchSubjectSheet extends StatefulWidget {
 }
 
 class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
-  late String _selected;
+  late String _selectedSubjectId;
+  bool _switching = false;
 
   @override
   void initState() {
     super.initState();
-    _selected = widget.currentSubject ?? '小学教师';
+    _selectedSubjectId = mockStore.selectedSubjectId;
   }
-
-  final _subjects = [
-    '小学教师',
-    '幼儿教师',
-    '中学教师',
-    '教师招聘',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -45,111 +43,130 @@ class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
             child: const SizedBox.expand(),
           ),
           // 底部弹窗面板
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(
-                  left: 18, right: 18, top: 18, bottom: 22),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 标题栏
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          AnimatedBuilder(
+            animation: mockStore,
+            builder: (context, _) {
+              final subjects = mockStore.subjects;
+              final selectedId =
+                  subjects.any((item) => item.id == _selectedSubjectId)
+                      ? _selectedSubjectId
+                      : mockStore.selectedSubjectId;
+              return Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(
+                      left: 18, right: 18, top: 18, bottom: 22),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('切换科目',
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('切换科目',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary)),
+                          GestureDetector(
+                            onTap: _switching
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Icon(Icons.close,
+                                size: 20, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('选择后将切换首页统计与练习目录。',
                           style: TextStyle(
                               fontFamily: 'Inter',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary)),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: const Icon(Icons.close,
-                            size: 20, color: AppColors.textMuted),
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
+                      const SizedBox(height: 14),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final itemWidth = (constraints.maxWidth - 8) / 2;
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: subjects
+                                .map(
+                                  (subject) => SizedBox(
+                                    width: itemWidth,
+                                    child: _buildSubjectChip(
+                                      subject,
+                                      selected: subject.id == selectedId,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  const Text('选择后将切换首页统计与练习目录。',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: AppColors.textSecondary)),
-                  const SizedBox(height: 14),
-                  // 科目胶囊 - 第一行
-                  Row(
-                    children: _subjects.sublist(0, 2).map((subject) {
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildSubjectChip(subject),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  // 科目胶囊 - 第二行
-                  Row(
-                    children: _subjects.sublist(2, 4).map((subject) {
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildSubjectChip(subject),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSubjectChip(String subject) {
-    final isSelected = subject == _selected;
+  Widget _buildSubjectChip(Subject subject, {required bool selected}) {
     return GestureDetector(
-      onTap: () {
-        setState(() => _selected = subject);
-        widget.onSubjectSelected?.call(subject);
-        Navigator.of(context).pop();
-      },
+      onTap: _switching
+          ? null
+          : () {
+              setState(() {
+                _selectedSubjectId = subject.id;
+                _switching = true;
+              });
+              widget.onSubjectSelected?.call(subject.name);
+              unawaited(mockStore.selectSubject(subject.id).whenComplete(() {
+                if (!mounted) return;
+                Navigator.of(context).pop();
+              }));
+            },
       child: Container(
         height: 36,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.card,
+          color: selected ? AppColors.primary : AppColors.card,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border),
+              color: selected ? AppColors.primary : AppColors.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (isSelected)
+            if (selected)
               const Padding(
                 padding: EdgeInsets.only(right: 4),
                 child: Icon(Icons.check, size: 14, color: Colors.white),
               ),
-            Text(subject,
-                style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: isSelected ? Colors.white : AppColors.textPrimary)),
+            Flexible(
+              child: Text(subject.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: selected ? Colors.white : AppColors.textPrimary)),
+            ),
           ],
         ),
       ),

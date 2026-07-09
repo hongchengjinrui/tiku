@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_scaffold.dart';
 import '../../theme/app_colors.dart';
 
 /// P28A 考试解析详情-未作答 - Exam analysis detail: unanswered
@@ -100,7 +101,8 @@ class _OptionData {
   final String label;
   final String text;
   final _OptionState state;
-  const _OptionData({required this.label, required this.text, required this.state});
+  const _OptionData(
+      {required this.label, required this.text, required this.state});
 }
 
 class _AnalysisDetailBase extends StatelessWidget {
@@ -181,28 +183,7 @@ class _AnalysisDetailBase extends StatelessWidget {
   }
 
   Widget _buildStatusBar() {
-    return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('9:41',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              )),
-          Text('●●● ■',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              )),
-        ],
-      ),
-    );
+    return const StatusBar();
   }
 
   Widget _buildNavBar() {
@@ -214,7 +195,8 @@ class _AnalysisDetailBase extends StatelessWidget {
           Positioned(
             left: 16,
             top: 12,
-            child: const Icon(Icons.chevron_left, size: 24, color: AppColors.textPrimary),
+            child: const Icon(Icons.chevron_left,
+                size: 24, color: AppColors.textPrimary),
           ),
           Center(
             child: Text(title,
@@ -283,7 +265,8 @@ class _AnalysisDetailBase extends StatelessWidget {
               value: progress,
               minHeight: 4,
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ),
         ],
@@ -334,7 +317,9 @@ class _AnalysisDetailBase extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  fontWeight: opt.state != _OptionState.normal ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: opt.state != _OptionState.normal
+                      ? FontWeight.w600
+                      : FontWeight.normal,
                   color: textColor,
                 )),
           ),

@@ -54,6 +54,8 @@ class StaticConfirmDialog extends StatelessWidget {
   final String cancelText;
   final String confirmText;
   final Color confirmColor;
+  final VoidCallback? onCancel;
+  final VoidCallback? onConfirm;
 
   const StaticConfirmDialog({
     super.key,
@@ -65,6 +67,8 @@ class StaticConfirmDialog extends StatelessWidget {
     this.cancelText = '取消',
     this.confirmText = '确认',
     this.confirmColor = AppColors.error,
+    this.onCancel,
+    this.onConfirm,
   });
 
   @override
@@ -112,40 +116,48 @@ class StaticConfirmDialog extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      cancelText,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        color: AppColors.textPrimary,
+                  child: GestureDetector(
+                    onTap: onCancel,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        cancelText,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: confirmColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      confirmText,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                  child: GestureDetector(
+                    onTap: onConfirm,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: confirmColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        confirmText,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

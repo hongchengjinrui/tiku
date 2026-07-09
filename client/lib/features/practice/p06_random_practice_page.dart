@@ -1,23 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
 
 /// P06 随机练习设置页
 class P06RandomPracticePage extends StatefulWidget {
-  const P06RandomPracticePage({super.key});
+  final String initialRange;
+
+  const P06RandomPracticePage({
+    super.key,
+    this.initialRange = '全部章节',
+  });
 
   @override
   State<P06RandomPracticePage> createState() => _P06RandomPracticePageState();
 }
 
 class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
-  String _selectedRange = '全部章节';
+  late String _selectedRange;
   int _selectedCount = 20;
-  final List<String> _rangeOptions = ['全部章节', '已练习章节', '未练习章节'];
+  final List<String> _rangeOptions = ['全部章节', '已练习章节', '未练习章节', '自选章节'];
   final List<int> _countOptions = [10, 20, 30, 50];
+  final Set<String> _expandedChapterIds = {};
+  final Set<String> _selectedSectionIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRange = widget.initialRange;
+    if (_selectedRange == '自选章节') {
+      _selectFirstChapter();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +62,12 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
                     _buildSectionTitle('题目数量'),
                     const SizedBox(height: 12),
                     _buildCountOptions(),
+                    if (_selectedRange == '自选章节') ...[
+                      const SizedBox(height: 18),
+                      _buildSectionTitle('选择章节'),
+                      const SizedBox(height: 12),
+                      _buildCustomChapterSelector(),
+                    ],
                     const SizedBox(height: 18),
                     // 开始按钮
                     _buildStartButton(),
@@ -77,7 +100,14 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
         itemBuilder: (context, i) {
           final selected = _rangeOptions[i] == _selectedRange;
           return GestureDetector(
-            onTap: () => setState(() => _selectedRange = _rangeOptions[i]),
+            onTap: () {
+              setState(() {
+                _selectedRange = _rangeOptions[i];
+                if (_selectedRange == '自选章节' && _selectedSectionIds.isEmpty) {
+                  _selectFirstChapter();
+                }
+              });
+            },
             child: Container(
               height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -139,7 +169,18 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
   Widget _buildStartButton() {
     return GestureDetector(
       onTap: () {
-        mockStore.startRandomPractice(count: _selectedCount);
+        if (_selectedRange == '自选章节' && _selectedSectionIds.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请选择至少一个章节')),
+          );
+          return;
+        }
+        mockStore.startRandomPractice(
+          count: _selectedCount,
+          catalogIds: _selectedRange == '自选章节'
+              ? _selectedSectionIds.toList()
+              : const [],
+        );
         context.go('/practice/quiz');
       },
       behavior: HitTestBehavior.opaque,
@@ -168,6 +209,218 @@ class _P06RandomPracticePageState extends State<P06RandomPracticePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCustomChapterSelector() {
+    final chapters = mockStore.chapters;
+    if (chapters.isEmpty) {
+      return _emptySelector('暂无可选章节');
+    }
+    if (_expandedChapterIds.isEmpty) {
+      _expandedChapterIds.add(chapters.first.id);
+    }
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < chapters.length; index++) ...[
+            _chapterSelectRow(chapters[index]),
+            if (_expandedChapterIds.contains(chapters[index].id))
+              ...chapters[index].sections.map(_sectionSelectRow),
+            if (index != chapters.length - 1)
+              const Divider(height: 1, color: AppColors.borderLight),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _emptySelector(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _chapterSelectRow(Chapter chapter) {
+    final sectionIds = chapter.sections.map((section) => section.id).toSet();
+    final selectedCount = sectionIds.where(_selectedSectionIds.contains).length;
+    final allSelected =
+        sectionIds.isNotEmpty && selectedCount == sectionIds.length;
+    final partialSelected = selectedCount > 0 && !allSelected;
+    final expanded = _expandedChapterIds.contains(chapter.id);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (expanded) {
+            _expandedChapterIds.remove(chapter.id);
+          } else {
+            _expandedChapterIds.add(chapter.id);
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Row(
+          children: [
+            Icon(
+              expanded ? Icons.expand_less : Icons.expand_more,
+              size: 20,
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chapter.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${chapter.sections.length}节 · ${chapter.total}题',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _selectionIcon(
+              checked: allSelected,
+              partial: partialSelected,
+              onTap: () => _toggleChapter(chapter),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionSelectRow(Section section) {
+    final selected = _selectedSectionIds.contains(section.id);
+    return InkWell(
+      onTap: () => _toggleSection(section.id),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(40, 9, 12, 9),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                section.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${section.total}题',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(width: 10),
+            _selectionIcon(
+              checked: selected,
+              partial: false,
+              onTap: () => _toggleSection(section.id),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectionIcon({
+    required bool checked,
+    required bool partial,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: Icon(
+          checked
+              ? Icons.check_circle
+              : partial
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+          size: 20,
+          color: checked || partial ? AppColors.primary : AppColors.textMuted,
+        ),
+      ),
+    );
+  }
+
+  void _toggleChapter(Chapter chapter) {
+    setState(() {
+      final ids = chapter.sections.map((section) => section.id);
+      final allSelected = ids.every(_selectedSectionIds.contains);
+      if (allSelected) {
+        _selectedSectionIds.removeAll(ids);
+      } else {
+        _selectedSectionIds.addAll(ids);
+        _expandedChapterIds.add(chapter.id);
+      }
+    });
+  }
+
+  void _toggleSection(String sectionId) {
+    setState(() {
+      if (_selectedSectionIds.contains(sectionId)) {
+        _selectedSectionIds.remove(sectionId);
+      } else {
+        _selectedSectionIds.add(sectionId);
+      }
+    });
+  }
+
+  void _selectFirstChapter() {
+    final chapters = mockStore.chapters;
+    if (chapters.isEmpty) return;
+    _expandedChapterIds.add(chapters.first.id);
+    _selectedSectionIds.addAll(
+      chapters.first.sections.map((section) => section.id),
     );
   }
 }

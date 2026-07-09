@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -32,14 +34,12 @@ class P50ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
-            BottomTabBar(currentIndex: 3, onTap: _onTabTap),
+            const BottomTabBar(currentIndex: 3),
           ],
         ),
       ),
     );
   }
-
-  void _onTabTap(int _) {}
 
   Widget _buildAccountCard() {
     return Container(
@@ -266,25 +266,33 @@ class P51PracticeRecordsPage extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 14),
-                    _buildStatsCard(),
-                    const SizedBox(height: 14),
-                    const Text('练习记录',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 10),
-                    _buildRecordList(),
-                  ],
-                ),
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  final records = mockStore.practiceRecords;
+                  return SingleChildScrollView(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 14),
+                        _buildStatsCard(),
+                        const SizedBox(height: 14),
+                        const Text('练习记录',
+                            style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary)),
+                        const SizedBox(height: 10),
+                        records.isEmpty
+                            ? _buildEmptyRecordHint('暂无练习记录')
+                            : _buildRecordList(records),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -294,6 +302,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
   }
 
   Widget _buildStatsCard() {
+    final stat = mockStore.practiceStat;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -307,7 +316,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('练习总览',
+          Text(mockStore.selectedSubject.name,
               style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
@@ -316,21 +325,21 @@ class P51PracticeRecordsPage extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('累计练习 642题',
-                  style: TextStyle(
+            children: [
+              Text('累计练习 ${stat.done}题',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white)),
-              Text('正确率 78%',
-                  style: TextStyle(
+              Text('正确率 ${stat.accuracy}%',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white)),
-              Text('练习 14天',
-                  style: TextStyle(
+              Text('记录 ${mockStore.practiceRecords.length}条',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -342,13 +351,14 @@ class P51PracticeRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildRecordList() {
+  Widget _buildRecordList(List<StudyRecord> records) {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: 5,
+      itemCount: records.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
+        final record = records[i];
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
@@ -363,20 +373,18 @@ class P51PracticeRecordsPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(['教育目的概述', '班级管理原则', '教师职业理念', '教学评价方法', '学生发展心理'][i],
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary)),
-                  Text(
-                      [
-                        '2026-05-2${7 - i}',
-                        '2026-05-2${6 - i}',
-                        '2026-05-2${5 - i}',
-                        '2026-05-2${4 - i}',
-                        '2026-05-2${3 - i}'
-                      ][i],
+                  Expanded(
+                    child: Text(record.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(record.time,
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
@@ -387,12 +395,12 @@ class P51PracticeRecordsPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${20 + i * 5}/${30 + i * 5}题',
+                  Text(record.mode,
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: AppColors.textSecondary)),
-                  Text('正确率 ${72 + i}%',
+                  Text(record.metric,
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -403,6 +411,29 @@ class P51PracticeRecordsPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyRecordHint(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.history, size: 36, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          Text(text,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppColors.textMuted)),
+        ],
+      ),
     );
   }
 }
@@ -434,21 +465,31 @@ class P52ExamRecordsPage extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    _buildExamStatsCard(),
-                    const SizedBox(height: 14),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: 4,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => _buildExamRecordCard(i),
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  final records = mockStore.examRecords;
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildExamStatsCard(),
+                        const SizedBox(height: 14),
+                        records.isEmpty
+                            ? _buildEmptyRecordHint('暂无考试记录')
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: records.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, i) =>
+                                    _buildExamRecordCard(records[i]),
+                              ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -458,6 +499,7 @@ class P52ExamRecordsPage extends StatelessWidget {
   }
 
   Widget _buildExamStatsCard() {
+    final stat = mockStore.examStat;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -470,31 +512,31 @@ class P52ExamRecordsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
-        children: const [
-          Text('考试总览',
+        children: [
+          Text(mockStore.selectedSubject.name,
               style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Colors.white)),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('考试 18次',
-                  style: TextStyle(
+              Text('考试 ${mockStore.examRecords.length}次',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white)),
-              Text('通过 12次',
-                  style: TextStyle(
+              Text('已考 ${stat.done}题',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white)),
-              Text('正确率 76%',
-                  style: TextStyle(
+              Text('正确率 ${stat.accuracy}%',
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -506,9 +548,12 @@ class P52ExamRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildExamRecordCard(int i) {
-    final titles = ['教育基础综合卷', '学生指导模拟卷', '班级管理章节卷', '教师职业理念真题卷'];
-    final submitted = i != 3;
+  Widget _buildExamRecordCard(StudyRecord record) {
+    final submitted = !record.metric.contains('未交卷');
+    final parts = record.metric.split(' · ');
+    final scoreText = parts.isNotEmpty ? parts.first : record.metric;
+    final badgeText =
+        submitted ? (parts.length > 1 ? parts.last : record.metric) : '未交卷';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -522,19 +567,24 @@ class P52ExamRecordsPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(titles[i],
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary)),
+              Expanded(
+                child: Text(record.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
+              ),
+              const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: submitted ? AppColors.successBg : AppColors.surface,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(submitted ? '正确率 ${76 - i * 4}%' : '未交卷',
+                child: Text(badgeText,
                     style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
@@ -548,20 +598,44 @@ class P52ExamRecordsPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(submitted ? '${65 + i * 3}分' : '答题中',
+              Text(submitted ? scoreText : '答题中',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color:
                           submitted ? AppColors.success : AppColors.primary)),
-              Text('${20 + i}分钟',
+              Text(record.time,
                   style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       color: AppColors.textMuted)),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyRecordHint(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.assignment_outlined,
+              size: 36, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          Text(text,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppColors.textMuted)),
         ],
       ),
     );

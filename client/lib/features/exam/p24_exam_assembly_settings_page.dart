@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 
@@ -18,6 +19,8 @@ class _P24ExamAssemblySettingsPageState
   String _scope = 'custom';
   int _questionCount = 100;
   int _duration = 120;
+  final Set<String> _expandedChapterIds = {};
+  final Set<String> _selectedSectionIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -56,26 +59,10 @@ class _P24ExamAssemblySettingsPageState
                               ],
                             ),
                             const SizedBox(height: 12),
-                            // Custom scope tree
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                    color: AppColors.border, width: 1),
-                              ),
-                              child: Column(
-                                children: [
-                                  _scopeTreeItem('第一章：教育基础', true),
-                                  _scopeTreeItem('第二章：安全规范', true),
-                                  _scopeTreeItem('第三章：实操常识', false),
-                                  _scopeTreeItem('第四章：应急处置', true),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                            if (_scope == 'custom') ...[
+                              _buildChapterSelector(),
+                              const SizedBox(height: 16),
+                            ],
                             // Exam settings
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -127,10 +114,19 @@ class _P24ExamAssemblySettingsPageState
                     // Start exam button
                     GestureDetector(
                       onTap: () {
+                        if (_scope == 'custom' && _selectedSectionIds.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('请选择至少一个章节')),
+                          );
+                          return;
+                        }
                         mockStore.startAssemblyExam(
                           scope: _scope == 'all' ? 'all' : 'custom',
                           questionCount: _questionCount,
                           duration: _duration,
+                          catalogIds: _scope == 'custom'
+                              ? _selectedSectionIds.toList()
+                              : const [],
                         );
                         context.go('/exam/answer');
                       },
@@ -167,7 +163,14 @@ class _P24ExamAssemblySettingsPageState
     final selected = _scope == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _scope = value),
+        onTap: () {
+          setState(() {
+            _scope = value;
+            if (_scope == 'custom' && _selectedSectionIds.isEmpty) {
+              _selectFirstChapter();
+            }
+          });
+        },
         child: Container(
           height: 40,
           decoration: BoxDecoration(
@@ -202,28 +205,214 @@ class _P24ExamAssemblySettingsPageState
     );
   }
 
-  Widget _scopeTreeItem(String title, bool checked) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(
-            checked ? Icons.check_box : Icons.check_box_outline_blank,
-            size: 18,
-            color: checked ? AppColors.primary : AppColors.textMuted,
+  Widget _buildChapterSelector() {
+    final chapters = mockStore.examChapters;
+    if (chapters.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border, width: 1),
+        ),
+        child: const Text(
+          '暂无可选章节',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppColors.textSecondary,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(title,
+        ),
+      );
+    }
+    if (_expandedChapterIds.isEmpty) {
+      _expandedChapterIds.add(chapters.first.id);
+      _selectedSectionIds.addAll(
+        chapters.first.sections.map((section) => section.id),
+      );
+    }
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < chapters.length; index++) ...[
+            _chapterSelectRow(chapters[index]),
+            if (_expandedChapterIds.contains(chapters[index].id))
+              ...chapters[index].sections.map(_sectionSelectRow),
+            if (index != chapters.length - 1)
+              const Divider(height: 1, color: AppColors.borderLight),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _chapterSelectRow(Chapter chapter) {
+    final sectionIds = chapter.sections.map((section) => section.id).toSet();
+    final selectedCount = sectionIds.where(_selectedSectionIds.contains).length;
+    final allSelected =
+        sectionIds.isNotEmpty && selectedCount == sectionIds.length;
+    final partialSelected = selectedCount > 0 && !allSelected;
+    final expanded = _expandedChapterIds.contains(chapter.id);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (expanded) {
+            _expandedChapterIds.remove(chapter.id);
+          } else {
+            _expandedChapterIds.add(chapter.id);
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Row(
+          children: [
+            Icon(
+              expanded ? Icons.expand_less : Icons.expand_more,
+              size: 20,
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chapter.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${chapter.sections.length}节 · ${chapter.total}题',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _selectionIcon(
+              checked: allSelected,
+              partial: partialSelected,
+              onTap: () => _toggleChapter(chapter),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionSelectRow(Section section) {
+    final selected = _selectedSectionIds.contains(section.id);
+    return InkWell(
+      onTap: () => _toggleSection(section.id),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(40, 9, 12, 9),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                section.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
-                  color: AppColors.textPrimary,
-                )),
-          ),
-          const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
-        ],
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${section.total}题',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(width: 10),
+            _selectionIcon(
+              checked: selected,
+              partial: false,
+              onTap: () => _toggleSection(section.id),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _selectionIcon({
+    required bool checked,
+    required bool partial,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: Icon(
+          checked
+              ? Icons.check_circle
+              : partial
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+          size: 20,
+          color: checked || partial ? AppColors.primary : AppColors.textMuted,
+        ),
+      ),
+    );
+  }
+
+  void _toggleChapter(Chapter chapter) {
+    setState(() {
+      final ids = chapter.sections.map((section) => section.id);
+      final allSelected = ids.every(_selectedSectionIds.contains);
+      if (allSelected) {
+        _selectedSectionIds.removeAll(ids);
+      } else {
+        _selectedSectionIds.addAll(ids);
+        _expandedChapterIds.add(chapter.id);
+      }
+    });
+  }
+
+  void _toggleSection(String sectionId) {
+    setState(() {
+      if (_selectedSectionIds.contains(sectionId)) {
+        _selectedSectionIds.remove(sectionId);
+      } else {
+        _selectedSectionIds.add(sectionId);
+      }
+    });
+  }
+
+  void _selectFirstChapter() {
+    final chapters = mockStore.examChapters;
+    if (chapters.isEmpty) return;
+    _expandedChapterIds.add(chapters.first.id);
+    _selectedSectionIds.addAll(
+      chapters.first.sections.map((section) => section.id),
     );
   }
 

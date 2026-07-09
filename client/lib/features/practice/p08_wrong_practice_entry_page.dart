@@ -24,50 +24,55 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SizedBox(
-        width: 390,
-        child: Column(
-          children: [
-            const StatusBar(),
-            const NavBar(title: '错题练习'),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 14),
-                    _buildRangeCard(),
-                    const SizedBox(height: 14),
-                    const Text('条件筛选',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 8),
-                    _buildFilterChips(),
-                    const SizedBox(height: 14),
-                    const Text('题型筛选',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 8),
-                    _buildQuestionTypeChips(),
-                    const SizedBox(height: 14),
-                    _buildRemoveRuleSection(),
-                    const SizedBox(height: 14),
-                    _buildEmptyHint(),
-                  ],
+      body: AnimatedBuilder(
+        animation: mockStore,
+        builder: (context, _) {
+          return SizedBox(
+            width: 390,
+            child: Column(
+              children: [
+                const StatusBar(),
+                const NavBar(title: '错题练习'),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding:
+                        const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 14),
+                        _buildRangeCard(),
+                        const SizedBox(height: 14),
+                        const Text('条件筛选',
+                            style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                        const SizedBox(height: 8),
+                        _buildFilterChips(),
+                        const SizedBox(height: 14),
+                        const Text('题型筛选',
+                            style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                        const SizedBox(height: 8),
+                        _buildQuestionTypeChips(),
+                        const SizedBox(height: 14),
+                        _buildRemoveRuleSection(),
+                        const SizedBox(height: 14),
+                        _buildEmptyHint(),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                _buildBottomBar(),
+              ],
             ),
-            // 底部操作栏
-            _buildBottomBar(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -112,13 +117,13 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('错题总数 42题',
-                      style: TextStyle(
+                  child: Text('错题总数 ${mockStore.wrongPracticeCount}题',
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -129,8 +134,8 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('今日新增 3题',
-                      style: TextStyle(
+                  child: Text('今日新增 ${mockStore.wrongQuestions.length}题',
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: AppColors.textBlueHint)),
@@ -141,8 +146,8 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Text('已掌握 18题',
-                      style: TextStyle(
+                  child: Text('已掌握 0题',
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: AppColors.textBlueHint)),
@@ -300,6 +305,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   }
 
   Widget _buildEmptyHint() {
+    final hasWrongQuestions = mockStore.wrongPracticeCount > 0;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -310,12 +316,15 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(Icons.info_outline, size: 16, color: AppColors.textMuted),
-          SizedBox(width: 8),
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: AppColors.textMuted),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text('无错题时使用 S03 空状态，不进入作答页',
-                style: TextStyle(
+            child: Text(
+                hasWrongQuestions
+                    ? '做对题目达到设定次数后，将自动从错题练习中移出。'
+                    : '暂无错题。完成练习并出现答错题目后，可从这里进入错题练习。',
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: AppColors.textSecondary)),
@@ -326,6 +335,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   }
 
   Widget _buildBottomBar() {
+    final canStart = mockStore.wrongPracticeCount > 0;
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -355,18 +365,20 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
           // 开始按钮
           Expanded(
             child: GestureDetector(
-              onTap: () {
-                mockStore.startWrongPractice(
-                    count: mockStore.wrongPracticeCount);
-                context.go('/practice/quiz');
-              },
+              onTap: canStart
+                  ? () {
+                      mockStore.startWrongPractice(
+                          count: mockStore.wrongPracticeCount);
+                      context.go('/practice/quiz');
+                    }
+                  : null,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: canStart ? AppColors.primary : AppColors.border,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(

@@ -4,6 +4,7 @@ import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
+import '../common/progress_reset_sheet.dart';
 
 /// P02 练习目录页 - 含状态栏、导航栏、学科数据面板、展开/收起的二级目录列表
 class P02PracticeCatalogPage extends StatefulWidget {
@@ -112,7 +113,7 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                 ),
                 // 重置进度入口
                 GestureDetector(
-                  onTap: () => context.go('/practice/reset'),
+                  onTap: () => _showResetSheet(store),
                   child: Container(
                     width: 61,
                     height: 24,
@@ -543,6 +544,52 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showResetSheet(MockAppStore store) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProgressResetSheet(
+        title: '重置进度',
+        description: '选择需要重置的目录，重置后将清空对应目录的练习记录。',
+        allDescription: '章节练习与模拟真题全部重置',
+        confirmMessage: '将清空已选目录的练习记录、正确率与错题统计，此操作不可撤销。',
+        groups: [
+          ResetCatalogGroup(
+            title: '章节练习（共${store.chapters.length}章）',
+            subtitle:
+                '${store.practiceChapterStat.done}/${store.practiceChapterStat.total}',
+            entries: store.chapters
+                .map(
+                  (chapter) => ResetCatalogEntry(
+                    id: chapter.id,
+                    title: chapter.title,
+                    progress: '${chapter.done}/${chapter.total}',
+                  ),
+                )
+                .toList(),
+          ),
+          ResetCatalogGroup(
+            title: '模拟真题（共${store.practicePapers.length}套）',
+            subtitle:
+                '${store.practicePaperStat.done}/${store.practicePaperStat.total}',
+            entries: store.practicePapers
+                .map(
+                  (paper) => ResetCatalogEntry(
+                    id: paper.id,
+                    title: paper.title,
+                    progress: '${paper.done}/${paper.total}',
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+        onConfirm: (catalogIds) =>
+            mockStore.resetPracticeProgress(catalogIds: catalogIds),
       ),
     );
   }

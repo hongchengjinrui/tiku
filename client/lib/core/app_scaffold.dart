@@ -1,38 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 
-/// Standard status bar widget mimicking iOS status bar at top of screens.
+/// White safe-area spacer for the native system status bar.
 class StatusBar extends StatelessWidget {
   const StatusBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      alignment: Alignment.center,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '9:41',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          Text(
-            '●●● ■',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
+    final style = SystemUiOverlayStyle.dark.copyWith(
+      statusBarColor: Colors.white,
+      systemStatusBarContrastEnforced: false,
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: style,
+      child: ColoredBox(
+        color: Colors.white,
+        child: SizedBox(
+          width: double.infinity,
+          height: MediaQuery.paddingOf(context).top,
+        ),
       ),
     );
   }

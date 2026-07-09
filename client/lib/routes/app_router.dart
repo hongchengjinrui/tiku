@@ -105,7 +105,8 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/practice/random/custom',
-      builder: (context, state) => const P06ARandomPracticeExpandedPage(),
+      builder: (context, state) =>
+          const P06RandomPracticePage(initialRange: '自选章节'),
     ),
     GoRoute(
       path: '/practice/favorite',
