@@ -737,6 +737,57 @@ void main() {
         ['middle_subject_favorite']);
   });
 
+  test('local subject states survive app state restore', () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    const primaryFavorite = Question(
+      id: 'restore_primary_favorite',
+      type: QuestionType.single,
+      stem: '恢复小学收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    const middleFavorite = Question(
+      id: 'restore_middle_favorite',
+      type: QuestionType.single,
+      stem: '恢复中学收藏题',
+      options: ['A', 'B'],
+      answerIndexes: {1},
+      analysis: '解析',
+    );
+
+    await store.toggleFavorite(primaryFavorite);
+    store.selectChapter('chapter_3');
+    await store.selectSubject('middle_teacher');
+    await store.toggleFavorite(middleFavorite);
+    store.selectChapter('chapter_2');
+    await store.flushLocalState();
+
+    expect(storage.snapshot?.localSubjectStates.keys,
+        containsAll(['primary_teacher', 'middle_teacher']));
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+
+    expect(restored.selectedSubjectId, 'middle_teacher');
+    expect(restored.selectedChapterId, 'chapter_2');
+    expect(restored.favoriteQuestions.map((item) => item.id),
+        ['restore_middle_favorite']);
+
+    await restored.selectSubject('primary_teacher');
+
+    expect(restored.selectedChapterId, 'chapter_3');
+    expect(restored.favoriteQuestions.map((item) => item.id),
+        ['restore_primary_favorite']);
+  });
+
   test('single record deletion keeps other records', () async {
     final store = AppStore(repository: MockTikuRepository());
     final practiceTarget = store.practiceRecords.first;

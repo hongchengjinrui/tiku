@@ -146,6 +146,16 @@ class AppStore extends ChangeNotifier {
   }
 
   void _applySnapshot(AppStateSnapshot snapshot) {
+    _localSubjectStates
+      ..clear()
+      ..addAll(
+        snapshot.localSubjectStates.map(
+          (subjectId, state) => MapEntry(
+            subjectId,
+            _localSubjectStateFromSnapshot(state),
+          ),
+        ),
+      );
     if (snapshot.selectedSubjectId.isNotEmpty) {
       selectedSubjectId = snapshot.selectedSubjectId;
     }
@@ -183,6 +193,11 @@ class AppStore extends ChangeNotifier {
 
   AppStateSnapshot _snapshot() {
     final current = repository;
+    final localSubjectStates = <String, _LocalSubjectState>{
+      if (_readyRemoteRepository == null) ..._localSubjectStates,
+      if (_readyRemoteRepository == null)
+        selectedSubjectId: _captureLocalSubjectState(),
+    };
     return AppStateSnapshot(
       savedAt: DateTime.now(),
       selectedSubjectId: selectedSubjectId,
@@ -200,6 +215,12 @@ class AppStore extends ChangeNotifier {
       catalogQuestionCache: current is RemoteTikuRepository
           ? current.exportQuestionCache()
           : const {},
+      localSubjectStates: localSubjectStates.map(
+        (subjectId, state) => MapEntry(
+          subjectId,
+          _localSubjectStateToSnapshot(state),
+        ),
+      ),
     );
   }
 
@@ -237,6 +258,42 @@ class AppStore extends ChangeNotifier {
       wrongCorrectCounts: Map<String, int>.from(wrongCorrectCounts),
       selectedChapterId: selectedChapterId,
       selectedExamChapterId: selectedExamChapterId,
+    );
+  }
+
+  _LocalSubjectState _localSubjectStateFromSnapshot(
+    SubjectStateSnapshot snapshot,
+  ) {
+    return _LocalSubjectState(
+      chapters: snapshot.practiceChapters,
+      examChapters: snapshot.examChapters,
+      practicePapers: snapshot.practicePapers,
+      examPapers: snapshot.examPapers,
+      practiceRecords: snapshot.practiceRecords,
+      examRecords: snapshot.examRecords,
+      favoriteQuestions: snapshot.favoriteQuestions,
+      wrongQuestions: snapshot.wrongQuestions,
+      wrongCorrectCounts: snapshot.wrongCorrectCounts,
+      selectedChapterId: snapshot.selectedChapterId,
+      selectedExamChapterId: snapshot.selectedExamChapterId,
+    );
+  }
+
+  SubjectStateSnapshot _localSubjectStateToSnapshot(
+    _LocalSubjectState state,
+  ) {
+    return SubjectStateSnapshot(
+      practiceChapters: state.chapters,
+      examChapters: state.examChapters,
+      practicePapers: state.practicePapers,
+      examPapers: state.examPapers,
+      practiceRecords: state.practiceRecords,
+      examRecords: state.examRecords,
+      favoriteQuestions: state.favoriteQuestions,
+      wrongQuestions: state.wrongQuestions,
+      wrongCorrectCounts: state.wrongCorrectCounts,
+      selectedChapterId: state.selectedChapterId,
+      selectedExamChapterId: state.selectedExamChapterId,
     );
   }
 
