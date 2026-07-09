@@ -5,6 +5,8 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import 'p27_submit_exam_confirmation_modal.dart';
+import 'p27a_submit_all_answered_modal.dart';
 
 /// P26 答题卡页 - Answer card page
 class P26AnswerCardPage extends StatelessWidget {
@@ -77,10 +79,7 @@ class P26AnswerCardPage extends StatelessWidget {
                                 label: '确认交卷',
                                 bgColor: AppColors.error,
                                 fgColor: Colors.white,
-                                onTap: () {
-                                  mockStore.submitExam();
-                                  context.go('/exam/analysis');
-                                },
+                                onTap: () => _submitExam(context),
                               ),
                             ),
                           ],
@@ -95,6 +94,25 @@ class P26AnswerCardPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _submitExam(BuildContext context) async {
+    final session = mockStore.examSession;
+    if (session == null) return;
+    final unanswered = session.questions.length - session.answeredCount;
+    final router = GoRouter.of(context);
+    final bool? confirmed;
+    if (unanswered > 0) {
+      confirmed = await P27SubmitExamConfirmationModal.show(
+        context,
+        unansweredCount: unanswered,
+      );
+    } else {
+      confirmed = await P27ASubmitAllAnsweredModal.show(context);
+    }
+    if (confirmed != true || !context.mounted) return;
+    mockStore.submitExam();
+    router.go('/exam/analysis');
   }
 
   List<Widget> _buildTypeSections(

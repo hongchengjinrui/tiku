@@ -112,12 +112,28 @@ start_backend() {
     BACKEND_BUILT=1
   fi
   kill_pid_file "$BACKEND_PID_FILE"
-  : > "$BACKEND_LOG"
-  (
-    cd "$ROOT_DIR/backend"
-    nohup node dist/main.js >>"$BACKEND_LOG" 2>&1 &
-    echo $! > "$BACKEND_PID_FILE"
-  )
+  BACKEND_CWD="$ROOT_DIR/backend" \
+  BACKEND_LOG="$BACKEND_LOG" \
+  BACKEND_PID_FILE="$BACKEND_PID_FILE" \
+  python3 <<'PY'
+import os
+import subprocess
+
+cwd = os.environ["BACKEND_CWD"]
+log_path = os.environ["BACKEND_LOG"]
+pid_file = os.environ["BACKEND_PID_FILE"]
+log = open(log_path, "ab", buffering=0)
+process = subprocess.Popen(
+    ["node", "dist/main.js"],
+    cwd=cwd,
+    stdout=log,
+    stderr=log,
+    stdin=subprocess.DEVNULL,
+    start_new_session=True,
+)
+with open(pid_file, "w", encoding="utf-8") as handle:
+    handle.write(str(process.pid))
+PY
   wait_for_http "$API_BASE_URL/health" "Backend"
   log "Backend ready: $API_BASE_URL"
 }
@@ -166,7 +182,11 @@ build_and_install_android() {
 
   log "Installing APK on $device_id"
   warn "Android install can take a minute on some devices; keep the phone unlocked."
-  adb -s "$device_id" install -r -d -t "$apk_path"
+  local remote_apk_path="/data/local/tmp/${ANDROID_PACKAGE}-${FLUTTER_BUILD_MODE}.apk"
+  adb -s "$device_id" shell am force-stop "$ANDROID_PACKAGE" >/dev/null 2>&1 || true
+  adb -s "$device_id" push "$apk_path" "$remote_apk_path"
+  adb -s "$device_id" shell pm install -r -d -t "$remote_apk_path"
+  adb -s "$device_id" shell rm -f "$remote_apk_path" >/dev/null 2>&1 || true
 
   log "Launching Android app"
   adb -s "$device_id" shell monkey -p "$ANDROID_PACKAGE" 1 >/dev/null
@@ -183,14 +203,32 @@ start_admin() {
   local port
   port="$(free_port "$ADMIN_PORT")"
   kill_pid_file "$ADMIN_PID_FILE"
-  : > "$ADMIN_LOG"
 
   log "Starting admin dev server on http://localhost:$port"
-  (
-    cd "$ROOT_DIR/admin"
-    nohup pnpm exec vite --host 0.0.0.0 --port "$port" --strictPort >>"$ADMIN_LOG" 2>&1 &
-    echo $! > "$ADMIN_PID_FILE"
-  )
+  ADMIN_CWD="$ROOT_DIR/admin" \
+  ADMIN_LOG="$ADMIN_LOG" \
+  ADMIN_PID_FILE="$ADMIN_PID_FILE" \
+  ADMIN_PORT_VALUE="$port" \
+  python3 <<'PY'
+import os
+import subprocess
+
+cwd = os.environ["ADMIN_CWD"]
+log_path = os.environ["ADMIN_LOG"]
+pid_file = os.environ["ADMIN_PID_FILE"]
+port = os.environ["ADMIN_PORT_VALUE"]
+log = open(log_path, "ab", buffering=0)
+process = subprocess.Popen(
+    ["pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", port, "--strictPort"],
+    cwd=cwd,
+    stdout=log,
+    stderr=log,
+    stdin=subprocess.DEVNULL,
+    start_new_session=True,
+)
+with open(pid_file, "w", encoding="utf-8") as handle:
+    handle.write(str(process.pid))
+PY
   wait_for_http "http://localhost:$port" "Admin"
   log "Admin ready: http://localhost:$port"
 }

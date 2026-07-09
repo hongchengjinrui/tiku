@@ -8,8 +8,15 @@ import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
 
 /// P40 资料中心页
-class P40ResourceCenterPage extends StatelessWidget {
+class P40ResourceCenterPage extends StatefulWidget {
   const P40ResourceCenterPage({super.key});
+
+  @override
+  State<P40ResourceCenterPage> createState() => _P40ResourceCenterPageState();
+}
+
+class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
+  late final Future<List<_ResourceItem>> _resourcesFuture = _loadResources();
 
   @override
   Widget build(BuildContext context) {
@@ -44,60 +51,76 @@ class P40ResourceCenterPage extends StatelessWidget {
   }
 
   Widget _buildRightsCard() {
-    return Container(
-      width: double.infinity,
-      height: 86,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primaryLight, AppColors.primary],
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return FutureBuilder<List<_ResourceItem>>(
+      future: _resourcesFuture,
+      builder: (context, snapshot) {
+        final resources = snapshot.data ?? _fallbackResources;
+        final subjectName = resources
+            .map((resource) => resource.subjectName)
+            .whereType<String>()
+            .firstWhere(
+              (name) => name.trim().isNotEmpty,
+              orElse: () => '综合类',
+            )
+            .trim();
+        return Container(
+          width: double.infinity,
+          height: 86,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primaryLight, AppColors.primary],
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('免费资料 · VIP专享资料',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
-              const SizedBox(height: 6),
-              const Text('当前科目：小学教师',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppColors.textBlueHint)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('免费资料 · VIP专享资料',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                  const SizedBox(height: 6),
+                  Text('当前科目：$subjectName',
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: AppColors.textBlueHint)),
+                ],
+              ),
+              GestureDetector(
+                child: Container(
+                  width: 88,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('切换科目',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: Colors.white)),
+                ),
+              ),
             ],
           ),
-          GestureDetector(
-            child: Container(
-              width: 88,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Text('切换科目',
-                  style: TextStyle(
-                      fontFamily: 'Inter', fontSize: 13, color: Colors.white)),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildResourceList() {
     return FutureBuilder<List<_ResourceItem>>(
-      future: _loadResources(),
+      future: _resourcesFuture,
       builder: (context, snapshot) {
         final resources = snapshot.data ?? _fallbackResources;
         return Column(

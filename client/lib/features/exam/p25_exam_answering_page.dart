@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import 'p27_submit_exam_confirmation_modal.dart';
+import 'p27a_submit_all_answered_modal.dart';
 
 /// P25 考试答题页 - Exam answering page
 class P25ExamAnsweringPage extends StatefulWidget {
@@ -57,6 +60,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
             width: 390,
             child: Column(
               children: [
+                const StatusBar(),
                 _buildNavBar(context, session),
                 _buildProgressArea(session, question),
                 Expanded(
@@ -457,9 +461,23 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
     );
   }
 
-  void _submitExam(BuildContext context) {
+  Future<void> _submitExam(BuildContext context) async {
+    final session = mockStore.examSession;
+    if (session == null) return;
+    final unanswered = session.questions.length - session.answeredCount;
+    final router = GoRouter.of(context);
+    final bool? confirmed;
+    if (unanswered > 0) {
+      confirmed = await P27SubmitExamConfirmationModal.show(
+        context,
+        unansweredCount: unanswered,
+      );
+    } else {
+      confirmed = await P27ASubmitAllAnsweredModal.show(context);
+    }
+    if (confirmed != true || !mounted) return;
     mockStore.submitExam();
-    context.go('/exam/analysis');
+    router.go('/exam/analysis');
   }
 
   TextEditingController _textControllerFor(String questionId, String value) {
