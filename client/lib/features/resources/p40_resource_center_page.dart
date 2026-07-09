@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/mock/mock_app_store.dart';
 import '../../data/repositories/remote_tiku_repository.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
@@ -51,18 +52,10 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
   }
 
   Widget _buildRightsCard() {
-    return FutureBuilder<List<_ResourceItem>>(
-      future: _resourcesFuture,
-      builder: (context, snapshot) {
-        final resources = snapshot.data ?? _fallbackResources;
-        final subjectName = resources
-            .map((resource) => resource.subjectName)
-            .whereType<String>()
-            .firstWhere(
-              (name) => name.trim().isNotEmpty,
-              orElse: () => '综合类',
-            )
-            .trim();
+    return AnimatedBuilder(
+      animation: mockStore,
+      builder: (context, _) {
+        final subjectName = mockStore.selectedSubject.name;
         return Container(
           width: double.infinity,
           height: 86,
@@ -96,6 +89,8 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
                 ],
               ),
               GestureDetector(
+                onTap: () => context.go('/practice/switch-subject'),
+                behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 88,
                   height: 32,
