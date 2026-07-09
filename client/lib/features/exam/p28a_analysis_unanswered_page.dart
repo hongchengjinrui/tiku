@@ -1,268 +1,163 @@
 import 'package:flutter/material.dart';
+
 import '../../core/app_scaffold.dart';
+import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 
-/// P28A 考试解析详情-未作答 - Exam analysis detail: unanswered
+enum _AnalysisKind { unanswered, wrong, correct }
+
 class P28AAnalysisUnansweredPage extends StatelessWidget {
   const P28AAnalysisUnansweredPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return _AnalysisDetailBase(
-      title: '模拟考试一',
-      questionNum: 5,
-      totalQuestions: 100,
-      progress: 5 / 100,
-      statusText: '未作答',
-      statusColor: AppColors.textSecondary,
-      statusBg: const Color(0xFFF1F5F9),
-      questionText: '电气设备火灾时，应首先采取的措施是？',
-      options: const [
-        _OptionData(label: 'A', text: '直接用水灭火', state: _OptionState.normal),
-        _OptionData(label: 'B', text: '立即切断电源', state: _OptionState.correct),
-        _OptionData(label: 'C', text: '立即撤离不处理', state: _OptionState.normal),
-        _OptionData(label: 'D', text: '等待设备自动断电', state: _OptionState.normal),
-      ],
-      resultLabel: '未作答',
-      resultColor: AppColors.textSecondary,
-      correctAnswer: 'B',
-      userAnswer: '未作答',
-      userAnswerColor: AppColors.textMuted,
-      analysisText: '电气设备火灾首先应切断电源，避免带电灭火导致触电或扩大事故，再使用适用灭火器材处理。',
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _AnalysisDetailPage(kind: _AnalysisKind.unanswered);
 }
 
-/// P28B 考试解析详情-答错题 - Exam analysis detail: wrong answer
 class P28BAnalysisWrongPage extends StatelessWidget {
   const P28BAnalysisWrongPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return _AnalysisDetailBase(
-      title: '模拟考试一',
-      questionNum: 1,
-      totalQuestions: 100,
-      progress: 1 / 100,
-      statusText: '答错题',
-      statusColor: AppColors.error,
-      statusBg: const Color(0xFFFEE2E2),
-      questionText: '电气设备火灾时，应首先采取的措施是？',
-      options: const [
-        _OptionData(label: 'A', text: '直接用水灭火', state: _OptionState.wrong),
-        _OptionData(label: 'B', text: '立即切断电源', state: _OptionState.correct),
-        _OptionData(label: 'C', text: '立即撤离不处理', state: _OptionState.normal),
-        _OptionData(label: 'D', text: '等待设备自动断电', state: _OptionState.normal),
-      ],
-      resultLabel: '回答错误',
-      resultColor: AppColors.error,
-      correctAnswer: 'B',
-      userAnswer: 'A',
-      userAnswerColor: AppColors.error,
-      analysisText: '电气设备火灾首先应切断电源，避免带电灭火导致触电或扩大事故，再使用适用灭火器材处理。',
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _AnalysisDetailPage(kind: _AnalysisKind.wrong);
 }
 
-/// P28C 考试解析详情-已答对 - Exam analysis detail: correct answer
 class P28CAnalysisCorrectPage extends StatelessWidget {
   const P28CAnalysisCorrectPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return _AnalysisDetailBase(
-      title: '模拟考试一',
-      questionNum: 2,
-      totalQuestions: 100,
-      progress: 2 / 100,
-      statusText: '已答对',
-      statusColor: AppColors.success,
-      statusBg: const Color(0xFFD1FAE5),
-      questionText: '以下哪种灭火器适用于电气火灾？',
-      options: const [
-        _OptionData(label: 'A', text: '清水灭火器', state: _OptionState.normal),
-        _OptionData(label: 'B', text: '二氧化碳灭火器', state: _OptionState.correct),
-        _OptionData(label: 'C', text: '泡沫灭火器', state: _OptionState.normal),
-        _OptionData(label: 'D', text: '酸碱灭火器', state: _OptionState.normal),
-      ],
-      resultLabel: '回答正确',
-      resultColor: AppColors.success,
-      correctAnswer: 'B',
-      userAnswer: 'B',
-      userAnswerColor: AppColors.success,
-      analysisText: '二氧化碳灭火器适用于电气火灾，可避免导电风险；使用前仍应优先确认现场断电条件。',
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _AnalysisDetailPage(kind: _AnalysisKind.correct);
 }
 
-enum _OptionState { normal, correct, wrong }
+class _AnalysisDetailPage extends StatelessWidget {
+  final _AnalysisKind kind;
 
-class _OptionData {
-  final String label;
-  final String text;
-  final _OptionState state;
-  const _OptionData(
-      {required this.label, required this.text, required this.state});
-}
-
-class _AnalysisDetailBase extends StatelessWidget {
-  final String title;
-  final int questionNum;
-  final int totalQuestions;
-  final double progress;
-  final String statusText;
-  final Color statusColor;
-  final Color statusBg;
-  final String questionText;
-  final List<_OptionData> options;
-  final String resultLabel;
-  final Color resultColor;
-  final String correctAnswer;
-  final String userAnswer;
-  final Color userAnswerColor;
-  final String analysisText;
-
-  const _AnalysisDetailBase({
-    required this.title,
-    required this.questionNum,
-    required this.totalQuestions,
-    required this.progress,
-    required this.statusText,
-    required this.statusColor,
-    required this.statusBg,
-    required this.questionText,
-    required this.options,
-    required this.resultLabel,
-    required this.resultColor,
-    required this.correctAnswer,
-    required this.userAnswer,
-    required this.userAnswerColor,
-    required this.analysisText,
-  });
+  const _AnalysisDetailPage({required this.kind});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        color: AppColors.surface,
-        width: 390,
-        child: Column(
-          children: [
-            _buildStatusBar(),
-            _buildNavBar(),
-            _buildProgress(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(questionText,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 17,
-                          height: 1.6,
-                          color: AppColors.textPrimary,
-                        )),
-                    const SizedBox(height: 14),
-                    ...options.map((o) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildOption(o),
-                        )),
-                    const SizedBox(height: 14),
-                    _buildAnalysisCard(),
-                  ],
+      body: AnimatedBuilder(
+        animation: mockStore,
+        builder: (context, _) {
+          final session = mockStore.examSession;
+          if (session == null) {
+            return const Center(child: Text('暂无考试解析'));
+          }
+          final targetIndex = _targetIndex(session);
+          if (targetIndex == null) {
+            return _emptyState(context, session);
+          }
+          final question = session.questions[targetIndex];
+          final status = _status(question, session);
+          return Container(
+            color: AppColors.surface,
+            width: 390,
+            child: Column(
+              children: [
+                const StatusBar(),
+                NavBar(title: session.title),
+                _buildProgress(session, targetIndex, status),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _cleanDisplayText(question.stem),
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 17,
+                            height: 1.6,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        if (question.options.isEmpty)
+                          _textAnswerBlock(question, session)
+                        else
+                          ...List.generate(
+                            question.options.length,
+                            (index) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _option(question, session, index),
+                            ),
+                          ),
+                        const SizedBox(height: 14),
+                        _analysisCard(question, session, status),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                _bottomBar(session, targetIndex),
+              ],
             ),
-            _buildBottomBar(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStatusBar() {
-    return const StatusBar();
-  }
-
-  Widget _buildNavBar() {
-    return SizedBox(
-      height: 48,
-      width: double.infinity,
-      child: Stack(
+  Widget _emptyState(BuildContext context, ExamSession session) {
+    return Container(
+      color: AppColors.surface,
+      width: 390,
+      child: Column(
         children: [
-          Positioned(
-            left: 16,
-            top: 12,
-            child: const Icon(Icons.chevron_left,
-                size: 24, color: AppColors.textPrimary),
-          ),
-          Center(
-            child: Text(title,
+          const StatusBar(),
+          NavBar(title: session.title),
+          Expanded(
+            child: Center(
+              child: Text(
+                '当前分类暂无题目',
                 style: const TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                )),
+                  fontSize: 15,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProgress() {
+  Widget _buildProgress(
+    ExamSession session,
+    int index,
+    _QuestionStatus status,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         children: [
           Row(
             children: [
-              Text('第 $questionNum / $totalQuestions 题',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  )),
+              Text(
+                '第 ${index + 1} / ${session.questions.length} 题',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(statusText,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    )),
-              ),
+              _pill(status.label, status.color, status.bgColor),
               const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text('单选题',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    )),
-              ),
+              _pill(session.questions[index].type.label, AppColors.primary,
+                  AppColors.primaryBg),
             ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
-              value: progress,
+              value: (index + 1) / session.questions.length,
               minHeight: 4,
               backgroundColor: AppColors.border,
               valueColor:
@@ -274,26 +169,44 @@ class _AnalysisDetailBase extends StatelessWidget {
     );
   }
 
-  Widget _buildOption(_OptionData opt) {
-    Color bgColor = AppColors.card;
-    Color strokeColor = AppColors.border;
-    Color labelColor = AppColors.textSecondary;
-    Color textColor = AppColors.textPrimary;
-    Widget? trailing;
+  Widget _pill(String text, Color color, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
 
-    if (opt.state == _OptionState.correct) {
-      bgColor = const Color(0xFFD1FAE5);
-      strokeColor = AppColors.success;
-      labelColor = AppColors.success;
-      textColor = const Color(0xFF065F46);
-      trailing = const Icon(Icons.check, size: 18, color: AppColors.success);
-    } else if (opt.state == _OptionState.wrong) {
-      bgColor = const Color(0xFFFEE2E2);
-      strokeColor = AppColors.error;
-      labelColor = AppColors.error;
-      textColor = const Color(0xFF991B1B);
-    }
-
+  Widget _option(Question question, ExamSession session, int index) {
+    final selected = session.answers[question.id]?.contains(index) ?? false;
+    final correct = question.answerIndexes.contains(index);
+    final wrong = selected && !correct;
+    final bgColor = correct
+        ? const Color(0xFFD1FAE5)
+        : wrong
+            ? const Color(0xFFFEE2E2)
+            : AppColors.card;
+    final strokeColor = correct
+        ? AppColors.success
+        : wrong
+            ? AppColors.error
+            : AppColors.border;
+    final color = correct
+        ? AppColors.success
+        : wrong
+            ? AppColors.error
+            : AppColors.textSecondary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -304,32 +217,61 @@ class _AnalysisDetailBase extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(opt.label,
+          Text(
+            _letter(index),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              question.options[index],
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: labelColor,
-              )),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(opt.text,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: opt.state != _OptionState.normal
-                      ? FontWeight.w600
-                      : FontWeight.normal,
-                  color: textColor,
-                )),
+                fontWeight:
+                    correct || wrong ? FontWeight.w600 : FontWeight.w400,
+                color: correct || wrong ? color : AppColors.textPrimary,
+              ),
+            ),
           ),
-          if (trailing != null) trailing,
+          if (correct)
+            const Icon(Icons.check, size: 18, color: AppColors.success),
         ],
       ),
     );
   }
 
-  Widget _buildAnalysisCard() {
+  Widget _textAnswerBlock(Question question, ExamSession session) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        _myAnswer(question, session),
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          height: 1.6,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _analysisCard(
+    Question question,
+    ExamSession session,
+    _QuestionStatus status,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -341,90 +283,205 @@ class _AnalysisDetailBase extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(resultLabel,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: resultColor,
-              )),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Text('正确答案：$correctAnswer',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    color: AppColors.success,
-                  )),
-              const SizedBox(width: 16),
-              Text('你的答案：$userAnswer',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    color: userAnswerColor,
-                  )),
-            ],
+          Text(
+            status.resultLabel,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: status.color,
+            ),
           ),
           const SizedBox(height: 10),
-          Text(analysisText,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                height: 1.6,
-                color: AppColors.textSecondary,
-              )),
+          _answerLine('正确答案', _correctAnswer(question), AppColors.success),
+          const SizedBox(height: 6),
+          _answerLine('我的答案', _myAnswer(question, session), status.color),
+          const SizedBox(height: 10),
+          Text(
+            _cleanDisplayText(question.analysis.isEmpty
+                ? '暂无解析，后续可在中台补充。'
+                : question.analysis),
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              height: 1.6,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _answerLine(String label, String value, Color color) {
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          height: 1.5,
+          color: color,
+        ),
+        children: [
+          TextSpan(
+            text: '$label：',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          TextSpan(text: value.isEmpty ? '未作答' : _cleanDisplayText(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomBar(ExamSession session, int index) {
+    final canPrevious = index > 0;
+    final canNext = index < session.questions.length - 1;
     return Container(
       height: 64,
       decoration: const BoxDecoration(
         color: AppColors.card,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border, width: 1),
-              ),
-              child: const Text('上一题',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  )),
-            ),
+          _bottomButton(
+            '上一题',
+            enabled: canPrevious,
+            onTap: () => mockStore.jumpExamQuestion(index - 1),
           ),
-          GestureDetector(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text('下一题',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  )),
-            ),
+          _bottomButton(
+            '下一题',
+            primary: true,
+            enabled: canNext,
+            onTap: () => mockStore.jumpExamQuestion(index + 1),
           ),
         ],
       ),
     );
   }
+
+  Widget _bottomButton(
+    String text, {
+    required bool enabled,
+    bool primary = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: primary && enabled ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border:
+              primary ? null : Border.all(color: AppColors.border, width: 1),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
+            color: enabled
+                ? (primary ? Colors.white : AppColors.textSecondary)
+                : AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  int? _targetIndex(ExamSession session) {
+    final current = session.currentIndex;
+    if (_matches(session, current)) return current;
+    for (var index = 0; index < session.questions.length; index++) {
+      if (_matches(session, index)) return index;
+    }
+    return null;
+  }
+
+  bool _matches(ExamSession session, int index) {
+    final question = session.questions[index];
+    return switch (kind) {
+      _AnalysisKind.unanswered => !session.hasAnswered(question.id),
+      _AnalysisKind.wrong =>
+        session.hasAnswered(question.id) && !session.isCorrect(question),
+      _AnalysisKind.correct => session.isCorrect(question),
+    };
+  }
+
+  _QuestionStatus _status(Question question, ExamSession session) {
+    if (!session.hasAnswered(question.id)) {
+      return const _QuestionStatus(
+        label: '未作答',
+        resultLabel: '未作答',
+        color: AppColors.textSecondary,
+        bgColor: Color(0xFFF1F5F9),
+      );
+    }
+    if (session.isCorrect(question)) {
+      return const _QuestionStatus(
+        label: '已答对',
+        resultLabel: '回答正确',
+        color: AppColors.success,
+        bgColor: Color(0xFFD1FAE5),
+      );
+    }
+    return const _QuestionStatus(
+      label: '答错题',
+      resultLabel: '回答错误',
+      color: AppColors.error,
+      bgColor: Color(0xFFFEE2E2),
+    );
+  }
+
+  String _correctAnswer(Question question) {
+    if (question.answerText.trim().isNotEmpty) return question.answerText;
+    return _answerText(question.answerIndexes);
+  }
+
+  String _myAnswer(Question question, ExamSession session) {
+    final text = session.textAnswers[question.id]?.trim();
+    if (text != null && text.isNotEmpty) return text;
+    return _answerText(session.answers[question.id] ?? const {});
+  }
+
+  String _answerText(Set<int> answers) {
+    if (answers.isEmpty) return '未作答';
+    final sorted = answers.toList()..sort();
+    return sorted.map(_letter).join('、');
+  }
+
+  String _letter(int index) => String.fromCharCode(65 + index);
+
+  String _cleanDisplayText(String value) {
+    return value
+        .replaceAll(RegExp(r'<img\b[^>]*>', caseSensitive: false), ' [图片] ')
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .trim();
+  }
+}
+
+class _QuestionStatus {
+  final String label;
+  final String resultLabel;
+  final Color color;
+  final Color bgColor;
+
+  const _QuestionStatus({
+    required this.label,
+    required this.resultLabel,
+    required this.color,
+    required this.bgColor,
+  });
 }

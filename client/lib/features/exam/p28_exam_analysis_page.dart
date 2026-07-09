@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
@@ -38,7 +39,9 @@ class P28ExamAnalysisPage extends StatelessWidget {
                         _buildOverviewPanel(session),
                         const SizedBox(height: 16),
                         _buildNumberSection(
+                          context: context,
                           title: '未作答',
+                          route: '/exam/analysis/unanswered',
                           titleColor: AppColors.textSecondary,
                           count: '${unanswered.length}题',
                           bgColor: AppColors.card,
@@ -49,7 +52,9 @@ class P28ExamAnalysisPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _buildNumberSection(
+                          context: context,
                           title: '答错题',
+                          route: '/exam/analysis/wrong',
                           titleColor: AppColors.error,
                           count: '${wrong.length}题',
                           bgColor: AppColors.card,
@@ -60,7 +65,9 @@ class P28ExamAnalysisPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _buildNumberSection(
+                          context: context,
                           title: '已答对',
+                          route: '/exam/analysis/correct',
                           titleColor: AppColors.success,
                           count: '${correct.length}题',
                           bgColor: AppColors.card,
@@ -166,7 +173,9 @@ class P28ExamAnalysisPage extends StatelessWidget {
   }
 
   Widget _buildNumberSection({
+    required BuildContext context,
     required String title,
+    required String route,
     required Color titleColor,
     required String count,
     required Color bgColor,
@@ -230,18 +239,28 @@ class P28ExamAnalysisPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const Row(
-                children: [
-                  Text(
-                    '查看全部',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppColors.primary,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: numbers.isEmpty
+                    ? null
+                    : () {
+                        mockStore.jumpExamQuestion(numbers.first - 1);
+                        context.go(route);
+                      },
+                child: const Row(
+                  children: [
+                    Text(
+                      '查看全部',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
-                  Icon(Icons.chevron_right, size: 14, color: AppColors.primary),
-                ],
+                    Icon(Icons.chevron_right,
+                        size: 14, color: AppColors.primary),
+                  ],
+                ),
               ),
             ],
           ),
@@ -259,18 +278,25 @@ class P28ExamAnalysisPage extends StatelessWidget {
               ),
             )
           else
-            ..._numberRows(numbers, cellColor, textColor),
+            ..._numberRows(context, numbers, cellColor, textColor, route),
         ],
       ),
     );
   }
 
   List<Widget> _numberRows(
-      List<int> numbers, Color cellColor, Color textColor) {
+    BuildContext context,
+    List<int> numbers,
+    Color cellColor,
+    Color textColor,
+    String route,
+  ) {
     final rows = <Widget>[];
     for (var i = 0; i < numbers.length; i += 6) {
       final cells = numbers.skip(i).take(6).map((number) {
-        return Expanded(child: _numberCell(number, cellColor, textColor));
+        return Expanded(
+          child: _numberCell(context, number, cellColor, textColor, route),
+        );
       }).toList();
       rows.add(
         Padding(
@@ -287,21 +313,34 @@ class P28ExamAnalysisPage extends StatelessWidget {
     return rows;
   }
 
-  Widget _numberCell(int num, Color bgColor, Color textColor) {
-    return Container(
-      height: 34,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          '$num',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+  Widget _numberCell(
+    BuildContext context,
+    int num,
+    Color bgColor,
+    Color textColor,
+    String route,
+  ) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        mockStore.jumpExamQuestion(num - 1);
+        context.go(route);
+      },
+      child: Container(
+        height: 34,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            '$num',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
           ),
         ),
       ),
