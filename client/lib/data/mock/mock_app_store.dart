@@ -81,6 +81,7 @@ class AppStore extends ChangeNotifier {
   List<Question> favoriteQuestions = const [];
   List<Question> wrongQuestions = const [];
   Map<String, int> wrongCorrectCounts = {};
+  List<FeedbackSubmission> feedbackSubmissions = const [];
 
   String selectedSubjectId = 'primary_teacher';
   String selectedChapterId = 'chapter_1';
@@ -131,6 +132,7 @@ class AppStore extends ChangeNotifier {
   Future<void> flushLocalState() async {
     _localPersistTimer?.cancel();
     _localPersistTimer = null;
+    await _syncPendingFeedbackSubmissions();
     final storage = stateStorage;
     if (storage == null) return;
     await storage.write(_snapshot());
@@ -182,6 +184,7 @@ class AppStore extends ChangeNotifier {
     favoriteQuestions = snapshot.favoriteQuestions;
     wrongQuestions = snapshot.wrongQuestions;
     wrongCorrectCounts = Map<String, int>.from(snapshot.wrongCorrectCounts);
+    feedbackSubmissions = snapshot.feedbackSubmissions;
     final current = repository;
     if (current is RemoteTikuRepository) {
       current.restoreQuestionCache(snapshot.catalogQuestionCache);
@@ -212,6 +215,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: favoriteQuestions,
       wrongQuestions: wrongQuestions,
       wrongCorrectCounts: wrongCorrectCounts,
+      feedbackSubmissions: feedbackSubmissions,
       catalogQuestionCache: current is RemoteTikuRepository
           ? current.exportQuestionCache()
           : const {},
@@ -959,14 +963,26 @@ class AppStore extends ChangeNotifier {
     required String content,
     String type = 'question_error',
   }) async {
+    final payload = {
+      'source': 'question_feedback',
+      'questionId': question.id,
+      'stem': question.stem,
+      'questionType': question.type.label,
+    };
     final current = _readyRemoteRepository;
     if (current != null) {
-      return current.submitQuestionFeedback(
+      final ok = await current.submitQuestionFeedback(
         question: question,
         content: content,
         type: type,
       );
+      if (ok) return true;
     }
+    _enqueueFeedbackSubmission(
+      content: content,
+      type: type,
+      payload: payload,
+    );
     return true;
   }
 
@@ -977,13 +993,58 @@ class AppStore extends ChangeNotifier {
   }) async {
     final current = _readyRemoteRepository;
     if (current != null) {
-      return current.submitGeneralFeedback(
+      final ok = await current.submitGeneralFeedback(
         content: content,
         type: type,
         payload: payload,
       );
+      if (ok) return true;
     }
+    _enqueueFeedbackSubmission(
+      content: content,
+      type: type,
+      payload: payload,
+    );
     return true;
+  }
+
+  void _enqueueFeedbackSubmission({
+    required String content,
+    required String type,
+    required Map<String, Object?> payload,
+  }) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return;
+    feedbackSubmissions = [
+      FeedbackSubmission(
+        id: 'feedback-${DateTime.now().microsecondsSinceEpoch}',
+        type: type,
+        content: trimmed,
+        payload: payload,
+        createdAt: DateTime.now(),
+      ),
+      ...feedbackSubmissions,
+    ];
+    _markLocalStateDirty();
+    notifyListeners();
+  }
+
+  Future<void> _syncPendingFeedbackSubmissions() async {
+    final current = _readyRemoteRepository;
+    if (current == null || feedbackSubmissions.isEmpty) return;
+    final remaining = <FeedbackSubmission>[];
+    for (final feedback in feedbackSubmissions.reversed) {
+      final ok = await current.submitGeneralFeedback(
+        content: feedback.content,
+        type: feedback.type,
+        payload: feedback.payload,
+      );
+      if (!ok) remaining.insert(0, feedback);
+    }
+    if (remaining.length == feedbackSubmissions.length) return;
+    feedbackSubmissions = remaining;
+    _markLocalStateDirty();
+    notifyListeners();
   }
 
   bool isQuestionFavorite(String questionId) =>

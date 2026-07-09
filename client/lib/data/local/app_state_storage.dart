@@ -83,6 +83,7 @@ class AppStateSnapshot {
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
   final Map<String, int> wrongCorrectCounts;
+  final List<FeedbackSubmission> feedbackSubmissions;
   final Map<String, List<Question>> catalogQuestionCache;
   final Map<String, SubjectStateSnapshot> localSubjectStates;
 
@@ -101,6 +102,7 @@ class AppStateSnapshot {
     required this.favoriteQuestions,
     required this.wrongQuestions,
     this.wrongCorrectCounts = const {},
+    this.feedbackSubmissions = const [],
     this.catalogQuestionCache = const {},
     this.localSubjectStates = const {},
   });
@@ -122,6 +124,8 @@ class AppStateSnapshot {
       favoriteQuestions: _mapList(json['favoriteQuestions'], _questionFromJson),
       wrongQuestions: _mapList(json['wrongQuestions'], _questionFromJson),
       wrongCorrectCounts: _intMap(json['wrongCorrectCounts']),
+      feedbackSubmissions:
+          _mapList(json['feedbackSubmissions'], _feedbackFromJson),
       catalogQuestionCache:
           _questionCacheFromJson(json['catalogQuestionCache']),
       localSubjectStates: _subjectStatesFromJson(json['localSubjectStates']),
@@ -144,6 +148,7 @@ class AppStateSnapshot {
       'favoriteQuestions': favoriteQuestions.map(_questionToJson).toList(),
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
       'wrongCorrectCounts': wrongCorrectCounts,
+      'feedbackSubmissions': feedbackSubmissions.map(_feedbackToJson).toList(),
       'catalogQuestionCache': catalogQuestionCache.map(
         (key, value) => MapEntry(key, value.map(_questionToJson).toList()),
       ),
@@ -336,6 +341,28 @@ Map<String, Object?> _recordToJson(StudyRecord record) {
     'metric': record.metric,
     'time': record.time,
   };
+}
+
+Map<String, Object?> _feedbackToJson(FeedbackSubmission feedback) {
+  return {
+    'id': feedback.id,
+    'type': feedback.type,
+    'content': feedback.content,
+    'payload': feedback.payload,
+    'createdAt': feedback.createdAt.toIso8601String(),
+  };
+}
+
+FeedbackSubmission _feedbackFromJson(Map<String, dynamic> json) {
+  final payload = json['payload'];
+  return FeedbackSubmission(
+    id: json['id']?.toString() ?? '',
+    type: json['type']?.toString() ?? 'general_feedback',
+    content: json['content']?.toString() ?? '',
+    payload: payload is Map ? Map<String, Object?>.from(payload) : const {},
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+  );
 }
 
 StudyRecord _recordFromJson(Map<String, dynamic> json) {

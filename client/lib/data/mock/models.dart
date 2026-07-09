@@ -45,6 +45,22 @@ class PracticeStat {
   double get progress => total == 0 ? 0 : done / total;
 }
 
+class FeedbackSubmission {
+  final String id;
+  final String type;
+  final String content;
+  final Map<String, Object?> payload;
+  final DateTime createdAt;
+
+  const FeedbackSubmission({
+    required this.id,
+    required this.type,
+    required this.content,
+    this.payload = const {},
+    required this.createdAt,
+  });
+}
+
 class Chapter {
   final String id;
   final String title;

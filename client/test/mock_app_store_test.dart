@@ -788,6 +788,53 @@ void main() {
         ['restore_primary_favorite']);
   });
 
+  test('local feedback submissions are queued and restored', () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    const question = Question(
+      id: 'feedback_question_q1',
+      type: QuestionType.single,
+      stem: '反馈题干',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+
+    final generalOk = await store.submitFeedback(
+      content: '希望增加夜间模式',
+      type: 'app_feedback',
+      payload: const {'source': 'profile_feedback'},
+    );
+    final questionOk = await store.submitQuestionFeedback(
+      question,
+      content: '这道题解析有误',
+      type: 'analysis_error',
+    );
+
+    expect(generalOk, isTrue);
+    expect(questionOk, isTrue);
+    expect(store.feedbackSubmissions.length, 2);
+    expect(store.feedbackSubmissions.first.type, 'analysis_error');
+    expect(store.feedbackSubmissions.first.payload['questionId'],
+        'feedback_question_q1');
+
+    await store.flushLocalState();
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+
+    expect(restored.feedbackSubmissions.map((item) => item.content), [
+      '这道题解析有误',
+      '希望增加夜间模式',
+    ]);
+  });
+
   test('single record deletion keeps other records', () async {
     final store = AppStore(repository: MockTikuRepository());
     final practiceTarget = store.practiceRecords.first;

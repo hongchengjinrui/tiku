@@ -124,6 +124,7 @@ class _P60CacheManagementPageState extends State<P60CacheManagementPage> {
       _CacheCount('考试记录', '${mockStore.examRecords.length}条'),
       _CacheCount('收藏题目', '${mockStore.favoriteQuestions.length}题'),
       _CacheCount('错题缓存', '${mockStore.wrongQuestions.length}题'),
+      _CacheCount('待同步反馈', '${mockStore.feedbackSubmissions.length}条'),
       _CacheCount('章节目录', '${mockStore.chapters.length}章'),
       _CacheCount('考试目录', '${mockStore.examChapters.length}章'),
     ];
