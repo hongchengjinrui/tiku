@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -43,7 +44,7 @@ class _QT01SingleChoicePageState extends State<QT01SingleChoicePage> {
                 ),
               ),
             ),
-            _buildBottomBar(),
+            _buildBottomBar(context),
           ],
         ),
       ),
@@ -151,7 +152,7 @@ class _QT01SingleChoicePageState extends State<QT01SingleChoicePage> {
     }).toList();
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(BuildContext context) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -162,39 +163,16 @@ class _QT01SingleChoicePageState extends State<QT01SingleChoicePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(children: const [
-              Icon(Icons.chevron_left,
-                  size: 18, color: AppColors.textSecondary),
-              SizedBox(width: 6),
-              Text('上一题',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      color: AppColors.textSecondary)),
-            ]),
+          const _QTNavButton(
+            label: '上一题',
+            icon: Icons.chevron_left,
+            route: '/qt/analysis-images/result',
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(children: const [
-              Text('下一题',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              SizedBox(width: 6),
-              Icon(Icons.chevron_right, size: 18, color: Colors.white),
-            ]),
+          const _QTNavButton(
+            label: '下一题',
+            icon: Icons.chevron_right,
+            route: '/qt/multiple',
+            primary: true,
           ),
         ],
       ),
@@ -242,7 +220,7 @@ class _QT02MultipleChoicePageState extends State<QT02MultipleChoicePage> {
                 ),
               ),
             ),
-            _buildBottomBar(),
+            _buildBottomBar(context),
           ],
         ),
       ),
@@ -338,7 +316,7 @@ class _QT02MultipleChoicePageState extends State<QT02MultipleChoicePage> {
     }).toList();
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(BuildContext context) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -346,35 +324,16 @@ class _QT02MultipleChoicePageState extends State<QT02MultipleChoicePage> {
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.border, width: 1))),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border)),
-          child: Row(children: const [
-            Icon(Icons.chevron_left, size: 18, color: AppColors.textSecondary),
-            SizedBox(width: 6),
-            Text('上一题',
-                style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    color: AppColors.textSecondary)),
-          ]),
+        const _QTNavButton(
+          label: '上一题',
+          icon: Icons.chevron_left,
+          route: '/qt/single',
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-              color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-          child: Row(children: const [
-            Text('下一题',
-                style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white)),
-            SizedBox(width: 6),
-            Icon(Icons.chevron_right, size: 18, color: Colors.white),
-          ]),
+        const _QTNavButton(
+          label: '下一题',
+          icon: Icons.chevron_right,
+          route: '/qt/truefalse',
+          primary: true,
         ),
       ]),
     );
@@ -424,7 +383,7 @@ class _QT03TrueFalsePageState extends State<QT03TrueFalsePage> {
                   ]),
             ),
           ),
-          _buildBottomBar(),
+          _buildBottomBar(context),
         ]),
       ),
     );
@@ -500,7 +459,7 @@ class _QT03TrueFalsePageState extends State<QT03TrueFalsePage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(BuildContext context) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -508,27 +467,16 @@ class _QT03TrueFalsePageState extends State<QT03TrueFalsePage> {
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.border, width: 1))),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border)),
-          child: const Text('上一题',
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 15,
-                  color: AppColors.textSecondary)),
+        const _QTNavButton(
+          label: '上一题',
+          icon: Icons.chevron_left,
+          route: '/qt/multiple',
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-              color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-          child: const Text('下一题',
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
+        const _QTNavButton(
+          label: '下一题',
+          icon: Icons.chevron_right,
+          route: '/qt/fillblank',
+          primary: true,
         ),
       ]),
     );
@@ -632,30 +580,16 @@ class QT04FillBlankPage extends StatelessWidget {
             child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.border)),
-                    child: const Text('上一题',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 15,
-                            color: AppColors.textSecondary)),
+                  const _QTNavButton(
+                    label: '上一题',
+                    icon: Icons.chevron_left,
+                    route: '/qt/truefalse',
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Text('下一题',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
+                  const _QTNavButton(
+                    label: '下一题',
+                    icon: Icons.chevron_right,
+                    route: '/qt/short',
+                    primary: true,
                   ),
                 ]),
           ),
@@ -1875,6 +1809,54 @@ class _QTBottomNavBar extends StatelessWidget {
           if (primary) const SizedBox(width: 4),
           if (primary) Icon(icon, size: 18, color: Colors.white),
         ],
+      ),
+    );
+  }
+}
+
+class _QTNavButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String route;
+  final bool primary;
+
+  const _QTNavButton({
+    required this.label,
+    required this.icon,
+    required this.route,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.go(route),
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: primary ? AppColors.primary : AppColors.card,
+          borderRadius: BorderRadius.circular(8),
+          border: primary ? null : Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            if (!primary) Icon(icon, size: 18, color: AppColors.textSecondary),
+            if (!primary) const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
+                color: primary ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+            if (primary) const SizedBox(width: 4),
+            if (primary) Icon(icon, size: 18, color: Colors.white),
+          ],
+        ),
       ),
     );
   }
