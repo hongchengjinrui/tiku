@@ -303,6 +303,10 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const P56FeedbackPage(),
     ),
     GoRoute(
+      path: '/profile/feedback-records',
+      builder: (context, state) => const P56AFeedbackRecordsPage(),
+    ),
+    GoRoute(
       path: '/profile/cache',
       builder: (context, state) => const P60CacheManagementPage(),
     ),

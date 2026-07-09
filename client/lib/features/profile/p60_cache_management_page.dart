@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_scaffold.dart';
 import '../../core/widgets.dart';
@@ -120,17 +121,46 @@ class _P60CacheManagementPageState extends State<P60CacheManagementPage> {
 
   Widget _buildCountGrid() {
     final items = [
-      _CacheCount('练习记录', '${mockStore.practiceRecords.length}条'),
-      _CacheCount('考试记录', '${mockStore.examRecords.length}条'),
-      _CacheCount('收藏题目', '${mockStore.favoriteQuestions.length}题'),
-      _CacheCount('错题缓存', '${mockStore.wrongQuestions.length}题'),
+      _CacheCount(
+        '练习记录',
+        '${mockStore.practiceRecords.length}条',
+        route: '/profile/practice-records',
+      ),
+      _CacheCount(
+        '考试记录',
+        '${mockStore.examRecords.length}条',
+        route: '/profile/exam-records',
+      ),
+      _CacheCount(
+        '收藏题目',
+        '${mockStore.favoriteQuestions.length}题',
+        route: '/practice/favorite',
+      ),
+      _CacheCount(
+        '错题缓存',
+        '${mockStore.wrongQuestions.length}题',
+        route: '/practice/wrong',
+      ),
       _CacheCount(
         '资料领取',
         '${mockStore.claimedResourceCount}份 ${mockStore.resourceClaimTotalCount}次',
+        route: '/profile/resource-claims',
       ),
-      _CacheCount('待同步反馈', '${mockStore.feedbackSubmissions.length}条'),
-      _CacheCount('章节目录', '${mockStore.chapters.length}章'),
-      _CacheCount('考试目录', '${mockStore.examChapters.length}章'),
+      _CacheCount(
+        '待同步反馈',
+        '${mockStore.feedbackSubmissions.length}条',
+        route: '/profile/feedback-records',
+      ),
+      _CacheCount(
+        '章节目录',
+        '${mockStore.chapters.length}章',
+        route: '/practice/catalog',
+      ),
+      _CacheCount(
+        '考试目录',
+        '${mockStore.examChapters.length}章',
+        route: '/exam/catalog',
+      ),
     ];
     return GridView.builder(
       shrinkWrap: true,
@@ -144,30 +174,48 @@ class _P60CacheManagementPageState extends State<P60CacheManagementPage> {
       ),
       itemBuilder: (context, index) {
         final item = items[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(item.value,
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              Text(item.label,
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppColors.textMuted)),
-            ],
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: item.route == null ? null : () => context.push(item.route!),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(item.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary)),
+                    ),
+                    if (item.route != null)
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(item.label,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.textMuted)),
+              ],
+            ),
           ),
         );
       },
@@ -255,6 +303,7 @@ class _P60CacheManagementPageState extends State<P60CacheManagementPage> {
 class _CacheCount {
   final String label;
   final String value;
+  final String? route;
 
-  const _CacheCount(this.label, this.value);
+  const _CacheCount(this.label, this.value, {this.route});
 }

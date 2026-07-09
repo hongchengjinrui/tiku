@@ -192,6 +192,11 @@ class P50ProfilePage extends StatelessWidget {
             'route': '/profile/feedback'
           },
           {
+            'icon': Icons.rate_review_outlined,
+            'label': '反馈记录',
+            'route': '/profile/feedback-records'
+          },
+          {
             'icon': Icons.storage_outlined,
             'label': '缓存管理',
             'route': '/profile/cache'

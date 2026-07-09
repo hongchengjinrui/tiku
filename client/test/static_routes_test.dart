@@ -67,6 +67,7 @@ void main() {
     '/profile/upload',
     '/profile/correction',
     '/profile/feedback',
+    '/profile/feedback-records',
     '/profile/cache',
     '/profile/about',
     '/profile/vip',
@@ -172,6 +173,67 @@ void main() {
     expect(find.text('资料领取测试'), findsOneWidget);
     expect(find.text('已领取2次'), findsOneWidget);
     expect(find.text('复制链接'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('profile opens pending feedback records', (tester) async {
+    final previousFeedbacks = mockStore.feedbackSubmissions;
+    addTearDown(() => mockStore.feedbackSubmissions = previousFeedbacks);
+    mockStore.feedbackSubmissions = [
+      FeedbackSubmission(
+        id: 'feedback_test_1',
+        type: 'analysis_error',
+        content: '这道题解析需要补充关键步骤',
+        payload: const {
+          'label': '解析有误',
+          'questionId': 'question_001',
+        },
+        createdAt: DateTime(2026, 7, 9, 10, 20),
+      ),
+    ];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/profile');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('反馈记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('反馈记录'), findsOneWidget);
+    expect(find.text('1 条待同步反馈'), findsOneWidget);
+    expect(find.text('解析有误'), findsOneWidget);
+    expect(find.text('这道题解析需要补充关键步骤'), findsOneWidget);
+    expect(find.text('关联题目：question_001'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('cache pending feedback count opens feedback records',
+      (tester) async {
+    final previousFeedbacks = mockStore.feedbackSubmissions;
+    addTearDown(() => mockStore.feedbackSubmissions = previousFeedbacks);
+    mockStore.feedbackSubmissions = [
+      FeedbackSubmission(
+        id: 'feedback_cache_1',
+        type: 'app_feedback',
+        content: '缓存页跳转反馈记录',
+        payload: const {'source': 'cache_test'},
+        createdAt: DateTime(2026, 7, 9, 11, 10),
+      ),
+    ];
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const TikuApp());
+
+    appRouter.go('/profile/cache');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('待同步反馈'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('反馈记录'), findsOneWidget);
+    expect(find.text('缓存页跳转反馈记录'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });

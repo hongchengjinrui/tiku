@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/mock/mock_app_store.dart';
+import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
@@ -507,6 +508,261 @@ class _P56FeedbackPageState extends State<P56FeedbackPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? '反馈已提交' : '提交失败，请稍后重试')),
     );
+  }
+}
+
+/// P56A 反馈记录页
+class P56AFeedbackRecordsPage extends StatelessWidget {
+  const P56AFeedbackRecordsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SizedBox(
+        width: 390,
+        child: Column(
+          children: [
+            const StatusBar(),
+            const NavBar(title: '反馈记录'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: mockStore,
+                builder: (context, _) {
+                  final feedbacks = mockStore.feedbackSubmissions;
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSummaryCard(feedbacks.length),
+                        const SizedBox(height: 14),
+                        if (feedbacks.isEmpty)
+                          _buildEmptyState(context)
+                        else
+                          _buildFeedbackList(feedbacks),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(int count) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primaryBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.rate_review_outlined,
+              size: 22,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$count 条待同步反馈',
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+                const SizedBox(height: 4),
+                const Text('联网并同步缓存后，会自动尝试提交到服务端。',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.mark_email_read_outlined,
+              size: 44, color: AppColors.textMuted),
+          const SizedBox(height: 12),
+          const Text('暂无待同步反馈',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('题目纠错和意见反馈提交后，会在离线或服务端不可用时暂存在这里。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppColors.textMuted)),
+          const SizedBox(height: 16),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push('/profile/feedback'),
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text('去反馈',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackList(List<FeedbackSubmission> feedbacks) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: feedbacks.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => _buildFeedbackCard(feedbacks[index]),
+    );
+  }
+
+  Widget _buildFeedbackCard(FeedbackSubmission feedback) {
+    final label = _feedbackTypeLabel(feedback);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(label,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_formatTime(feedback.createdAt),
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.textMuted)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(feedback.content,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  height: 1.55,
+                  color: AppColors.textPrimary)),
+          if (_payloadText(feedback).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(_payloadText(feedback),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: AppColors.textMuted)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _feedbackTypeLabel(FeedbackSubmission feedback) {
+    final label = feedback.payload['label']?.toString();
+    if (label != null && label.trim().isNotEmpty) return label.trim();
+    return switch (feedback.type) {
+      'stem_error' => '题目有误',
+      'answer_error' => '答案有误',
+      'analysis_error' => '解析有误',
+      'image_error' => '图片问题',
+      'app_feedback' => '意见反馈',
+      'question_feedback' => '题目纠错',
+      _ => '其他反馈',
+    };
+  }
+
+  String _payloadText(FeedbackSubmission feedback) {
+    final questionId = feedback.payload['questionId']?.toString();
+    if (questionId != null && questionId.isNotEmpty) {
+      return '关联题目：$questionId';
+    }
+    final source = feedback.payload['source']?.toString();
+    if (source != null && source.isNotEmpty) return '来源：$source';
+    return '';
+  }
+
+  String _formatTime(DateTime time) {
+    if (time.millisecondsSinceEpoch <= 0) return '待同步';
+    final now = DateTime.now();
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    if (now.year == time.year &&
+        now.month == time.month &&
+        now.day == time.day) {
+      return '今天 $hour:$minute';
+    }
+    return '${time.month}月${time.day}日 $hour:$minute';
   }
 }
 
