@@ -31,6 +31,37 @@ cd client && flutter pub get
 cd client && flutter run
 ```
 
+## 一键本地回归准备
+
+用于每轮真机回归前自动串起本地服务、数据链路和安卓安装：
+
+```bash
+pnpm regression:local
+```
+
+脚本默认会执行：
+
+- 后端构建并重启 `http://localhost:3000/api`
+- 中台构建
+- Flutter `analyze` 与 Store 单测
+- `pnpm smoke:e2e` 验证客户端 API 写入与中台读取
+- 构建并安装安卓 debug APK
+- 设置 `adb reverse tcp:3000 tcp:3000`
+- 启动中台 Vite 服务
+
+常用开关：
+
+```bash
+# 不安装安卓，只做后端/中台/接口回归
+RUN_ANDROID=0 pnpm regression:local
+
+# 跳过构建检查，快速重装真机包
+RUN_CHECKS=0 pnpm regression:local
+
+# 切回电网刷题题库
+APP_KEY=grid-exam-android pnpm regression:local
+```
+
 ## 电网刷题本地联调
 
 首期以 `V4版题库_简答拆解/电网刷题真题库` 为基准题库。登录、支付和 VIP 遮挡先不启用，客户端使用 `dev-user-001` 本地测试用户，资料全部开放展示。
