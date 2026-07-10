@@ -13,9 +13,9 @@ class StaticDialogPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      child: SizedBox(width: 390, child: child),
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SizedBox(width: 390, child: child),
     );
   }
 }
@@ -32,9 +32,9 @@ class StaticBottomSheetPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      child: SizedBox(
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SizedBox(
         width: 390,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,

@@ -76,20 +76,39 @@ class RemoteTikuRepository extends MockTikuRepository {
     try {
       final practiceTree = await _loadCatalog(subjectId, 'practice');
       final examTree = await _loadCatalog(subjectId, 'exam');
-      _practiceChapters = _parseChapters(practiceTree, categoryName: '章节练习');
-      _examChapters = _parseChapters(examTree, categoryName: '章节练习');
-      _practicePapers = _parsePapers(practiceTree);
-      _examPapers = _parsePapers(examTree);
-      _practiceRecords = await _loadRecords('practice');
-      _examRecords = await _loadRecords('exam');
-      _favoriteQuestions = await fetchFavoriteQuestions(subjectId: subjectId);
-      _wrongQuestions = await fetchWrongQuestions(subjectId: subjectId);
+      final switchingSubject = selectedSubjectId != subjectId;
+      final practiceChapters =
+          _parseChapters(practiceTree, categoryName: '章节练习');
+      final examChapters = _parseChapters(examTree, categoryName: '章节练习');
+      final practicePapers = _parsePapers(practiceTree);
+      final examPapers = _parsePapers(examTree);
+      final practiceRecords = await _loadRecords(
+        'practice',
+        subjectId: subjectId,
+        fallback: switchingSubject ? const [] : _practiceRecords ?? const [],
+      );
+      final examRecords = await _loadRecords(
+        'exam',
+        subjectId: subjectId,
+        fallback: switchingSubject ? const [] : _examRecords ?? const [],
+      );
+      final favoriteQuestions =
+          await fetchFavoriteQuestions(subjectId: subjectId);
+      final wrongQuestions = await fetchWrongQuestions(subjectId: subjectId);
+
+      _practiceChapters = practiceChapters;
+      _examChapters = examChapters;
+      _practicePapers = practicePapers;
+      _examPapers = examPapers;
+      _practiceRecords = practiceRecords;
+      _examRecords = examRecords;
+      _favoriteQuestions = favoriteQuestions;
+      _wrongQuestions = wrongQuestions;
       _questionCache.clear();
       selectedSubjectId = subjectId;
       remoteReady = true;
       return true;
     } catch (_) {
-      remoteReady = false;
       return false;
     }
   }
@@ -161,6 +180,9 @@ class RemoteTikuRepository extends MockTikuRepository {
       _favoriteQuestions = questions;
       return questions;
     } catch (_) {
+      if (subjectId != null && subjectId != selectedSubjectId) {
+        return const [];
+      }
       return _favoriteQuestions ?? const [];
     }
   }
@@ -185,11 +207,14 @@ class RemoteTikuRepository extends MockTikuRepository {
       _wrongQuestions = questions;
       return questions;
     } catch (_) {
+      if (subjectId != null && subjectId != selectedSubjectId) {
+        return const [];
+      }
       return _wrongQuestions ?? const [];
     }
   }
 
-  Future<bool> toggleFavorite(Question question) async {
+  Future<bool?> toggleFavorite(Question question) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/client/favorites/${question.id}/toggle',
@@ -202,7 +227,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       _favoriteQuestions = next;
       return favorited;
     } catch (_) {
-      return isFavorite(question.id);
+      return null;
     }
   }
 
@@ -268,11 +293,19 @@ class RemoteTikuRepository extends MockTikuRepository {
   }
 
   Future<void> refreshRecords() async {
-    _practiceRecords = await _loadRecords('practice');
-    _examRecords = await _loadRecords('exam');
+    _practiceRecords = await _loadRecords(
+      'practice',
+      subjectId: selectedSubjectId,
+      fallback: _practiceRecords ?? const [],
+    );
+    _examRecords = await _loadRecords(
+      'exam',
+      subjectId: selectedSubjectId,
+      fallback: _examRecords ?? const [],
+    );
   }
 
-  Future<bool> deleteRecords(String mode) async {
+  Future<bool> deleteRecords(String mode, {String? subjectId}) async {
     try {
       await _dio.delete(
         '/client/records',
@@ -280,6 +313,7 @@ class RemoteTikuRepository extends MockTikuRepository {
           'userId': userId,
           'appKey': appKey,
           'mode': mode,
+          if (subjectId != null) 'subjectId': subjectId,
         },
       );
       if (mode == 'practice') {
@@ -330,9 +364,6 @@ class RemoteTikuRepository extends MockTikuRepository {
         'mode': mode,
         'catalogIds': catalogIds,
       });
-      if (selectedSubjectId != null) {
-        await loadSubject(selectedSubjectId!);
-      }
       return true;
     } catch (_) {
       return false;
@@ -366,11 +397,14 @@ class RemoteTikuRepository extends MockTikuRepository {
     required String content,
     String type = 'general_feedback',
     Map<String, Object?> payload = const {},
+    String? questionId,
   }) async {
     try {
       await _dio.post('/client/feedback', data: {
         'userId': userId,
         'appKey': appKey,
+        if (questionId != null && questionId.isNotEmpty)
+          'questionId': questionId,
         'type': type,
         'content': content,
         'payload': payload,
@@ -385,6 +419,7 @@ class RemoteTikuRepository extends MockTikuRepository {
     required Question question,
     Set<int> selected = const {},
     String? text,
+    int wrongRemovalThreshold = 0,
   }) async {
     try {
       final response =
@@ -399,6 +434,8 @@ class RemoteTikuRepository extends MockTikuRepository {
               .map((index) => _optionKey(index))
               .toList(),
         if (text != null) 'text': text,
+        if (wrongRemovalThreshold > 0)
+          'wrongRemovalThreshold': wrongRemovalThreshold,
       });
       return _parseAnswerResult(
         response.data ?? {},
@@ -411,7 +448,10 @@ class RemoteTikuRepository extends MockTikuRepository {
     }
   }
 
-  Future<void> submitExamResult(ExamSession session) async {
+  Future<bool> submitExamResult(
+    ExamSession session, {
+    String? subjectId,
+  }) async {
     try {
       final answerPayloads = <Map<String, dynamic>>[
         ...session.answers.entries.map((entry) {
@@ -440,9 +480,18 @@ class RemoteTikuRepository extends MockTikuRepository {
         'title': session.title,
         'mode': session.mode,
         'durationMinutes': session.durationMinutes,
+        'remainingSeconds': session.remainingSeconds,
+        if (subjectId != null) 'subjectId': subjectId,
+        if (session.sectionId != null) 'sectionId': session.sectionId,
+        if (session.paperId != null) 'paperId': session.paperId,
+        'questionIds':
+            session.questions.map((question) => question.id).toList(),
         'answers': answerPayloads,
       });
-    } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -500,11 +549,20 @@ class RemoteTikuRepository extends MockTikuRepository {
         .toList();
   }
 
-  Future<List<StudyRecord>> _loadRecords(String mode) async {
+  Future<List<StudyRecord>> _loadRecords(
+    String mode, {
+    String? subjectId,
+    List<StudyRecord> fallback = const [],
+  }) async {
     try {
       final response = await _dio.get<List<dynamic>>(
         '/client/records',
-        queryParameters: {'userId': userId, 'appKey': appKey, 'mode': mode},
+        queryParameters: {
+          'userId': userId,
+          'appKey': appKey,
+          'mode': mode,
+          if (subjectId != null) 'subjectId': subjectId,
+        },
       );
       return (response.data ?? [])
           .whereType<Map<String, dynamic>>()
@@ -516,6 +574,8 @@ class RemoteTikuRepository extends MockTikuRepository {
         final score = item['score'];
         final accuracy = item['accuracy'] ?? score;
         final createdAt = item['createdAt']?.toString();
+        final examDetail =
+            mode == 'exam' ? _parseExamRecordDetail(payload) : null;
         return StudyRecord(
           id: item['id']?.toString() ?? '',
           title: mode == 'practice'
@@ -526,12 +586,11 @@ class RemoteTikuRepository extends MockTikuRepository {
               ? '${_formatNumber(score)}分 · 正确率 ${_formatNumber(accuracy)}%'
               : (correct ? '回答正确' : '回答错误'),
           time: _formatRecordTime(createdAt),
+          examDetail: examDetail,
         );
       }).toList();
     } catch (_) {
-      return mode == 'practice'
-          ? super.loadPracticeRecords()
-          : super.loadExamRecords();
+      return fallback;
     }
   }
 
@@ -689,6 +748,97 @@ class RemoteTikuRepository extends MockTikuRepository {
       matchedPoints: matchedPoints,
       reviewReason: shortAnswer['reviewReason']?.toString(),
     );
+  }
+
+  ExamRecordDetail? _parseExamRecordDetail(Map<String, dynamic> payload) {
+    final rawResults = (payload['results'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final rawQuestions = (payload['questions'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final questionMaps = rawQuestions.isNotEmpty
+        ? rawQuestions
+        : rawResults
+            .map((result) => result['question'])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+    final questions = <Question>[];
+    final questionIds = <String>{};
+    for (final item in questionMaps) {
+      final question = _parseQuestion(item);
+      if (question.id.isEmpty || !questionIds.add(question.id)) continue;
+      questions.add(question);
+    }
+    if (questions.isEmpty) return null;
+
+    final questionsById = {
+      for (final question in questions) question.id: question,
+    };
+    final answers = <String, Set<int>>{};
+    final textAnswers = <String, String>{};
+    for (final item in (payload['answers'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()) {
+      final questionId = item['questionId']?.toString() ?? '';
+      final question = questionsById[questionId];
+      if (question == null) continue;
+      final text = item['text']?.toString().trim() ?? '';
+      if (text.isNotEmpty) {
+        textAnswers[questionId] = text;
+        continue;
+      }
+      final selected = _submittedAnswerIndexes(
+        item['values'],
+        question.options.length,
+      );
+      if (selected.isNotEmpty) answers[questionId] = selected;
+    }
+
+    final answerResults = <String, PracticeAnswerResult>{};
+    for (final result in rawResults) {
+      final questionData = result['question'];
+      final questionId = questionData is Map<String, dynamic>
+          ? questionData['id']?.toString() ?? ''
+          : result['questionId']?.toString() ?? '';
+      final question = questionsById[questionId];
+      if (question == null) continue;
+      answerResults[questionId] = _parseAnswerResult(
+        result,
+        fallbackQuestion: question,
+        selected: answers[questionId] ?? const {},
+        submittedText: textAnswers[questionId],
+      );
+    }
+
+    final durationMinutes = _int(payload['durationMinutes']).clamp(1, 1440);
+    return ExamRecordDetail(
+      subjectId: _nullableString(payload['subjectId']),
+      sectionId: _nullableString(payload['sectionId']),
+      paperId: _nullableString(payload['paperId']),
+      questions: questions,
+      durationMinutes: durationMinutes,
+      remainingSeconds: _int(payload['remainingSeconds'])
+          .clamp(0, durationMinutes * 60)
+          .toInt(),
+      answers: answers,
+      textAnswers: textAnswers,
+      answerResults: answerResults,
+    );
+  }
+
+  Set<int> _submittedAnswerIndexes(dynamic values, int optionCount) {
+    if (values is! List || optionCount <= 0) return const {};
+    return values
+        .map((item) => item.toString().trim().toUpperCase())
+        .where((key) => key.isNotEmpty)
+        .map((key) => key.codeUnitAt(0) - 65)
+        .where((index) => index >= 0 && index < optionCount)
+        .toSet();
+  }
+
+  String? _nullableString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 
   _Progress _progress(Map<String, dynamic> item) {

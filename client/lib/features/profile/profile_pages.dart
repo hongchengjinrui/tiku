@@ -209,7 +209,7 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
   }
 }
 
-/// P55 上传题库页
+/// P55 题库维护说明页
 class P55UploadBankPage extends StatelessWidget {
   const P55UploadBankPage({super.key});
 
@@ -221,7 +221,7 @@ class P55UploadBankPage extends StatelessWidget {
         child: Column(
           children: [
             const StatusBar(),
-            const NavBar(title: '上传题库'),
+            const NavBar(title: '题库维护'),
             Expanded(
               child: SingleChildScrollView(
                 padding:
@@ -1013,6 +1013,28 @@ class P57AboutPage extends StatelessWidget {
 class P58LoginPage extends StatelessWidget {
   const P58LoginPage({super.key});
 
+  static const _placeholderMessage = '登录能力将在上架前接入，当前使用本地游客模式';
+
+  void _showLoginPlaceholder(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(_placeholderMessage)),
+    );
+  }
+
+  void _closeToProfile(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    context.go('/profile');
+  }
+
+  void _continueAsGuest(BuildContext context) {
+    _showLoginPlaceholder(context);
+    context.go('/profile');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1028,8 +1050,8 @@ class P58LoginPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               alignment: Alignment.centerRight,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: const Icon(Icons.logout,
+                onTap: () => _closeToProfile(context),
+                child: const Icon(Icons.close,
                     size: 24, color: AppColors.textPrimary),
               ),
             ),
@@ -1098,58 +1120,67 @@ class P58LoginPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryBg,
-                            borderRadius: BorderRadius.circular(12),
+                        GestureDetector(
+                          onTap: () => _showLoginPlaceholder(context),
+                          child: Container(
+                            height: 52,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBg,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text('获取验证码',
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 14,
+                                    color: AppColors.primary)),
                           ),
-                          child: const Text('获取验证码',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 14,
-                                  color: AppColors.primary)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
                     // 登录按钮
-                    Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('登录 / 注册',
-                            style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                    GestureDetector(
+                      onTap: () => _continueAsGuest(context),
+                      child: Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Text('登录 / 注册',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
                     // 第三方登录
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.wechat, size: 40, color: AppColors.success),
-                        SizedBox(width: 20),
-                        Icon(Icons.account_balance_wallet,
-                            size: 40, color: AppColors.primary),
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showLoginPlaceholder(context),
+                          child: const Icon(Icons.wechat,
+                              size: 40, color: AppColors.success),
+                        ),
+                        const SizedBox(width: 20),
+                        GestureDetector(
+                          onTap: () => _showLoginPlaceholder(context),
+                          child: const Icon(Icons.account_balance_wallet,
+                              size: 40, color: AppColors.primary),
+                        ),
                       ],
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('当前已使用本地游客模式')),
-                        );
-                      },
+                      onTap: () => _continueAsGuest(context),
                       child: const Text('游客登录',
                           style: TextStyle(
                               fontFamily: 'Inter',
@@ -1171,6 +1202,14 @@ class P58LoginPage extends StatelessWidget {
 /// P58A 一键登录页
 class P58AQuickLoginPage extends StatelessWidget {
   const P58AQuickLoginPage({super.key});
+
+  static const _placeholderMessage = '登录能力将在上架前接入，当前使用本地游客模式';
+
+  void _showLoginPlaceholder(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(_placeholderMessage)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1211,25 +1250,28 @@ class P58AQuickLoginPage extends StatelessWidget {
                             fontSize: 15,
                             color: AppColors.textSecondary)),
                     const SizedBox(height: 32),
-                    Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('一键绑定登录',
-                            style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                    GestureDetector(
+                      onTap: () => _showLoginPlaceholder(context),
+                      child: Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Text('一键绑定登录',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () => context.go('/login'),
                       child: const Text('其他方式登录',
                           style: TextStyle(
                               fontFamily: 'Inter',

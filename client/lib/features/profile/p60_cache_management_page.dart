@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -291,7 +293,7 @@ class _P60CacheManagementPageState extends State<P60CacheManagementPage> {
     if (confirmed != true) return;
     setState(() => _busy = true);
     await mockStore.clearLocalState();
-    await clearResourceCache();
+    unawaited(clearResourceCache());
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(

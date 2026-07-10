@@ -440,6 +440,7 @@ class ExamSession {
   int remainingSeconds;
   final Map<String, Set<int>> answers;
   final Map<String, String> textAnswers;
+  final Map<String, PracticeAnswerResult> answerResults;
 
   ExamSession({
     required this.title,
@@ -453,8 +454,10 @@ class ExamSession {
     int? remainingSeconds,
     Map<String, Set<int>>? answers,
     Map<String, String>? textAnswers,
+    Map<String, PracticeAnswerResult>? answerResults,
   })  : answers = answers ?? {},
         textAnswers = textAnswers ?? {},
+        answerResults = answerResults ?? {},
         remainingSeconds = remainingSeconds ?? durationMinutes * 60;
 
   Question get currentQuestion => questions[currentIndex];
@@ -475,6 +478,8 @@ class ExamSession {
   int get accuracy => score;
 
   bool isCorrect(Question question) {
+    final result = answerResults[question.id];
+    if (result?.isCorrect != null) return result!.isCorrect == true;
     if (_isTextQuestion(question)) {
       final text = textAnswers[question.id]?.trim() ?? '';
       if (text.isEmpty) return false;
@@ -485,6 +490,8 @@ class ExamSession {
 
   bool isWrong(Question question) {
     if (!hasAnswered(question.id)) return false;
+    final result = answerResults[question.id];
+    if (result?.isCorrect != null) return result!.isCorrect == false;
     if (_isTextQuestion(question)) {
       final evaluation =
           evaluateTextAnswer(question, textAnswers[question.id] ?? '');
@@ -495,6 +502,20 @@ class ExamSession {
 
   int questionScore(Question question) {
     if (!hasAnswered(question.id)) return 0;
+    final result = answerResults[question.id];
+    if (result != null) {
+      final scoreParts = result.scoreText?.split('/');
+      if (scoreParts?.length == 2) {
+        final earned = num.tryParse(scoreParts![0]);
+        final total = num.tryParse(scoreParts[1]);
+        if (earned != null && total != null && total > 0) {
+          return (earned * 100 / total).round().clamp(0, 100).toInt();
+        }
+      }
+      if (result.score != null) {
+        return result.score!.round().clamp(0, 100).toInt();
+      }
+    }
     if (_isTextQuestion(question)) {
       return evaluateTextAnswer(question, textAnswers[question.id] ?? '')
               .score ??
@@ -502,6 +523,30 @@ class ExamSession {
     }
     return sameAnswer(answers[question.id], question.answerIndexes) ? 100 : 0;
   }
+}
+
+class ExamRecordDetail {
+  final String? subjectId;
+  final String? sectionId;
+  final String? paperId;
+  final List<Question> questions;
+  final int durationMinutes;
+  final int remainingSeconds;
+  final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
+  final Map<String, PracticeAnswerResult> answerResults;
+
+  const ExamRecordDetail({
+    this.subjectId,
+    this.sectionId,
+    this.paperId,
+    required this.questions,
+    required this.durationMinutes,
+    required this.remainingSeconds,
+    this.answers = const {},
+    this.textAnswers = const {},
+    this.answerResults = const {},
+  });
 }
 
 String _normalizeAnswer(String value) =>
@@ -575,6 +620,7 @@ class StudyRecord {
   final String mode;
   final String metric;
   final String time;
+  final ExamRecordDetail? examDetail;
 
   const StudyRecord({
     this.id = '',
@@ -582,5 +628,6 @@ class StudyRecord {
     required this.mode,
     required this.metric,
     required this.time,
+    this.examDetail,
   });
 }

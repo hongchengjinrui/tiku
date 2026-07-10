@@ -8,6 +8,10 @@ Future<File> resourceCacheFile() async {
 }
 
 Future<void> clearResourceCache() async {
-  final file = await resourceCacheFile();
-  if (await file.exists()) await file.delete();
+  try {
+    final file = await resourceCacheFile();
+    if (await file.exists()) await file.delete();
+  } catch (_) {
+    // Cache cleanup should not block the visible local-state reset flow.
+  }
 }

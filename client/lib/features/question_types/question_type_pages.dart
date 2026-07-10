@@ -153,29 +153,10 @@ class _QT01SingleChoicePageState extends State<QT01SingleChoicePage> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const _QTNavButton(
-            label: '上一题',
-            icon: Icons.chevron_left,
-            route: '/qt/analysis-images/result',
-          ),
-          const _QTNavButton(
-            label: '下一题',
-            icon: Icons.chevron_right,
-            route: '/qt/multiple',
-            primary: true,
-          ),
-        ],
-      ),
+    return const _QTBottomNavBar(
+      previousRoute: '/qt/analysis-images/result',
+      nextRoute: '/qt/multiple',
+      reviewRoute: '/qt/single/result',
     );
   }
 }
@@ -317,25 +298,10 @@ class _QT02MultipleChoicePageState extends State<QT02MultipleChoicePage> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-          color: AppColors.card,
-          border: Border(top: BorderSide(color: AppColors.border, width: 1))),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const _QTNavButton(
-          label: '上一题',
-          icon: Icons.chevron_left,
-          route: '/qt/single',
-        ),
-        const _QTNavButton(
-          label: '下一题',
-          icon: Icons.chevron_right,
-          route: '/qt/truefalse',
-          primary: true,
-        ),
-      ]),
+    return const _QTBottomNavBar(
+      previousRoute: '/qt/single',
+      nextRoute: '/qt/truefalse',
+      reviewRoute: '/qt/multiple/result',
     );
   }
 }
@@ -460,25 +426,10 @@ class _QT03TrueFalsePageState extends State<QT03TrueFalsePage> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-          color: AppColors.card,
-          border: Border(top: BorderSide(color: AppColors.border, width: 1))),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const _QTNavButton(
-          label: '上一题',
-          icon: Icons.chevron_left,
-          route: '/qt/multiple',
-        ),
-        const _QTNavButton(
-          label: '下一题',
-          icon: Icons.chevron_right,
-          route: '/qt/fillblank',
-          primary: true,
-        ),
-      ]),
+    return const _QTBottomNavBar(
+      previousRoute: '/qt/multiple',
+      nextRoute: '/qt/fillblank',
+      reviewRoute: '/qt/truefalse/result',
     );
   }
 }
@@ -570,28 +521,10 @@ class QT04FillBlankPage extends StatelessWidget {
                   ]),
             ),
           ),
-          Container(
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: const BoxDecoration(
-                color: AppColors.card,
-                border:
-                    Border(top: BorderSide(color: AppColors.border, width: 1))),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _QTNavButton(
-                    label: '上一题',
-                    icon: Icons.chevron_left,
-                    route: '/qt/truefalse',
-                  ),
-                  const _QTNavButton(
-                    label: '下一题',
-                    icon: Icons.chevron_right,
-                    route: '/qt/short',
-                    primary: true,
-                  ),
-                ]),
+          const _QTBottomNavBar(
+            previousRoute: '/qt/truefalse',
+            nextRoute: '/qt/short',
+            reviewRoute: '/qt/fillblank/result',
           ),
         ]),
       ),
@@ -698,6 +631,7 @@ class QT05ShortAnswerPage extends StatelessWidget {
           const _QTBottomNavBar(
             previousRoute: '/qt/fillblank',
             nextRoute: '/qt/material',
+            reviewRoute: '/qt/short/result',
           ),
         ]),
       ),
@@ -830,6 +764,7 @@ class QT06MaterialPage extends StatelessWidget {
           const _QTBottomNavBar(
             previousRoute: '/qt/short',
             nextRoute: '/qt/image',
+            reviewRoute: '/qt/material/result',
           ),
         ]),
       ),
@@ -917,6 +852,7 @@ class QT07ImageQuestionPage extends StatelessWidget {
           const _QTBottomNavBar(
             previousRoute: '/qt/material',
             nextRoute: '/qt/image-error',
+            reviewRoute: '/qt/image/result',
           ),
         ]),
       ),
@@ -950,6 +886,7 @@ class QT08ImageLoadFailedPage extends StatelessWidget {
       resultCard: null,
       previousRoute: '/qt/image',
       nextRoute: '/qt/single/result',
+      reviewRoute: '/qt/image/result',
     );
   }
 }
@@ -1229,6 +1166,7 @@ class _QTStaticResultPage extends StatelessWidget {
   final bool multiple;
   final String previousRoute;
   final String nextRoute;
+  final String? reviewRoute;
 
   const _QTStaticResultPage({
     required this.typeLabel,
@@ -1242,6 +1180,7 @@ class _QTStaticResultPage extends StatelessWidget {
     this.multiple = false,
     this.previousRoute = '/qt/single',
     this.nextRoute = '/qt/single/result',
+    this.reviewRoute,
   });
 
   @override
@@ -1298,6 +1237,7 @@ class _QTStaticResultPage extends StatelessWidget {
             _QTBottomNavBar(
               previousRoute: previousRoute,
               nextRoute: nextRoute,
+              reviewRoute: reviewRoute,
             ),
           ],
         ),
@@ -1804,10 +1744,12 @@ class _QTMultiImageGrid extends StatelessWidget {
 class _QTBottomNavBar extends StatelessWidget {
   final String previousRoute;
   final String nextRoute;
+  final String? reviewRoute;
 
   const _QTBottomNavBar({
     required this.previousRoute,
     required this.nextRoute,
+    this.reviewRoute,
   });
 
   @override
@@ -1827,11 +1769,19 @@ class _QTBottomNavBar extends StatelessWidget {
             icon: Icons.chevron_left,
             route: previousRoute,
           ),
+          if (reviewRoute != null)
+            _QTNavButton(
+              label: '查看解析',
+              icon: Icons.fact_check_outlined,
+              route: reviewRoute!,
+              primary: true,
+              compact: true,
+            ),
           _QTNavButton(
             label: '下一题',
             icon: Icons.chevron_right,
             route: nextRoute,
-            primary: true,
+            primary: reviewRoute == null,
           ),
         ],
       ),
@@ -1844,12 +1794,14 @@ class _QTNavButton extends StatelessWidget {
   final IconData icon;
   final String route;
   final bool primary;
+  final bool compact;
 
   const _QTNavButton({
     required this.label,
     required this.icon,
     required this.route,
     this.primary = false,
+    this.compact = false,
   });
 
   @override
@@ -1859,7 +1811,7 @@ class _QTNavButton extends StatelessWidget {
       onTap: () => context.go(route),
       child: Container(
         height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 18),
         decoration: BoxDecoration(
           color: primary ? AppColors.primary : AppColors.card,
           borderRadius: BorderRadius.circular(8),

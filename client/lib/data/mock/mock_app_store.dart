@@ -50,6 +50,7 @@ class AppStore extends ChangeNotifier {
   bool _restoringLocalState = false;
   bool _localStateDirty = false;
   Timer? _localPersistTimer;
+  Future<void> _remoteCatalogQueue = Future<void>.value();
   final Map<String, _LocalSubjectState> _localSubjectStates = {};
 
   AppStore({required this.repository, this.stateStorage}) {
@@ -159,6 +160,12 @@ class AppStore extends ChangeNotifier {
           ),
         ),
       );
+    final cachedSubjects = snapshot.subjects
+        .where((subject) => subject.id.isNotEmpty && subject.name.isNotEmpty)
+        .toList();
+    if (cachedSubjects.isNotEmpty) {
+      subjects = cachedSubjects;
+    }
     if (snapshot.selectedSubjectId.isNotEmpty) {
       selectedSubjectId = snapshot.selectedSubjectId;
     }
@@ -211,6 +218,7 @@ class AppStore extends ChangeNotifier {
     };
     return AppStateSnapshot(
       savedAt: DateTime.now(),
+      subjects: subjects,
       selectedSubjectId: selectedSubjectId,
       selectedChapterId: selectedChapterId,
       selectedExamChapterId: selectedExamChapterId,
@@ -256,6 +264,8 @@ class AppStore extends ChangeNotifier {
       ),
       textAnswers: Map<String, String>.from(session.textAnswers),
       resultQuestionIds: session.answerResults.keys.toSet(),
+      answerResults:
+          Map<String, PracticeAnswerResult>.from(session.answerResults),
       wrongRemovalThreshold: session.wrongRemovalThreshold,
     );
   }
@@ -268,9 +278,11 @@ class AppStore extends ChangeNotifier {
       (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
     );
     final textAnswers = Map<String, String>.from(snapshot.textAnswers);
-    final answerResults = <String, PracticeAnswerResult>{};
+    final answerResults =
+        Map<String, PracticeAnswerResult>.from(snapshot.answerResults);
     for (final question in snapshot.questions) {
       if (!snapshot.resultQuestionIds.contains(question.id)) continue;
+      if (answerResults.containsKey(question.id)) continue;
       final text = textAnswers[question.id];
       if (text != null && text.trim().isNotEmpty) {
         answerResults[question.id] = _localTextResult(question, text);
@@ -313,6 +325,9 @@ class AppStore extends ChangeNotifier {
         (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
       ),
       textAnswers: Map<String, String>.from(session.textAnswers),
+      answerResults: Map<String, PracticeAnswerResult>.from(
+        session.answerResults,
+      ),
     );
   }
 
@@ -336,6 +351,9 @@ class AppStore extends ChangeNotifier {
         (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
       ),
       textAnswers: Map<String, String>.from(snapshot.textAnswers),
+      answerResults: Map<String, PracticeAnswerResult>.from(
+        snapshot.answerResults,
+      ),
     );
   }
 
@@ -613,20 +631,85 @@ class AppStore extends ChangeNotifier {
     });
   }
 
-  Future<void> hydrateRemote() async {
+  Future<T> _queueRemoteCatalogOperation<T>(Future<T> Function() operation) {
+    final result = _remoteCatalogQueue.then((_) => operation());
+    _remoteCatalogQueue = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return result;
+  }
+
+  Future<void> hydrateRemote() =>
+      _queueRemoteCatalogOperation(_hydrateRemoteNow);
+
+  Future<void> _hydrateRemoteNow() async {
     final current = repository;
     if (current is! RemoteTikuRepository) return;
+    final previousSubjectId = selectedSubjectId;
     final loaded = await current.warmUp();
     if (!loaded) return;
+    var nextSubjectId =
+        current.selectedSubjectId ?? current.loadSubjects().first.id;
+    final previousSubjectStillExists = current
+        .loadSubjects()
+        .any((subject) => subject.id == previousSubjectId);
+    if (previousSubjectStillExists && previousSubjectId != nextSubjectId) {
+      final restored = await current.loadSubject(previousSubjectId);
+      if (restored) nextSubjectId = previousSubjectId;
+    }
     remoteReady = true;
     _loadInitialState();
-    selectedSubjectId = current.selectedSubjectId ?? subjects.first.id;
+    selectedSubjectId = nextSubjectId;
     selectedChapterId =
         chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
     selectedExamChapterId =
         examChapters.isNotEmpty ? examChapters.first.id : selectedExamChapterId;
+    _discardIncompatibleActiveSessions(
+      clearAll: previousSubjectId != nextSubjectId,
+    );
     _markLocalStateDirty();
     notifyListeners();
+    await _syncPendingFeedbackSubmissions();
+  }
+
+  void _discardIncompatibleActiveSessions({required bool clearAll}) {
+    if (clearAll) {
+      practiceSession = null;
+      examSession = null;
+      return;
+    }
+    if (!_practiceSessionBelongsToLoadedCatalog()) {
+      practiceSession = null;
+    }
+    if (!_examSessionBelongsToLoadedCatalog()) {
+      examSession = null;
+    }
+  }
+
+  bool _practiceSessionBelongsToLoadedCatalog() {
+    final session = practiceSession;
+    if (session == null) return true;
+    if (session.sectionId case final sectionId?) {
+      return _allSections(chapters).any((section) => section.id == sectionId);
+    }
+    if (session.paperId case final paperId?) {
+      return practicePapers.any((paper) => paper.id == paperId);
+    }
+    return true;
+  }
+
+  bool _examSessionBelongsToLoadedCatalog() {
+    final session = examSession;
+    if (session == null) return true;
+    if (session.sectionId case final sectionId?) {
+      return _allSections(examChapters)
+          .any((section) => section.id == sectionId);
+    }
+    if (session.paperId case final paperId?) {
+      return examPapers.any((paper) => paper.id == paperId);
+    }
+    return true;
   }
 
   Subject get selectedSubject => subjects.firstWhere(
@@ -758,8 +841,16 @@ class AppStore extends ChangeNotifier {
     return claim;
   }
 
-  Future<void> selectSubject(String subjectId) async {
-    if (subjectId == selectedSubjectId) return;
+  Future<bool> selectSubject(String subjectId) {
+    if (_readyRemoteRepository == null) {
+      return _selectSubjectNow(subjectId);
+    }
+    return _queueRemoteCatalogOperation(() => _selectSubjectNow(subjectId));
+  }
+
+  Future<bool> _selectSubjectNow(String subjectId) async {
+    if (subjectId == selectedSubjectId) return true;
+    if (!subjects.any((subject) => subject.id == subjectId)) return false;
     final previousSubjectId = selectedSubjectId;
     final current = _readyRemoteRepository;
     if (current == null) {
@@ -770,21 +861,19 @@ class AppStore extends ChangeNotifier {
       _applyLocalSubjectState(subjectId);
       _markLocalStateDirty();
       notifyListeners();
-      return;
+      return true;
     }
 
+    final loaded = await current.loadSubject(subjectId);
+    if (!loaded || selectedSubjectId != previousSubjectId) return false;
+    _loadInitialState();
     selectedSubjectId = subjectId;
     practiceSession = null;
     examSession = null;
-    _markLocalStateDirty();
-    notifyListeners();
-    final loaded = await current.loadSubject(subjectId);
-    if (!loaded || selectedSubjectId != subjectId) return;
-    _loadInitialState();
-    selectedSubjectId = subjectId;
     _resetSelectedCatalogs();
     _markLocalStateDirty();
     notifyListeners();
+    return true;
   }
 
   void selectChapter(String chapterId) {
@@ -950,6 +1039,7 @@ class AppStore extends ChangeNotifier {
     final session = practiceSession;
     if (session == null) return;
     final question = session.currentQuestion;
+    final current = _readyRemoteRepository;
     if (answer.isEmpty) {
       session.answers.remove(question.id);
       session.answerResults.remove(question.id);
@@ -959,12 +1049,13 @@ class AppStore extends ChangeNotifier {
       if (reveal) {
         final result = _localChoiceResult(question, answer);
         session.answerResults[question.id] = result;
-        _applyWrongPracticeRemoval(question, result.isCorrect);
+        if (current == null) {
+          _applyWrongPracticeRemoval(question, result.isCorrect);
+        }
       } else {
         session.answerResults.remove(question.id);
       }
     }
-    final current = _readyRemoteRepository;
     if (current != null && answer.isNotEmpty && reveal) {
       unawaited(_submitPracticeAnswer(question: question, selected: answer));
     }
@@ -976,6 +1067,7 @@ class AppStore extends ChangeNotifier {
     final session = practiceSession;
     if (session == null) return;
     final question = session.currentQuestion;
+    final current = _readyRemoteRepository;
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       session.textAnswers.remove(question.id);
@@ -988,8 +1080,9 @@ class AppStore extends ChangeNotifier {
     session.answers.remove(question.id);
     final result = _localTextResult(question, trimmed);
     session.answerResults[question.id] = result;
-    _applyWrongPracticeRemoval(question, result.isCorrect);
-    final current = _readyRemoteRepository;
+    if (current == null) {
+      _applyWrongPracticeRemoval(question, result.isCorrect);
+    }
     if (current != null) {
       unawaited(_submitPracticeAnswer(question: question, text: trimmed));
     }
@@ -997,17 +1090,18 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleFavorite(Question question) async {
+  Future<bool> toggleFavorite(Question question) async {
     final current = _readyRemoteRepository;
     if (current != null) {
       final favorited = await current.toggleFavorite(question);
+      if (favorited == null) return false;
       favoriteQuestions = current.loadCachedFavoriteQuestions();
       if (!favorited) {
         _dropFavoriteQuestionsFromActiveSession({question.id});
       }
       _markLocalStateDirty();
       notifyListeners();
-      return;
+      return true;
     }
     final exists = favoriteQuestions.any((item) => item.id == question.id);
     if (exists) {
@@ -1017,6 +1111,7 @@ class AppStore extends ChangeNotifier {
     }
     _markLocalStateDirty();
     notifyListeners();
+    return true;
   }
 
   Future<bool> removeWrongQuestion(Question question) async {
@@ -1059,7 +1154,7 @@ class AppStore extends ChangeNotifier {
     if (current != null) {
       final ok = await current.resetProgress(mode: 'practice', catalogIds: ids);
       if (!ok) return false;
-      _loadInitialState();
+      await _refreshRemoteRecords(expectedSubjectId: selectedSubjectId);
       selectedChapterId =
           chapters.isNotEmpty ? chapters.first.id : selectedChapterId;
       _markLocalStateDirty();
@@ -1078,7 +1173,7 @@ class AppStore extends ChangeNotifier {
     if (current != null) {
       final ok = await current.resetProgress(mode: 'exam', catalogIds: ids);
       if (!ok) return false;
-      _loadInitialState();
+      await _refreshRemoteRecords(expectedSubjectId: selectedSubjectId);
       selectedExamChapterId = examChapters.isNotEmpty
           ? examChapters.first.id
           : selectedExamChapterId;
@@ -1095,7 +1190,10 @@ class AppStore extends ChangeNotifier {
   Future<bool> deletePracticeRecords() async {
     final current = _readyRemoteRepository;
     if (current != null) {
-      final ok = await current.deleteRecords('practice');
+      final ok = await current.deleteRecords(
+        'practice',
+        subjectId: selectedSubjectId,
+      );
       if (!ok) return false;
     }
     practiceRecords = const [];
@@ -1120,7 +1218,10 @@ class AppStore extends ChangeNotifier {
   Future<bool> deleteExamRecords() async {
     final current = _readyRemoteRepository;
     if (current != null) {
-      final ok = await current.deleteRecords('exam');
+      final ok = await current.deleteRecords(
+        'exam',
+        subjectId: selectedSubjectId,
+      );
       if (!ok) return false;
     }
     examRecords = const [];
@@ -1243,6 +1344,7 @@ class AppStore extends ChangeNotifier {
         content: feedback.content,
         type: feedback.type,
         payload: feedback.payload,
+        questionId: feedback.payload['questionId']?.toString(),
       );
       if (!ok) remaining.insert(0, feedback);
     }
@@ -1362,25 +1464,28 @@ class AppStore extends ChangeNotifier {
     final current = _readyRemoteRepository;
     final session = practiceSession;
     if (current == null || session == null) return;
+    final subjectId = selectedSubjectId;
     session.submittingQuestionIds.add(question.id);
     notifyListeners();
     final result = await current.submitPracticeAnswer(
       question: question,
       selected: selected,
       text: text,
+      wrongRemovalThreshold:
+          session.mode == '错题练习' ? session.wrongRemovalThreshold : 0,
     );
     final latest = practiceSession;
     if (latest == null ||
+        selectedSubjectId != subjectId ||
+        !_samePracticeSessionContext(session, latest) ||
         !latest.questions.any((item) => item.id == question.id)) {
+      session.submittingQuestionIds.remove(question.id);
       return;
     }
     latest.submittingQuestionIds.remove(question.id);
     if (result != null) {
-      final previous = latest.answerResults[question.id];
       latest.answerResults[question.id] = result;
-      if (previous?.isCorrect == null) {
-        _applyWrongPracticeRemoval(question, result.isCorrect);
-      }
+      _applyWrongPracticeRemoval(question, result.isCorrect);
       if (result.isCorrect == false) {
         wrongQuestions = [
           question,
@@ -1389,10 +1494,21 @@ class AppStore extends ChangeNotifier {
         _setWrongCorrectCount(question.id, 0);
         _markLocalStateDirty();
       }
-      unawaited(_refreshRemoteRecords());
+      unawaited(_refreshRemoteRecords(expectedSubjectId: subjectId));
       _markLocalStateDirty();
     }
     notifyListeners();
+  }
+
+  bool _samePracticeSessionContext(
+    PracticeSession original,
+    PracticeSession latest,
+  ) {
+    if (identical(original, latest)) return true;
+    return original.title == latest.title &&
+        original.mode == latest.mode &&
+        original.sectionId == latest.sectionId &&
+        original.paperId == latest.paperId;
   }
 
   void nextPracticeQuestion() {
@@ -1459,7 +1575,7 @@ class AppStore extends ChangeNotifier {
     ];
     session.finished = true;
     _markLocalStateDirty();
-    unawaited(_refreshRemoteRecords());
+    unawaited(_refreshRemoteRecords(expectedSubjectId: selectedSubjectId));
     notifyListeners();
   }
 
@@ -1511,6 +1627,30 @@ class AppStore extends ChangeNotifier {
   }
 
   void openExamRecordAnalysis(StudyRecord record) {
+    final detail = record.examDetail;
+    if (detail != null && detail.questions.isNotEmpty) {
+      examSession = ExamSession(
+        title: record.title,
+        mode: record.mode,
+        sectionId: detail.sectionId,
+        paperId: detail.paperId,
+        questions: detail.questions,
+        durationMinutes: detail.durationMinutes,
+        currentIndex: 0,
+        submitted: true,
+        remainingSeconds: detail.remainingSeconds,
+        answers: detail.answers.map(
+          (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+        ),
+        textAnswers: Map<String, String>.from(detail.textAnswers),
+        answerResults: Map<String, PracticeAnswerResult>.from(
+          detail.answerResults,
+        ),
+      );
+      _markLocalStateDirty();
+      notifyListeners();
+      return;
+    }
     if (record.mode.contains('真题')) {
       final paper = _findExamPaper(record.title);
       if (paper == null && examPapers.isEmpty) {
@@ -1649,16 +1789,18 @@ class AppStore extends ChangeNotifier {
         .clamp(0, session.durationMinutes * 60)
         .toInt();
     if (session.remainingSeconds == 0) {
-      submitExam();
+      unawaited(submitExam());
       return;
     }
     _markLocalStateDirty();
     notifyListeners();
   }
 
-  void submitExam() {
+  Future<bool> submitExam() async {
     final session = examSession;
-    if (session == null || session.submitted) return;
+    if (session == null) return false;
+    if (session.submitted) return true;
+    final subjectId = selectedSubjectId;
     session.submitted = true;
     if (session.sectionId != null) {
       _updateExamSectionProgress(
@@ -1683,16 +1825,63 @@ class AppStore extends ChangeNotifier {
         mode: session.mode,
         metric: '${session.score}分 · 正确率 ${session.accuracy}%',
         time: '刚刚',
+        examDetail: _examRecordDetailFromSession(
+          session,
+          subjectId: subjectId,
+        ),
       ),
       ...examRecords.take(7),
     ];
     final current = _readyRemoteRepository;
-    if (current != null) {
-      current.submitExamResult(session);
-      unawaited(_refreshRemoteRecords());
-    }
     _markLocalStateDirty();
     notifyListeners();
+    if (current == null) return true;
+
+    final submitted = await current.submitExamResult(
+      session,
+      subjectId: subjectId,
+    );
+    if (!submitted) return false;
+    final refreshed = await _refreshRemoteRecords(expectedSubjectId: subjectId);
+    if (refreshed && identical(examSession, session)) {
+      final remoteRecord = _firstWhereOrNull(
+        examRecords,
+        (record) =>
+            record.title == _displayRecordTitle(session.title) &&
+            record.mode == session.mode &&
+            record.examDetail != null,
+      );
+      final detail = remoteRecord?.examDetail;
+      if (detail != null) {
+        session.answerResults
+          ..clear()
+          ..addAll(detail.answerResults);
+        _markLocalStateDirty();
+        notifyListeners();
+      }
+    }
+    return true;
+  }
+
+  ExamRecordDetail _examRecordDetailFromSession(
+    ExamSession session, {
+    required String subjectId,
+  }) {
+    return ExamRecordDetail(
+      subjectId: subjectId,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: List<Question>.of(session.questions),
+      durationMinutes: session.durationMinutes,
+      remainingSeconds: session.remainingSeconds,
+      answers: session.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(session.textAnswers),
+      answerResults: Map<String, PracticeAnswerResult>.from(
+        session.answerResults,
+      ),
+    );
   }
 
   Future<void> _hydratePracticeQuestionsFromRemote(Object source) async {
@@ -1782,6 +1971,7 @@ class AppStore extends ChangeNotifier {
       submitted: false,
       answers: session.answers,
       textAnswers: session.textAnswers,
+      answerResults: session.answerResults,
     );
     _markLocalStateDirty();
     notifyListeners();
@@ -1883,16 +2073,26 @@ class AppStore extends ChangeNotifier {
       submitted: session.submitted,
       answers: session.answers,
       textAnswers: session.textAnswers,
+      answerResults: session.answerResults,
     );
     _markLocalStateDirty();
     notifyListeners();
   }
 
-  Future<void> _refreshRemoteRecords() async {
+  Future<bool> _refreshRemoteRecords({required String expectedSubjectId}) =>
+      _queueRemoteCatalogOperation(
+        () => _refreshRemoteRecordsNow(expectedSubjectId),
+      );
+
+  Future<bool> _refreshRemoteRecordsNow(String expectedSubjectId) async {
     final current = _readyRemoteRepository;
-    if (current == null) return;
-    await current.refreshRecords();
-    await current.loadSubject(selectedSubjectId);
+    if (current == null || selectedSubjectId != expectedSubjectId) return false;
+    final loaded = await current.loadSubject(expectedSubjectId);
+    if (!loaded ||
+        !identical(repository, current) ||
+        selectedSubjectId != expectedSubjectId) {
+      return false;
+    }
     chapters = current.loadPracticeChapters();
     examChapters = current.loadExamChapters();
     practicePapers = current.loadPracticePapers();
@@ -1903,6 +2103,7 @@ class AppStore extends ChangeNotifier {
     wrongQuestions = current.loadCachedWrongQuestions();
     _markLocalStateDirty();
     notifyListeners();
+    return true;
   }
 
   List<bool> examAnsweredStatus() {
@@ -1963,10 +2164,19 @@ class AppStore extends ChangeNotifier {
     int wrong,
   ) {
     if (section.id == sectionId) {
+      final next = _boundedProgress(
+        done: section.done,
+        total: section.total,
+        correct: section.correct,
+        wrong: section.wrong,
+        answeredDelta: answered,
+        correctDelta: correct,
+        wrongDelta: wrong,
+      );
       return section.copyWith(
-        done: (section.done + answered).clamp(0, section.total).toInt(),
-        correct: section.correct + correct,
-        wrong: section.wrong + wrong,
+        done: next.done,
+        correct: next.correct,
+        wrong: next.wrong,
       );
     }
     if (section.children.isEmpty) return section;
@@ -2040,10 +2250,19 @@ class AppStore extends ChangeNotifier {
   ) {
     practicePapers = practicePapers.map((paper) {
       if (paper.id != paperId) return paper;
+      final next = _boundedProgress(
+        done: paper.done,
+        total: paper.total,
+        correct: paper.correct,
+        wrong: paper.wrong,
+        answeredDelta: answered,
+        correctDelta: correct,
+        wrongDelta: wrong,
+      );
       return paper.copyWith(
-        done: (paper.done + answered).clamp(0, paper.total).toInt(),
-        correct: paper.correct + correct,
-        wrong: paper.wrong + wrong,
+        done: next.done,
+        correct: next.correct,
+        wrong: next.wrong,
       );
     }).toList();
   }
@@ -2082,13 +2301,53 @@ class AppStore extends ChangeNotifier {
   ) {
     examPapers = examPapers.map((paper) {
       if (paper.id != paperId) return paper;
+      final next = _boundedProgress(
+        done: paper.done,
+        total: paper.total,
+        correct: paper.correct,
+        wrong: paper.wrong,
+        answeredDelta: answered,
+        correctDelta: correct,
+        wrongDelta: wrong,
+      );
       return paper.copyWith(
-        done: (paper.done + answered).clamp(0, paper.total).toInt(),
-        correct: paper.correct + correct,
-        wrong: paper.wrong + wrong,
+        done: next.done,
+        correct: next.correct,
+        wrong: next.wrong,
         minutes: minutes,
       );
     }).toList();
+  }
+
+  ({int done, int correct, int wrong}) _boundedProgress({
+    required int done,
+    required int total,
+    required int correct,
+    required int wrong,
+    required int answeredDelta,
+    required int correctDelta,
+    required int wrongDelta,
+  }) {
+    final nextDone = (done + answeredDelta).clamp(0, total).toInt();
+    final newlyCounted = (nextDone - done).clamp(0, answeredDelta).toInt();
+    if (newlyCounted == 0 || answeredDelta <= 0) {
+      final nextCorrect = correct.clamp(0, nextDone).toInt();
+      return (
+        done: nextDone,
+        correct: nextCorrect,
+        wrong: wrong.clamp(0, nextDone - nextCorrect).toInt(),
+      );
+    }
+    final addedCorrect = (correctDelta * newlyCounted / answeredDelta)
+        .round()
+        .clamp(0, newlyCounted);
+    final addedWrong = (wrongDelta * newlyCounted / answeredDelta)
+        .round()
+        .clamp(0, newlyCounted - addedCorrect);
+    final nextCorrect = (correct + addedCorrect).clamp(0, nextDone).toInt();
+    final nextWrong =
+        (wrong + addedWrong).clamp(0, nextDone - nextCorrect).toInt();
+    return (done: nextDone, correct: nextCorrect, wrong: nextWrong);
   }
 
   int _rate(int correct, int total) =>

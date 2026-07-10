@@ -21,7 +21,30 @@ class P40ResourceCenterPage extends StatefulWidget {
 }
 
 class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
-  late final Future<List<_ResourceItem>> _resourcesFuture = _loadResources();
+  late Future<List<_ResourceItem>> _resourcesFuture;
+  late bool _lastRemoteReady;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRemoteReady = mockStore.remoteReady;
+    _resourcesFuture = _loadResources();
+    mockStore.addListener(_handleStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    mockStore.removeListener(_handleStoreChanged);
+    super.dispose();
+  }
+
+  void _handleStoreChanged() {
+    final remoteReady = mockStore.remoteReady;
+    if (remoteReady == _lastRemoteReady) return;
+    _lastRemoteReady = remoteReady;
+    if (!remoteReady || !mounted) return;
+    setState(() => _resourcesFuture = _loadResources());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,58 +85,83 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
       animation: mockStore,
       builder: (context, _) {
         final subjectName = mockStore.selectedSubject.name;
-        return Container(
-          width: double.infinity,
-          height: 86,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primaryLight, AppColors.primary],
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        return FutureBuilder<List<_ResourceItem>>(
+          future: _resourcesFuture,
+          builder: (context, snapshot) {
+            final source = snapshot.data ?? _fallbackResources;
+            final resources = mockStore.remoteReady
+                ? _resourcesForSubject(source, subjectName)
+                : source;
+            final freeCount = resources.where((item) => item.isFree).length;
+            final vipCount = resources.length - freeCount;
+            final summary = resources.isEmpty
+                ? '当前科目暂无备考资料'
+                : '$vipCount份VIP备考资料 + $freeCount份免费备考资料';
+            return Container(
+              width: double.infinity,
+              height: 86,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primaryLight, AppColors.primary],
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('免费资料 · VIP专享资料',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                  const SizedBox(height: 6),
-                  Text('当前科目：$subjectName',
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: AppColors.textBlueHint)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 20,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(summary,
+                                maxLines: 1,
+                                style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text('当前科目：$subjectName',
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppColors.textBlueHint)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => context.push('/practice/switch-subject'),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 88,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text('切换科目',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              color: Colors.white)),
+                    ),
+                  ),
                 ],
               ),
-              GestureDetector(
-                onTap: () => context.push('/practice/switch-subject'),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 88,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('切换科目',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -126,7 +174,11 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
         return FutureBuilder<List<_ResourceItem>>(
           future: _resourcesFuture,
           builder: (context, snapshot) {
-            final resources = snapshot.data ?? _fallbackResources;
+            final source = snapshot.data ?? _fallbackResources;
+            final resources = mockStore.remoteReady
+                ? _resourcesForSubject(source, mockStore.selectedSubject.name)
+                : source;
+            if (resources.isEmpty) return _buildEmptyResources(context);
             return Column(
               children: [
                 for (var index = 0; index < resources.length; index++) ...[
@@ -138,6 +190,37 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildEmptyResources(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.folder_off_outlined,
+              size: 34, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          const Text('当前科目暂无资料',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () => context.push('/practice/switch-subject'),
+            icon: const Icon(Icons.swap_horiz, size: 17),
+            label: const Text('切换科目'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -271,6 +354,9 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
 
 Future<List<_ResourceItem>> _loadResources() async {
   final cached = await _readCachedResources();
+  if (!mockStore.remoteReady) {
+    return cached.isNotEmpty ? cached : _fallbackResources;
+  }
   try {
     final dio = Dio(
       BaseOptions(
@@ -337,6 +423,17 @@ Future<void> _writeCachedResources(List<_ResourceItem> resources) async {
       jsonEncode(resources.map((item) => item.toJson()).toList()),
     );
   } catch (_) {}
+}
+
+List<_ResourceItem> _resourcesForSubject(
+  List<_ResourceItem> resources,
+  String subjectName,
+) {
+  final normalizedSubject = subjectName.trim();
+  return resources.where((resource) {
+    final resourceSubject = resource.subjectName?.trim() ?? '';
+    return resourceSubject.isEmpty || resourceSubject == normalizedSubject;
+  }).toList();
 }
 
 const _fallbackResources = [
@@ -458,7 +555,8 @@ class P41PaidResourcePreviewPage extends StatelessWidget {
   const P41PaidResourcePreviewPage({super.key});
 
   @override
-  Widget build(BuildContext context) => const _ResourceDocumentScaffold();
+  Widget build(BuildContext context) =>
+      const _ResourceDocumentScaffold(preferFree: false);
 }
 
 /// P40A 免费资料详情页
@@ -466,18 +564,34 @@ class P40AFreeResourceDetailPage extends StatelessWidget {
   const P40AFreeResourceDetailPage({super.key});
 
   @override
-  Widget build(BuildContext context) => const _ResourceDocumentScaffold();
+  Widget build(BuildContext context) =>
+      const _ResourceDocumentScaffold(preferFree: true);
 }
 
 class _ResourceDocumentScaffold extends StatelessWidget {
-  const _ResourceDocumentScaffold();
+  final bool preferFree;
+
+  const _ResourceDocumentScaffold({required this.preferFree});
+
+  _ResourceItem get _defaultResource {
+    return _fallbackResources.firstWhere(
+      (resource) => resource.isFree == preferFree,
+      orElse: () => _fallbackResources.first,
+    );
+  }
+
+  _ResourceItem get _resolvedResource {
+    final active = _activeResource;
+    if (active != null && active.isFree == preferFree) return active;
+    return _defaultResource;
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: mockStore,
       builder: (context, _) {
-        final resource = _activeResource ?? _fallbackResources.first;
+        final resource = _resolvedResource;
         final pages = resource.pages.isEmpty
             ? ['${resource.title}\n\n${resource.description ?? '资料内容待同步。'}']
             : resource.pages;
@@ -836,7 +950,7 @@ class P42UnlockedResourceDetailPage extends StatelessWidget {
   }
 }
 
-/// P41A VIP开通页
+/// P41A 开放体验说明页
 class P41AVipPage extends StatelessWidget {
   const P41AVipPage({super.key});
 
@@ -855,7 +969,7 @@ class P41AVipPage extends StatelessWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: () => _closeVipPage(context),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 16),
                       child: Icon(Icons.chevron_left,
@@ -863,7 +977,7 @@ class P41AVipPage extends StatelessWidget {
                     ),
                   ),
                   const Expanded(
-                    child: Text('开通VIP',
+                    child: Text('开放体验',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontFamily: 'Inter',
@@ -907,14 +1021,14 @@ class P41AVipPage extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: const [
-                                Text('开通VIP会员',
+                                Text('开放体验模式',
                                     style: TextStyle(
                                         fontFamily: 'Inter',
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
                                         color: Color(0xFF8A5B16))),
                                 SizedBox(height: 6),
-                                Text('解锁全部付费资料与高级功能',
+                                Text('登录、支付、VIP 将在上架前统一接入',
                                     style: TextStyle(
                                         fontFamily: 'Inter',
                                         fontSize: 13,
@@ -932,7 +1046,7 @@ class P41AVipPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text('VIP权益',
+                    const Text('当前开放范围',
                         style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 16,
@@ -941,7 +1055,7 @@ class P41AVipPage extends StatelessWidget {
                     const SizedBox(height: 10),
                     _buildBenefitsGrid(),
                     const SizedBox(height: 14),
-                    const Text('选择套餐',
+                    const Text('后续接入范围',
                         style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 16,
@@ -950,19 +1064,12 @@ class P41AVipPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     _buildPlanRow(),
                     const SizedBox(height: 14),
-                    const Text('支付方式',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF8A5B16))),
-                    const SizedBox(height: 8),
-                    _buildPaymentMethods(),
+                    _buildOpenExperienceNotice(),
                   ],
                 ),
               ),
             ),
-            // 底部购买栏
+            // 底部开放体验返回栏
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(
@@ -972,26 +1079,30 @@ class P41AVipPage extends StatelessWidget {
                 border:
                     Border(top: BorderSide(color: Color(0xFFF4DEAA), width: 1)),
               ),
-              child: Container(
-                height: 43,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1BE),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Color(0xFFE8BD58)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Text('立即开通 VIP',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF8A5B16))),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward,
-                        size: 18, color: Color(0xFF8A5B16)),
-                  ],
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.go('/resources'),
+                child: Container(
+                  height: 43,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1BE),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Color(0xFFE8BD58)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text('返回资料中心',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF8A5B16))),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward,
+                          size: 18, color: Color(0xFF8A5B16)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1001,12 +1112,21 @@ class P41AVipPage extends StatelessWidget {
     );
   }
 
+  void _closeVipPage(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    context.go('/resources');
+  }
+
   Widget _buildBenefitsGrid() {
     final benefits = [
-      {'icon': Icons.library_books, 'title': '全部资料', 'desc': 'VIP专享免费'},
-      {'icon': Icons.all_inclusive, 'title': '无限练习', 'desc': '不限题数次数'},
-      {'icon': Icons.analytics, 'title': '学情分析', 'desc': '深度数据报告'},
-      {'icon': Icons.block, 'title': '免广告', 'desc': '纯净学习体验'},
+      {'icon': Icons.library_books, 'title': '全部资料', 'desc': '完整预览下载'},
+      {'icon': Icons.all_inclusive, 'title': '练习考试', 'desc': '本地完整体验'},
+      {'icon': Icons.analytics, 'title': '学习记录', 'desc': '本地持续保存'},
+      {'icon': Icons.block, 'title': '权限判断', 'desc': '当前暂不启用'},
     ];
     return GridView.builder(
       shrinkWrap: true,
@@ -1064,9 +1184,9 @@ class P41AVipPage extends StatelessWidget {
 
   Widget _buildPlanRow() {
     final plans = [
-      {'name': '月卡', 'price': '¥18', 'per': '/月'},
-      {'name': '季卡', 'price': '¥48', 'per': '/季', 'best': true},
-      {'name': '年卡', 'price': '¥128', 'per': '/年'},
+      {'name': '登录', 'status': '上架前接入'},
+      {'name': '支付', 'status': '上架前接入', 'best': true},
+      {'name': 'VIP', 'status': '上架前接入'},
     ];
     return Row(
       children: plans.map((p) {
@@ -1096,7 +1216,7 @@ class P41AVipPage extends StatelessWidget {
                           color: const Color(0xFF8A5B16),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('推荐',
+                        child: const Text('后续',
                             style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 9,
@@ -1114,22 +1234,11 @@ class P41AVipPage extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF8A5B16))),
                         const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(p['price'] as String,
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF8A5B16))),
-                            Text(p['per'] as String,
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    color: AppColors.textMuted)),
-                          ],
-                        ),
+                        Text(p['status'] as String,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppColors.textMuted)),
                       ],
                     ),
                   ),
@@ -1142,38 +1251,32 @@ class P41AVipPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentMethods() {
+  Widget _buildOpenExperienceNotice() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF4DEAA)),
       ),
       child: Row(
-        children: [
-          _buildPaymentItem(Icons.account_balance_wallet, '微信支付', true),
-          const SizedBox(width: 12),
-          _buildPaymentItem(Icons.payment, '支付宝', false),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Icon(Icons.info_outline, size: 18, color: Color(0xFF8A5B16)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '当前版本不接入登录、支付、VIP 权限判断。所有资料在本地体验阶段均可完整预览，并可直接获取下载链接。',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                height: 1.55,
+                color: Color(0xFF8A5B16),
+              ),
+            ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPaymentItem(IconData icon, String label, bool selected) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF8A5B16)),
-        const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(
-                fontFamily: 'Inter', fontSize: 14, color: Color(0xFF8A5B16))),
-        const SizedBox(width: 6),
-        Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          size: 16,
-          color: selected ? const Color(0xFF8A5B16) : AppColors.textMuted,
-        ),
-      ],
     );
   }
 }
@@ -1259,7 +1362,7 @@ class P40BLinkCopiedToastPage extends StatelessWidget {
   }
 }
 
-/// P59A 支付成功页
+/// P59A 开放体验提示页（支付/VIP 上架前不接入）
 class P59APaymentSuccessPage extends StatelessWidget {
   const P59APaymentSuccessPage({super.key});
 
@@ -1272,13 +1375,15 @@ class P59APaymentSuccessPage extends StatelessWidget {
         child: Column(
           children: [
             const StatusBar(),
-            const NavBar(title: '支付成功'),
+            NavBar(
+              title: '开放体验',
+              onBack: () => context.go('/resources'),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // 成功卡片
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -1297,18 +1402,19 @@ class P59APaymentSuccessPage extends StatelessWidget {
                               color: AppColors.successBg,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.check_circle,
+                            child: const Icon(Icons.lock_open,
                                 size: 40, color: AppColors.success),
                           ),
                           const SizedBox(height: 16),
-                          const Text('VIP开通成功！',
+                          const Text('当前为开放体验模式',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary)),
                           const SizedBox(height: 8),
-                          const Text('有效期至：2027-07-07',
+                          const Text('登录、支付、VIP 将在上架前统一接入',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 14,
@@ -1325,19 +1431,18 @@ class P59APaymentSuccessPage extends StatelessWidget {
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('已解锁：全部付费资料、无限练习、学情分析、免广告',
+                      child: const Text('当前阶段所有资料均开放完整预览，可直接获取下载链接。',
                           style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 14,
                               color: AppColors.textPrimary)),
                     ),
                     const Spacer(),
-                    // 操作按钮
                     Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.of(context).pop(),
+                            onTap: () => context.go('/resources'),
                             child: Container(
                               height: 48,
                               alignment: Alignment.center,
@@ -1346,7 +1451,7 @@ class P59APaymentSuccessPage extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppColors.border),
                               ),
-                              child: const Text('返回',
+                              child: const Text('返回资料',
                                   style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 15,
@@ -1356,19 +1461,22 @@ class P59APaymentSuccessPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Container(
-                            height: 48,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(12),
+                          child: GestureDetector(
+                            onTap: () => context.go('/practice'),
+                            child: Container(
+                              height: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text('继续刷题',
+                                  style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white)),
                             ),
-                            child: const Text('立即体验',
-                                style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white)),
                           ),
                         ),
                       ],

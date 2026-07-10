@@ -113,27 +113,35 @@ class BottomTabBar extends StatelessWidget {
         children: List.generate(tabs.length, (i) {
           final t = tabs[i];
           final selected = i == currentIndex;
-          return GestureDetector(
-            onTap: () => _handleTap(context, i),
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  t.icon,
-                  size: 22,
-                  color: selected ? AppColors.primary : AppColors.textMuted,
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _handleTap(context, i),
+              behavior: HitTestBehavior.opaque,
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: t.label,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      t.icon,
+                      size: 22,
+                      color: selected ? AppColors.primary : AppColors.textMuted,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      t.label,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        color:
+                            selected ? AppColors.primary : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  t.label,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10,
-                    color: selected ? AppColors.primary : AppColors.textMuted,
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         }),
@@ -176,6 +184,97 @@ class ScreenHeader extends StatelessWidget {
         const StatusBar(),
         NavBar(title: title, onBack: onBack),
       ],
+    );
+  }
+}
+
+/// Centered empty state for routes that need a clear way back to a safe page.
+class AppRouteEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+  final Color iconColor;
+  final Color iconBgColor;
+
+  const AppRouteEmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+    this.iconColor = AppColors.primary,
+    this.iconBgColor = AppColors.primaryBg,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 24, color: iconColor),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 18),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAction,
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(
+                    actionLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

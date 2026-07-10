@@ -71,7 +71,13 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
         builder: (context, _) {
           final session = mockStore.examSession;
           if (session == null) {
-            return const Center(child: Text('暂无考试内容'));
+            return AppRouteEmptyState(
+              icon: Icons.description_outlined,
+              title: '暂无考试内容',
+              message: '当前没有进行中的考试，可返回考试入口重新开始。',
+              actionLabel: '返回考试入口',
+              onAction: () => context.go('/exam'),
+            );
           }
           final question = session.currentQuestion;
           final selected = session.answers[question.id];
@@ -595,7 +601,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
       confirmed = await P27ASubmitAllAnsweredModal.show(context);
     }
     if (confirmed != true || !mounted) return;
-    mockStore.submitExam();
+    unawaited(mockStore.submitExam());
     router.go('/exam/analysis');
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,7 +30,13 @@ class P26AnswerCardPage extends StatelessWidget {
                 builder: (context, _) {
                   final session = mockStore.examSession;
                   if (session == null) {
-                    return const Center(child: Text('暂无考试答题卡'));
+                    return AppRouteEmptyState(
+                      icon: Icons.grid_view_outlined,
+                      title: '暂无考试答题卡',
+                      message: '当前没有进行中的考试，可返回考试入口重新开始。',
+                      actionLabel: '返回考试入口',
+                      onAction: () => context.go('/exam'),
+                    );
                   }
                   final statuses = mockStore.examAnsweredStatus();
                   final unanswered =
@@ -111,7 +119,7 @@ class P26AnswerCardPage extends StatelessWidget {
       confirmed = await P27ASubmitAllAnsweredModal.show(context);
     }
     if (confirmed != true || !context.mounted) return;
-    mockStore.submitExam();
+    unawaited(mockStore.submitExam());
     router.go('/exam/analysis');
   }
 

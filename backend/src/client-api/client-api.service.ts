@@ -1,12 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   CatalogNode,
   CatalogNodeType,
   Prisma,
   QuestionType,
   StudyMode,
-} from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import {
   asRecord,
   clientQuestionFromDb,
@@ -14,10 +14,10 @@ import {
   evaluateFillBlank,
   evaluateShortAnswer,
   stripHtml,
-} from '../shared/question-utils';
+} from "../shared/question-utils";
 
-const DEFAULT_DEV_USER_ID = 'dev-user-001';
-const DEFAULT_APP_KEY = 'grid-exam-android';
+const DEFAULT_DEV_USER_ID = "dev-user-001";
+const DEFAULT_APP_KEY = "grid-exam-android";
 
 type CatalogNodeWithChildren = CatalogNode & {
   children: CatalogNodeWithChildren[];
@@ -49,7 +49,7 @@ export class ClientApiService {
     const user = await this.ensureDevUser(userId);
     const subjects = await this.prisma.subject.findMany({
       where: { bankId: app.bankId },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { sortOrder: "asc" },
     });
     const defaultSubject =
       subjects.find((item) => item.id === user.defaultSubjectId) ??
@@ -81,7 +81,7 @@ export class ClientApiService {
     const app = await this.getApp(appKey);
     return this.prisma.subject.findMany({
       where: { bankId: app.bankId },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { sortOrder: "asc" },
     });
   }
 
@@ -90,7 +90,7 @@ export class ClientApiService {
     const subject = await this.prisma.subject.findUnique({
       where: { id: subjectId },
     });
-    if (!subject) throw new NotFoundException('Subject not found');
+    if (!subject) throw new NotFoundException("Subject not found");
     return this.prisma.user.update({
       where: { id: userId },
       data: { defaultSubjectId: subjectId },
@@ -103,11 +103,11 @@ export class ClientApiService {
       where: { id: subjectId },
       include: { bank: true },
     });
-    if (!subject) throw new NotFoundException('Subject not found');
+    if (!subject) throw new NotFoundException("Subject not found");
 
     const totals = await this.catalogTotals(subjectId);
     const progress = await this.prisma.userProgress.groupBy({
-      by: ['mode'],
+      by: ["mode"],
       where: {
         userId,
         catalog: { subjectId },
@@ -168,19 +168,19 @@ export class ClientApiService {
     const subject = await this.prisma.subject.findUnique({
       where: { id: subjectId },
     });
-    if (!subject) throw new NotFoundException('Subject not found');
+    if (!subject) throw new NotFoundException("Subject not found");
 
     const roots = await this.prisma.catalogNode.findMany({
       where: { subjectId, parentId: null },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { sortOrder: "asc" },
       include: {
         children: {
-          orderBy: { sortOrder: 'asc' },
+          orderBy: { sortOrder: "asc" },
           include: {
             children: {
-              orderBy: { sortOrder: 'asc' },
+              orderBy: { sortOrder: "asc" },
               include: {
-                children: { orderBy: { sortOrder: 'asc' } },
+                children: { orderBy: { sortOrder: "asc" } },
               },
             },
           },
@@ -202,7 +202,10 @@ export class ClientApiService {
       subject,
       mode,
       nodes: roots.map((node) =>
-        this.catalogNodeToTree(node as CatalogNodeWithChildren, progressByCatalog),
+        this.catalogNodeToTree(
+          node as CatalogNodeWithChildren,
+          progressByCatalog,
+        ),
       ),
     };
   }
@@ -211,13 +214,13 @@ export class ClientApiService {
     const catalog = await this.prisma.catalogNode.findUnique({
       where: { id: catalogId },
     });
-    if (!catalog) throw new NotFoundException('Catalog not found');
+    if (!catalog) throw new NotFoundException("Catalog not found");
 
     const [total, questions] = await Promise.all([
       this.prisma.question.count({ where: { catalogId } }),
       this.prisma.question.findMany({
         where: { catalogId },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { sortOrder: "asc" },
         take: Math.min(limit, 500),
         skip: offset,
       }),
@@ -234,7 +237,7 @@ export class ClientApiService {
     catalogId?: string;
     questionIds?: string[];
     count?: number;
-    mode?: 'practice' | 'exam';
+    mode?: "practice" | "exam";
   }) {
     const take = Math.max(1, Math.min(input.count ?? 20, 100));
     const where: Prisma.QuestionWhereInput = input.catalogId
@@ -244,13 +247,13 @@ export class ClientApiService {
         : {};
     const questions = await this.prisma.question.findMany({
       where,
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { sortOrder: "asc" },
       take,
     });
 
     return {
       sessionId: `local-${Date.now()}`,
-      mode: input.mode ?? 'practice',
+      mode: input.mode ?? "practice",
       questions: questions.map(clientQuestionFromDb),
       total: questions.length,
     };
@@ -283,6 +286,7 @@ export class ClientApiService {
     values?: string[];
     text?: string;
     actualScore?: number;
+    wrongRemovalThreshold?: number;
   }) {
     const userId = input.userId ?? DEFAULT_DEV_USER_ID;
     const mode = input.mode ?? StudyMode.practice;
@@ -292,7 +296,7 @@ export class ClientApiService {
       where: { id: input.questionId },
       include: { catalog: true },
     });
-    if (!question) throw new NotFoundException('Question not found');
+    if (!question) throw new NotFoundException("Question not found");
 
     const evaluation = this.evaluateQuestion(question, input);
     const isCorrect = evaluation.isCorrect;
@@ -304,7 +308,7 @@ export class ClientApiService {
         mode,
         answer: {
           values: input.values ?? [],
-          text: input.text ?? '',
+          text: input.text ?? "",
         },
         isCorrect,
         score: evaluation.score,
@@ -312,13 +316,10 @@ export class ClientApiService {
       },
     });
 
-    await this.bumpProgress({
+    await this.rebuildCatalogProgress({
       userId,
       catalogId: question.catalogId,
       mode,
-      done: 1,
-      correct: isCorrect ? 1 : 0,
-      wrong: isCorrect === false ? 1 : 0,
     });
 
     if (mode === StudyMode.practice) {
@@ -327,10 +328,13 @@ export class ClientApiService {
           userId,
           appKey: input.appKey ?? DEFAULT_APP_KEY,
           questionId: question.id,
-          questionTitle: stripHtml(String(asRecord(question.stem).text ?? '')),
+          questionTitle: stripHtml(String(asRecord(question.stem).text ?? "")),
           mode: question.catalog.name,
           correct: isCorrect,
-          payload: evaluation as Prisma.InputJsonValue,
+          payload: {
+            ...evaluation,
+            subjectId: question.catalog.subjectId,
+          } as Prisma.InputJsonValue,
         },
       });
     }
@@ -355,6 +359,40 @@ export class ClientApiService {
           active: true,
         },
       });
+    } else if (
+      mode === StudyMode.practice &&
+      isCorrect === true &&
+      Number(input.wrongRemovalThreshold) > 0
+    ) {
+      const threshold = Math.max(
+        1,
+        Math.min(Math.trunc(Number(input.wrongRemovalThreshold)), 99),
+      );
+      const wrongItem = await this.prisma.userWrongQuestion.findUnique({
+        where: {
+          userId_questionId: {
+            userId,
+            questionId: question.id,
+          },
+        },
+      });
+      if (wrongItem?.active) {
+        const correctSinceLastWrong = await this.prisma.userAnswer.count({
+          where: {
+            userId,
+            questionId: question.id,
+            mode: StudyMode.practice,
+            isCorrect: true,
+            createdAt: { gte: wrongItem.lastWrongAt },
+          },
+        });
+        if (correctSinceLastWrong >= threshold) {
+          await this.prisma.userWrongQuestion.update({
+            where: { id: wrongItem.id },
+            data: { active: false },
+          });
+        }
+      }
     }
 
     return {
@@ -374,6 +412,11 @@ export class ClientApiService {
       text?: string;
     }>;
     durationMinutes?: number;
+    remainingSeconds?: number;
+    subjectId?: string;
+    sectionId?: string;
+    paperId?: string;
+    questionIds?: string[];
   }) {
     const userId = input.userId ?? DEFAULT_DEV_USER_ID;
     await this.ensureDevUser(userId);
@@ -390,10 +433,25 @@ export class ClientApiService {
         }),
       );
     }
+    const questionIds = [
+      ...new Set([
+        ...(input.questionIds ?? []),
+        ...input.answers.map((answer) => answer.questionId),
+      ]),
+    ].filter(Boolean);
+    const questionRows = await this.prisma.question.findMany({
+      where: { id: { in: questionIds } },
+    });
+    const questionsById = new Map(
+      questionRows.map((question) => [question.id, question]),
+    );
+    const questions = questionIds
+      .map((questionId) => questionsById.get(questionId))
+      .filter((question) => question !== undefined)
+      .map(clientQuestionFromDb);
     const correct = results.filter((item) => item.isCorrect).length;
-    const score = input.answers.length === 0
-      ? 0
-      : Math.round((correct * 100) / input.answers.length);
+    const total = questionIds.length || input.answers.length;
+    const score = total === 0 ? 0 : Math.round((correct * 100) / total);
     const record = await this.prisma.examRecord.create({
       data: {
         userId,
@@ -406,7 +464,13 @@ export class ClientApiService {
         payload: {
           answers: input.answers,
           results,
+          questions,
+          questionIds,
           durationMinutes: input.durationMinutes ?? null,
+          remainingSeconds: input.remainingSeconds ?? null,
+          subjectId: input.subjectId ?? null,
+          sectionId: input.sectionId ?? null,
+          paperId: input.paperId ?? null,
         } as Prisma.InputJsonValue,
       },
     });
@@ -416,48 +480,87 @@ export class ClientApiService {
       score,
       accuracy: score,
       correct,
-      total: input.answers.length,
+      total,
       results,
     };
   }
 
   async listRecords(
     userId = DEFAULT_DEV_USER_ID,
-    mode: 'practice' | 'exam',
+    mode: "practice" | "exam",
     appKey = DEFAULT_APP_KEY,
+    subjectId?: string,
   ) {
     await this.ensureDevUser(userId);
-    if (mode === 'practice') {
+    const questionIds = await this.questionIdsForSubject(subjectId);
+    if (mode === "practice") {
       return this.prisma.practiceRecord.findMany({
-        where: { userId, appKey },
-        orderBy: { createdAt: 'desc' },
+        where: {
+          userId,
+          appKey,
+          ...(questionIds ? { questionId: { in: [...questionIds] } } : {}),
+        },
+        orderBy: { createdAt: "desc" },
         take: 100,
       });
     }
-    return this.prisma.examRecord.findMany({
+    const records = await this.prisma.examRecord.findMany({
       where: { userId, appKey },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+      orderBy: { createdAt: "desc" },
+      take: subjectId ? 500 : 100,
     });
+    if (!subjectId || !questionIds) return records;
+    return records
+      .filter((record) =>
+        this.examRecordBelongsToSubject(record.payload, subjectId, questionIds),
+      )
+      .slice(0, 100);
   }
 
   async deleteRecords(input: {
     userId?: string;
     appKey?: string;
-    mode: 'practice' | 'exam';
+    mode: "practice" | "exam";
     recordId?: string;
+    subjectId?: string;
   }) {
     const userId = input.userId ?? DEFAULT_DEV_USER_ID;
     const appKey = input.appKey ?? DEFAULT_APP_KEY;
     await this.ensureDevUser(userId);
-    if (input.mode === 'practice') {
+    const questionIds = await this.questionIdsForSubject(input.subjectId);
+    if (input.mode === "practice") {
       const result = await this.prisma.practiceRecord.deleteMany({
-        where: { userId, appKey, ...(input.recordId ? { id: input.recordId } : {}) },
+        where: {
+          userId,
+          appKey,
+          ...(input.recordId ? { id: input.recordId } : {}),
+          ...(questionIds ? { questionId: { in: [...questionIds] } } : {}),
+        },
       });
       return { deleted: result.count };
     }
+    const candidates = await this.prisma.examRecord.findMany({
+      where: {
+        userId,
+        appKey,
+        ...(input.recordId ? { id: input.recordId } : {}),
+      },
+      select: { id: true, payload: true },
+    });
+    const ids =
+      input.subjectId && questionIds
+        ? candidates
+            .filter((record) =>
+              this.examRecordBelongsToSubject(
+                record.payload,
+                input.subjectId!,
+                questionIds,
+              ),
+            )
+            .map((record) => record.id)
+        : candidates.map((record) => record.id);
     const result = await this.prisma.examRecord.deleteMany({
-      where: { userId, appKey, ...(input.recordId ? { id: input.recordId } : {}) },
+      where: { id: { in: ids } },
     });
     return { deleted: result.count };
   }
@@ -475,7 +578,11 @@ export class ClientApiService {
     return { favorited: true };
   }
 
-  async listFavorites(userId = DEFAULT_DEV_USER_ID, limit = 50, subjectId?: string) {
+  async listFavorites(
+    userId = DEFAULT_DEV_USER_ID,
+    limit = 50,
+    subjectId?: string,
+  ) {
     await this.ensureDevUser(userId);
     const rows = await this.prisma.userFavorite.findMany({
       where: {
@@ -483,13 +590,17 @@ export class ClientApiService {
         ...(subjectId ? { question: { catalog: { subjectId } } } : {}),
       },
       include: { question: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: Math.min(limit, 100),
     });
     return rows.map((item) => clientQuestionFromDb(item.question));
   }
 
-  async listWrongQuestions(userId = DEFAULT_DEV_USER_ID, limit = 50, subjectId?: string) {
+  async listWrongQuestions(
+    userId = DEFAULT_DEV_USER_ID,
+    limit = 50,
+    subjectId?: string,
+  ) {
     await this.ensureDevUser(userId);
     const rows = await this.prisma.userWrongQuestion.findMany({
       where: {
@@ -498,7 +609,7 @@ export class ClientApiService {
         ...(subjectId ? { question: { catalog: { subjectId } } } : {}),
       },
       include: { question: true },
-      orderBy: { lastWrongAt: 'desc' },
+      orderBy: { lastWrongAt: "desc" },
       take: Math.min(limit, 100),
     });
     return rows.map((item) => ({
@@ -557,7 +668,9 @@ export class ClientApiService {
     const appKey = input.appKey ?? DEFAULT_APP_KEY;
     const mode = input.mode ?? StudyMode.practice;
     await this.ensureDevUser(userId);
-    const descendantIds = await this.collectDescendantCatalogIds(input.catalogIds);
+    const descendantIds = await this.collectDescendantCatalogIds(
+      input.catalogIds,
+    );
     const ids = [...new Set([...input.catalogIds, ...descendantIds])];
     const questionIds = (
       await this.prisma.question.findMany({
@@ -566,46 +679,47 @@ export class ClientApiService {
       })
     ).map((item) => item.id);
 
-    const [progress, answers, wrongQuestions, practiceRecords] = await this.prisma.$transaction([
-      this.prisma.userProgress.deleteMany({
-        where: {
-          userId,
-          catalogId: { in: ids },
-          mode,
-        },
-      }),
-      this.prisma.userAnswer.deleteMany({
-        where: {
-          userId,
-          mode,
-          questionId: { in: questionIds },
-        },
-      }),
-      mode === StudyMode.practice
-        ? this.prisma.userWrongQuestion.updateMany({
-            where: {
-              userId,
-              active: true,
-              questionId: { in: questionIds },
-            },
-            data: { active: false },
-          })
-        : this.prisma.userWrongQuestion.updateMany({
-            where: { id: { in: [] } },
-            data: { active: false },
-          }),
-      mode === StudyMode.practice
-        ? this.prisma.practiceRecord.deleteMany({
-            where: {
-              userId,
-              appKey,
-              questionId: { in: questionIds },
-            },
-          })
-        : this.prisma.practiceRecord.deleteMany({
-            where: { id: { in: [] } },
-          }),
-    ]);
+    const [progress, answers, wrongQuestions, practiceRecords] =
+      await this.prisma.$transaction([
+        this.prisma.userProgress.deleteMany({
+          where: {
+            userId,
+            catalogId: { in: ids },
+            mode,
+          },
+        }),
+        this.prisma.userAnswer.deleteMany({
+          where: {
+            userId,
+            mode,
+            questionId: { in: questionIds },
+          },
+        }),
+        mode === StudyMode.practice
+          ? this.prisma.userWrongQuestion.updateMany({
+              where: {
+                userId,
+                active: true,
+                questionId: { in: questionIds },
+              },
+              data: { active: false },
+            })
+          : this.prisma.userWrongQuestion.updateMany({
+              where: { id: { in: [] } },
+              data: { active: false },
+            }),
+        mode === StudyMode.practice
+          ? this.prisma.practiceRecord.deleteMany({
+              where: {
+                userId,
+                appKey,
+                questionId: { in: questionIds },
+              },
+            })
+          : this.prisma.practiceRecord.deleteMany({
+              where: { id: { in: [] } },
+            }),
+      ]);
 
     return {
       resetCatalogIds: ids,
@@ -633,8 +747,8 @@ export class ClientApiService {
         userId,
         appKey: input.appKey ?? DEFAULT_APP_KEY,
         questionId: input.questionId,
-        type: input.type ?? 'question_error',
-        content: input.content.trim() || '用户提交了题目纠错',
+        type: input.type ?? "question_error",
+        content: input.content.trim() || "用户提交了题目纠错",
         contact: input.contact,
         payload: (input.payload ?? {}) as Prisma.InputJsonValue,
       },
@@ -642,15 +756,15 @@ export class ClientApiService {
   }
 
   async listResources(input?: string | { bankId?: string; appKey?: string }) {
-    let bankId = typeof input === 'string' ? input : input?.bankId;
-    if (!bankId && typeof input !== 'string' && input?.appKey) {
+    let bankId = typeof input === "string" ? input : input?.bankId;
+    if (!bankId && typeof input !== "string" && input?.appKey) {
       const app = await this.getApp(input.appKey);
       bankId = app.bankId;
     }
     const where = bankId ? { bankId } : {};
     const rows = await this.prisma.materialResource.findMany({
       where,
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     return rows.map((item) => ({
       ...item,
@@ -669,9 +783,9 @@ export class ClientApiService {
     const fallback = await this.prisma.app.findFirst({
       where: { isActive: true },
       include: { bank: true },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
-    if (!fallback) throw new NotFoundException('App not seeded');
+    if (!fallback) throw new NotFoundException("App not seeded");
     return fallback;
   }
 
@@ -681,7 +795,7 @@ export class ClientApiService {
       update: {},
       create: {
         id: userId,
-        nickname: '本地测试用户',
+        nickname: "本地测试用户",
         isDev: true,
       },
     });
@@ -690,7 +804,13 @@ export class ClientApiService {
   private async catalogTotals(subjectId: string) {
     const nodes = await this.prisma.catalogNode.findMany({
       where: { subjectId },
-      select: { id: true, type: true, questionCount: true, parentId: true, name: true },
+      select: {
+        id: true,
+        type: true,
+        questionCount: true,
+        parentId: true,
+        name: true,
+      },
     });
     const leafNodes = nodes.filter(
       (item) =>
@@ -698,30 +818,44 @@ export class ClientApiService {
         item.type === CatalogNodeType.paper,
     );
     return {
-      totalQuestions: leafNodes.reduce((sum, item) => sum + item.questionCount, 0),
+      totalQuestions: leafNodes.reduce(
+        (sum, item) => sum + item.questionCount,
+        0,
+      ),
       categoryCount: nodes.filter((item) => item.parentId === null).length,
-      chapterCount: nodes.filter((item) => item.type === CatalogNodeType.chapter).length,
+      chapterCount: nodes.filter(
+        (item) => item.type === CatalogNodeType.chapter,
+      ).length,
       leafCount: leafNodes.length,
       practiceQuestions: leafNodes
-        .filter((item) => !item.name.includes('试卷'))
+        .filter((item) => !item.name.includes("试卷"))
         .reduce((sum, item) => sum + item.questionCount, 0),
     };
   }
 
   private catalogNodeToTree(
     node: CatalogNodeWithChildren,
-    progressByCatalog: Map<string, { done: number; correct: number; wrong: number }>,
+    progressByCatalog: Map<
+      string,
+      { done: number; correct: number; wrong: number }
+    >,
   ): CatalogTreeItem {
     const children = node.children ?? [];
     const childTrees: CatalogTreeItem[] = children.map((child) =>
       this.catalogNodeToTree(child, progressByCatalog),
     );
-    const childDone = childTrees.reduce((sum, child) => sum + child.progress.done, 0);
+    const childDone = childTrees.reduce(
+      (sum, child) => sum + child.progress.done,
+      0,
+    );
     const childCorrect = childTrees.reduce(
       (sum, child) => sum + child.progress.correct,
       0,
     );
-    const childWrong = childTrees.reduce((sum, child) => sum + child.progress.wrong, 0);
+    const childWrong = childTrees.reduce(
+      (sum, child) => sum + child.progress.wrong,
+      0,
+    );
     const self = progressByCatalog.get(node.id);
     const done = self?.done ?? childDone;
     const correct = self?.correct ?? childCorrect;
@@ -758,7 +892,10 @@ export class ClientApiService {
       question.type === QuestionType.multiple_choice ||
       question.type === QuestionType.true_false
     ) {
-      const isCorrect = evaluateChoiceAnswer(question.answer, input.values ?? []);
+      const isCorrect = evaluateChoiceAnswer(
+        question.answer,
+        input.values ?? [],
+      );
       return {
         isCorrect,
         score: isCorrect ? 100 : 0,
@@ -766,7 +903,7 @@ export class ClientApiService {
       };
     }
     if (question.type === QuestionType.fill_blank) {
-      const isCorrect = evaluateFillBlank(question.answer, input.text ?? '');
+      const isCorrect = evaluateFillBlank(question.answer, input.text ?? "");
       return {
         isCorrect,
         score: isCorrect ? 100 : 0,
@@ -777,8 +914,9 @@ export class ClientApiService {
       const result = evaluateShortAnswer(
         question.scoringRubric,
         question.answer,
-        input.text ?? '',
-        input.actualScore ?? this.shortAnswerActualScore(question.scoringRubric),
+        input.text ?? "",
+        input.actualScore ??
+          this.shortAnswerActualScore(question.scoringRubric),
       );
       return {
         isCorrect: result.actualScore / result.questionActualScore >= 0.6,
@@ -793,14 +931,30 @@ export class ClientApiService {
     };
   }
 
-  private async bumpProgress(input: {
+  private async rebuildCatalogProgress(input: {
     userId: string;
     catalogId: string;
     mode: StudyMode;
-    done: number;
-    correct: number;
-    wrong: number;
   }) {
+    const answers = await this.prisma.userAnswer.findMany({
+      where: {
+        userId: input.userId,
+        mode: input.mode,
+        question: { catalogId: input.catalogId },
+      },
+      select: { questionId: true, isCorrect: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const latestByQuestion = new Map<string, boolean | null>();
+    for (const answer of answers) {
+      if (!latestByQuestion.has(answer.questionId)) {
+        latestByQuestion.set(answer.questionId, answer.isCorrect);
+      }
+    }
+    const latestResults = [...latestByQuestion.values()];
+    const done = latestResults.length;
+    const correct = latestResults.filter((result) => result === true).length;
+    const wrong = latestResults.filter((result) => result === false).length;
     await this.prisma.userProgress.upsert({
       where: {
         userId_catalogId_mode: {
@@ -810,18 +964,18 @@ export class ClientApiService {
         },
       },
       update: {
-        done: { increment: input.done },
-        correct: { increment: input.correct },
-        wrong: { increment: input.wrong },
+        done,
+        correct,
+        wrong,
         lastStudiedAt: new Date(),
       },
       create: {
         userId: input.userId,
         catalogId: input.catalogId,
         mode: input.mode,
-        done: input.done,
-        correct: input.correct,
-        wrong: input.wrong,
+        done,
+        correct,
+        wrong,
         lastStudiedAt: new Date(),
       },
     });
@@ -831,6 +985,29 @@ export class ClientApiService {
     const rubric = asRecord(scoringRubric);
     const maxPoints = Number(rubric.max_points ?? rubric.base_score);
     return Number.isFinite(maxPoints) && maxPoints > 0 ? maxPoints : 100;
+  }
+
+  private async questionIdsForSubject(subjectId?: string) {
+    if (!subjectId) return null;
+    const questions = await this.prisma.question.findMany({
+      where: { catalog: { subjectId } },
+      select: { id: true },
+    });
+    return new Set(questions.map((question) => question.id));
+  }
+
+  private examRecordBelongsToSubject(
+    payload: unknown,
+    subjectId: string,
+    questionIds: Set<string>,
+  ) {
+    const record = asRecord(payload);
+    if (String(record.subjectId ?? "") === subjectId) return true;
+    const answers = Array.isArray(record.answers) ? record.answers : [];
+    return answers.some((answer) => {
+      const questionId = String(asRecord(answer).questionId ?? "");
+      return questionIds.has(questionId);
+    });
   }
 
   private async collectDescendantCatalogIds(catalogIds: string[]) {

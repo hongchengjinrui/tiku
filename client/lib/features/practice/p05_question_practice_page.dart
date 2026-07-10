@@ -54,7 +54,13 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         builder: (context, _) {
           final session = mockStore.practiceSession;
           if (session == null) {
-            return const Center(child: Text('暂无练习内容'));
+            return AppRouteEmptyState(
+              icon: Icons.menu_book_outlined,
+              title: '暂无练习内容',
+              message: '当前没有进行中的练习，可返回练习入口重新选择。',
+              actionLabel: '返回练习入口',
+              onAction: () => context.go('/practice'),
+            );
           }
 
           final question = session.currentQuestion;
@@ -73,7 +79,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
               const StatusBar(),
               NavBar(
                 title: session.title,
-                onBack: () => context.go('/practice/catalog'),
+                onBack: () => context.go(_practiceExitRoute(session)),
               ),
               _buildProgressArea(session, question),
               Expanded(
@@ -804,11 +810,12 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
             iconAfter: true,
             onTap: () {
               if (isLast) {
+                final exitRoute = _practiceExitRoute(session);
                 mockStore.finishPracticeSession();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('练习记录已生成')),
                 );
-                context.go('/practice/catalog');
+                context.go(exitRoute);
               } else {
                 mockStore.nextPracticeQuestion();
               }
@@ -817,6 +824,14 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
         ],
       ),
     );
+  }
+
+  String _practiceExitRoute(PracticeSession session) {
+    if (session.mode.contains('真题')) return '/practice/papers';
+    if (session.mode.contains('随机')) return '/practice/random';
+    if (session.mode.contains('收藏')) return '/practice/favorite';
+    if (session.mode.contains('错题')) return '/practice/wrong';
+    return '/practice/sections';
   }
 
   Future<void> _removeWrongQuestion(Question question) async {
@@ -835,12 +850,18 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required bool wasFavorite,
     required String sessionMode,
   }) async {
-    await mockStore.toggleFavorite(question);
+    final ok = await mockStore.toggleFavorite(question);
     if (!mounted) return;
+    final isFavorite = mockStore.isQuestionFavorite(question.id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(wasFavorite ? '已取消收藏' : '已收藏')),
+      SnackBar(
+        content: Text(
+          ok ? (isFavorite ? '已收藏' : '已取消收藏') : '操作失败，请稍后重试',
+        ),
+      ),
     );
-    if (wasFavorite &&
+    if (ok &&
+        wasFavorite &&
         sessionMode == '收藏练习' &&
         mockStore.practiceSession == null) {
       context.go('/practice/favorite');
@@ -1007,7 +1028,11 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           },
         );
       },
-    ).whenComplete(controller.dispose);
+    ).whenComplete(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.dispose();
+      });
+    });
   }
 
   void _showAnswerCard(BuildContext context, PracticeSession session) {

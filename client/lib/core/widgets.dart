@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../data/mock/mock_app_store.dart';
 import '../theme/app_colors.dart';
@@ -312,6 +314,14 @@ class CacheStatusBanner extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!online)
+                IconButton(
+                  onPressed: () => unawaited(store.hydrateRemote()),
+                  tooltip: '重新连接',
+                  icon: const Icon(Icons.refresh, size: 19),
+                  color: AppColors.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
             ],
           ),
         );

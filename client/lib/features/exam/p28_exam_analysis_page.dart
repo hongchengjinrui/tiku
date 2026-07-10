@@ -26,7 +26,13 @@ class P28ExamAnalysisPage extends StatelessWidget {
                 builder: (context, _) {
                   final session = mockStore.examSession;
                   if (session == null) {
-                    return const Center(child: Text('暂无考试解析'));
+                    return AppRouteEmptyState(
+                      icon: Icons.analytics_outlined,
+                      title: '暂无考试解析',
+                      message: '交卷后会生成考试成绩与解析，可返回考试入口开始考试。',
+                      actionLabel: '返回考试入口',
+                      onAction: () => context.go('/exam'),
+                    );
                   }
                   final unanswered = _unansweredIndexes(session);
                   final wrong = _wrongIndexes(session);

@@ -9,8 +9,8 @@ class P51ADeletePracticeRecordConfirmPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const StaticDialogPage(
-      backgroundColor: Color(0x990F172A),
+    return StaticDialogPage(
+      backgroundColor: const Color(0x990F172A),
       child: StaticConfirmDialog(
         icon: Icons.delete_outline,
         iconColor: AppColors.error,
@@ -19,6 +19,13 @@ class P51ADeletePracticeRecordConfirmPage extends StatelessWidget {
         message: '删除后仅移除本条记录展示，不会影响对应章节的题目进度。',
         cancelText: '取消',
         confirmText: '删除',
+        onCancel: () => context.go('/profile/practice-records'),
+        onConfirm: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请在练习记录列表中选择具体记录删除')),
+          );
+          context.go('/profile/practice-records');
+        },
       ),
     );
   }
@@ -58,8 +65,8 @@ class P52ADeleteExamRecordConfirmPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const StaticDialogPage(
-      backgroundColor: Color(0x990F172A),
+    return StaticDialogPage(
+      backgroundColor: const Color(0x990F172A),
       child: StaticConfirmDialog(
         icon: Icons.delete_outline,
         iconColor: AppColors.error,
@@ -68,6 +75,13 @@ class P52ADeleteExamRecordConfirmPage extends StatelessWidget {
         message: '删除后将不再展示本次考试成绩和解析入口，不影响题库内容。',
         cancelText: '取消',
         confirmText: '删除',
+        onCancel: () => context.go('/profile/exam-records'),
+        onConfirm: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请在考试记录列表中选择具体记录删除')),
+          );
+          context.go('/profile/exam-records');
+        },
       ),
     );
   }

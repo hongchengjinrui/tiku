@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
@@ -44,7 +45,25 @@ class _AnalysisDetailPage extends StatelessWidget {
         builder: (context, _) {
           final session = mockStore.examSession;
           if (session == null) {
-            return const Center(child: Text('暂无考试解析'));
+            return Container(
+              color: AppColors.surface,
+              width: 390,
+              child: Column(
+                children: [
+                  const StatusBar(),
+                  const NavBar(title: '查看解析'),
+                  Expanded(
+                    child: AppRouteEmptyState(
+                      icon: Icons.analytics_outlined,
+                      title: '暂无考试解析',
+                      message: '交卷后会生成考试成绩与解析，可返回考试入口开始考试。',
+                      actionLabel: '返回考试入口',
+                      onAction: () => context.go('/exam'),
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
           final targetIndex = _targetIndex(session);
           if (targetIndex == null) {
@@ -111,13 +130,12 @@ class _AnalysisDetailPage extends StatelessWidget {
           NavBar(title: session.title),
           Expanded(
             child: Center(
-              child: Text(
-                '当前分类暂无题目',
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 15,
-                  color: AppColors.textMuted,
-                ),
+              child: AppRouteEmptyState(
+                icon: Icons.fact_check_outlined,
+                title: '当前分类暂无题目',
+                message: '可返回解析总览查看其它分类。',
+                actionLabel: '返回解析总览',
+                onAction: () => context.go('/exam/analysis'),
               ),
             ),
           ),
@@ -460,6 +478,8 @@ class _AnalysisDetailPage extends StatelessWidget {
   }
 
   String? _textScoreText(Question question, ExamSession session) {
+    final remoteScore = session.answerResults[question.id]?.scoreText;
+    if (remoteScore != null && remoteScore.isNotEmpty) return remoteScore;
     final text = session.textAnswers[question.id]?.trim();
     if (text == null || text.isEmpty) return null;
     return evaluateTextAnswer(question, text).scoreText;

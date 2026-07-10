@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tiku_muban/data/local/app_state_storage.dart';
 import 'package:tiku_muban/data/mock/mock_app_store.dart';
@@ -27,6 +30,72 @@ void main() {
     expect(updatedSection.done, beforeDone + 1);
     expect(store.practiceRecords.length, beforeRecords + 1);
     expect(store.practiceRecords.first.mode, '章节练习');
+  });
+
+  test('local repeated sessions keep progress and accuracy within totals', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const questions = [
+      Question(
+        id: 'bounded_q1',
+        type: QuestionType.single,
+        stem: '第一题',
+        options: ['A', 'B'],
+        answerIndexes: {0},
+        analysis: '解析',
+      ),
+      Question(
+        id: 'bounded_q2',
+        type: QuestionType.single,
+        stem: '第二题',
+        options: ['A', 'B'],
+        answerIndexes: {1},
+        analysis: '解析',
+      ),
+    ];
+    store.chapters = const [
+      Chapter(
+        id: 'bounded_chapter',
+        title: '进度约束章',
+        done: 1,
+        total: 2,
+        correct: 1,
+        wrong: 0,
+        sections: [
+          Section(
+            id: 'bounded_section',
+            chapterId: 'bounded_chapter',
+            title: '进度约束节',
+            done: 1,
+            total: 2,
+            correct: 1,
+            wrong: 0,
+          ),
+        ],
+      ),
+    ];
+
+    void finishFullSession() {
+      store.practiceSession = PracticeSession(
+        title: '进度约束节',
+        mode: '章节练习',
+        sectionId: 'bounded_section',
+        questions: questions,
+        answers: const {
+          'bounded_q1': {0},
+          'bounded_q2': {1},
+        },
+      );
+      store.finishPracticeSession();
+    }
+
+    finishFullSession();
+    finishFullSession();
+
+    final section = store.chapters.single.sections.single;
+    expect(section.done, 2);
+    expect(section.correct, 2);
+    expect(section.wrong, 0);
+    expect(section.correct + section.wrong, lessThanOrEqualTo(section.done));
   });
 
   test('exam session supports answer card state and submit result', () {
@@ -322,6 +391,156 @@ void main() {
     expect(updatedParent.children.first.done, 0);
   });
 
+  test('practice reset keeps aggregate dashboard stats in sync', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    store.chapters = const [
+      Chapter(
+        id: 'practice_reset_chapter',
+        title: '练习重置章节',
+        done: 7,
+        total: 20,
+        correct: 5,
+        wrong: 2,
+        sections: [
+          Section(
+            id: 'practice_reset_section_a',
+            chapterId: 'practice_reset_chapter',
+            title: '第一节',
+            done: 3,
+            total: 10,
+            correct: 2,
+            wrong: 1,
+          ),
+          Section(
+            id: 'practice_reset_section_b',
+            chapterId: 'practice_reset_chapter',
+            title: '第二节',
+            done: 4,
+            total: 10,
+            correct: 3,
+            wrong: 1,
+          ),
+        ],
+      ),
+    ];
+    store.practicePapers = const [
+      Paper(
+        id: 'practice_reset_paper',
+        title: '练习模拟卷',
+        done: 5,
+        total: 20,
+        correct: 4,
+        wrong: 1,
+        minutes: 45,
+      ),
+    ];
+
+    expect(store.practiceChapterStat.done, 7);
+    expect(store.practicePaperStat.done, 5);
+    expect(store.practiceStat.done, 12);
+    expect(store.practiceStat.accuracy, 75);
+
+    final sectionReset = await store.resetPracticeProgress(
+      catalogIds: const ['practice_reset_section_a'],
+    );
+
+    expect(sectionReset, isTrue);
+    expect(store.practiceChapterStat.done, 4);
+    expect(store.practiceChapterStat.correct, 3);
+    expect(store.practicePaperStat.done, 5);
+    expect(store.practiceStat.done, 9);
+    expect(store.practiceStat.correct, 7);
+    expect(store.practiceStat.wrong, 2);
+
+    final fullReset = await store.resetPracticeProgress();
+
+    expect(fullReset, isTrue);
+    expect(store.practiceChapterStat.done, 0);
+    expect(store.practicePaperStat.done, 0);
+    expect(store.practiceStat.done, 0);
+    expect(store.practiceStat.total, 40);
+  });
+
+  test('exam reset keeps aggregate dashboard stats in sync', () async {
+    final store = AppStore(repository: MockTikuRepository());
+    store.examChapters = const [
+      Chapter(
+        id: 'exam_reset_chapter',
+        title: '考试重置章节',
+        done: 8,
+        total: 20,
+        correct: 6,
+        wrong: 2,
+        sections: [
+          Section(
+            id: 'exam_reset_section_a',
+            chapterId: 'exam_reset_chapter',
+            title: '第一节',
+            done: 5,
+            total: 10,
+            correct: 4,
+            wrong: 1,
+          ),
+          Section(
+            id: 'exam_reset_section_b',
+            chapterId: 'exam_reset_chapter',
+            title: '第二节',
+            done: 3,
+            total: 10,
+            correct: 2,
+            wrong: 1,
+          ),
+        ],
+      ),
+    ];
+    store.examPapers = const [
+      Paper(
+        id: 'exam_reset_paper',
+        title: '考试模拟卷',
+        done: 10,
+        total: 30,
+        correct: 7,
+        wrong: 3,
+        minutes: 90,
+      ),
+    ];
+
+    expect(store.examChapterStat.done, 8);
+    expect(store.examPaperStat.done, 10);
+    expect(store.examStat.done, 18);
+    expect(store.examStat.accuracy, 72);
+
+    final sectionReset = await store.resetExamProgress(
+      catalogIds: const ['exam_reset_section_a'],
+    );
+
+    expect(sectionReset, isTrue);
+    expect(store.examChapterStat.done, 3);
+    expect(store.examChapterStat.correct, 2);
+    expect(store.examPaperStat.done, 10);
+    expect(store.examStat.done, 13);
+    expect(store.examStat.correct, 9);
+    expect(store.examStat.wrong, 4);
+
+    final paperReset = await store.resetExamProgress(
+      catalogIds: const ['exam_reset_paper'],
+    );
+
+    expect(paperReset, isTrue);
+    expect(store.examChapterStat.done, 3);
+    expect(store.examPaperStat.done, 0);
+    expect(store.examPapers.single.minutes, 0);
+    expect(store.examStat.done, 3);
+
+    final fullReset = await store.resetExamProgress();
+
+    expect(fullReset, isTrue);
+    expect(store.examChapterStat.done, 0);
+    expect(store.examPaperStat.done, 0);
+    expect(store.examStat.done, 0);
+    expect(store.examStat.total, 50);
+  });
+
   test('exam record analysis opens a submitted session without adding records',
       () {
     final store = AppStore(repository: MockTikuRepository());
@@ -342,6 +561,65 @@ void main() {
     expect(session.answeredCount, session.questions.length);
     expect(session.accuracy, closeTo(80, 5));
     expect(store.examRecords.length, beforeRecords);
+  });
+
+  test('structured exam record analysis restores exact answers and grading',
+      () {
+    final store = AppStore(repository: MockTikuRepository());
+    const gradedQuestion = Question(
+      id: 'history_graded_q1',
+      type: QuestionType.single,
+      stem: '历史记录判分题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '历史解析',
+    );
+    const unansweredQuestion = Question(
+      id: 'history_unanswered_q2',
+      type: QuestionType.single,
+      stem: '历史未作答题',
+      options: ['A', 'B'],
+      answerIndexes: {1},
+      analysis: '历史解析',
+    );
+    final record = StudyRecord(
+      id: 'history_record_1',
+      title: '真实历史考试',
+      mode: '章节考试',
+      metric: '40分 · 正确率 40%',
+      time: '刚刚',
+      examDetail: const ExamRecordDetail(
+        subjectId: 'primary_teacher',
+        sectionId: 'history_section',
+        questions: [gradedQuestion, unansweredQuestion],
+        durationMinutes: 45,
+        remainingSeconds: 1200,
+        answers: {
+          'history_graded_q1': {1},
+        },
+        answerResults: {
+          'history_graded_q1': PracticeAnswerResult(
+            isCorrect: true,
+            score: 4,
+            correctAnswerText: 'A',
+            myAnswerText: 'B',
+            analysisText: '服务端历史判分',
+            scoreText: '4/5',
+          ),
+        },
+      ),
+    );
+
+    store.openExamRecordAnalysis(record);
+    final session = store.examSession!;
+
+    expect(session.questions.map((item) => item.id),
+        ['history_graded_q1', 'history_unanswered_q2']);
+    expect(session.answers['history_graded_q1'], {1});
+    expect(session.isCorrect(gradedQuestion), isTrue);
+    expect(session.questionScore(gradedQuestion), 80);
+    expect(session.hasAnswered(unansweredQuestion.id), isFalse);
+    expect(session.remainingSeconds, 1200);
   });
 
   test('unfinished exam record resumes an answer session at saved progress',
@@ -693,6 +971,133 @@ void main() {
     expect(store.examRecords, isEmpty);
   });
 
+  test('failed remote subject switch keeps the current catalogs and sessions',
+      () async {
+    final repository = _InteractionRemoteRepository()
+      ..loadSubjectResult = false;
+    final store = AppStore(repository: repository)..remoteReady = true;
+    final section = store.chapters.first.sections.first;
+    store.startPracticeFromSection(section.id, notify: false);
+    final originalSession = store.practiceSession;
+    final originalChapterIds = store.chapters.map((item) => item.id).toList();
+
+    final switched = await store.selectSubject('middle_teacher');
+
+    expect(switched, isFalse);
+    expect(store.selectedSubjectId, 'primary_teacher');
+    expect(store.chapters.map((item) => item.id), originalChapterIds);
+    expect(identical(store.practiceSession, originalSession), isTrue);
+    expect(repository.loadedSubjectIds, ['middle_teacher']);
+  });
+
+  test('remote exam records refresh only after submit succeeds', () async {
+    final repository = _InteractionRemoteRepository();
+    final submission = Completer<bool>();
+    repository.examSubmission = submission;
+    final store = AppStore(repository: repository)..remoteReady = true;
+    final section = store.examChapters.first.sections.first;
+    store.startExamFromSection(section.id, notify: false);
+    store.answerExam(store.examSession!.currentQuestion.answerIndexes);
+
+    final submitFuture = store.submitExam();
+
+    expect(store.examSession?.submitted, isTrue);
+    expect(repository.loadedSubjectIds, isEmpty);
+
+    submission.complete(true);
+    expect(await submitFuture, isTrue);
+    expect(repository.loadedSubjectIds, ['primary_teacher']);
+  });
+
+  test('failed remote exam submit preserves the optimistic local record',
+      () async {
+    final repository = _InteractionRemoteRepository();
+    final submission = Completer<bool>();
+    repository.examSubmission = submission;
+    final store = AppStore(repository: repository)..remoteReady = true;
+    final section = store.examChapters.first.sections.first;
+    store.startExamFromSection(section.id, notify: false);
+    final beforeRecords = store.examRecords.length;
+
+    final submitFuture = store.submitExam();
+    submission.complete(false);
+
+    expect(await submitFuture, isFalse);
+    expect(store.examRecords.length, beforeRecords + 1);
+    expect(store.examRecords.first.id, startsWith('exam-'));
+    expect(repository.loadedSubjectIds, isEmpty);
+  });
+
+  test('remote wrong practice defers removal and sends its threshold',
+      () async {
+    final repository = _InteractionRemoteRepository()
+      ..loadSubjectResult = false;
+    final submission = Completer<PracticeAnswerResult?>();
+    repository.practiceSubmission = submission;
+    final store = AppStore(repository: repository)..remoteReady = true;
+    const question = Question(
+      id: 'remote_wrong_threshold_q1',
+      type: QuestionType.single,
+      stem: '联网错题规则题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+      wrongCount: 2,
+    );
+    store
+      ..wrongQuestions = const [question]
+      ..wrongCorrectCounts = const {'remote_wrong_threshold_q1': 1}
+      ..startWrongPractice(
+        questions: const [question],
+        removeAfterCorrect: 2,
+        notify: false,
+      );
+
+    store.answerPractice(question.answerIndexes);
+
+    expect(repository.lastWrongRemovalThreshold, 2);
+    expect(store.wrongQuestions, contains(question));
+    expect(store.wrongCorrectCounts[question.id], 1);
+
+    submission.complete(const PracticeAnswerResult(
+      isCorrect: false,
+      correctAnswerText: 'A',
+      myAnswerText: 'A',
+      analysisText: '服务端判定结果',
+    ));
+    await pumpEventQueue();
+
+    expect(store.wrongQuestions.map((item) => item.id), contains(question.id));
+    expect(store.wrongCorrectCounts[question.id], 0);
+    expect(store.practiceSession?.submittingQuestionIds, isEmpty);
+  });
+
+  test('failed remote favorite toggle preserves local favorite state',
+      () async {
+    final repository = _InteractionRemoteRepository();
+    final store = AppStore(repository: repository)..remoteReady = true;
+    const question = Question(
+      id: 'remote_favorite_failure_q1',
+      type: QuestionType.single,
+      stem: '收藏失败保留题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+    );
+    store
+      ..favoriteQuestions = const [question]
+      ..startFavoritePractice(
+        questions: const [question],
+        notify: false,
+      );
+
+    final ok = await store.toggleFavorite(question);
+
+    expect(ok, isFalse);
+    expect(store.favoriteQuestions, contains(question));
+    expect(store.practiceSession?.currentQuestion, question);
+  });
+
   test('local subject switching keeps per-subject interaction state', () async {
     final store = AppStore(repository: MockTikuRepository());
     const primaryFavorite = Question(
@@ -974,6 +1379,41 @@ void main() {
     expect(store.practiceSession?.currentQuestion.stem, '缓存章节题');
   });
 
+  test('cached remote subjects keep their names during offline restore',
+      () async {
+    final storage = MemoryAppStateStorage();
+    final snapshot = AppStateSnapshot(
+      savedAt: DateTime(2026, 7, 10),
+      subjects: const [
+        Subject(id: 'remote_subject', name: '综合类', isDefault: true),
+        Subject(id: 'remote_subject_2', name: '其他理工科类'),
+      ],
+      selectedSubjectId: 'remote_subject',
+      selectedChapterId: 'remote_chapter',
+      selectedExamChapterId: 'remote_chapter',
+      practiceChapters: const [],
+      examChapters: const [],
+      practicePapers: const [],
+      examPapers: const [],
+      practiceRecords: const [],
+      examRecords: const [],
+      favoriteQuestions: const [],
+      wrongQuestions: const [],
+    );
+    storage.snapshot = AppStateSnapshot.fromJson(snapshot.toJson());
+
+    final store = AppStore(
+      repository: RemoteTikuRepository(baseUrl: 'http://127.0.0.1:1/api'),
+      stateStorage: storage,
+    );
+    await store.restoreLocalState();
+
+    expect(store.remoteReady, isFalse);
+    expect(store.selectedSubjectId, 'remote_subject');
+    expect(store.selectedSubject.name, '综合类');
+    expect(store.subjects.map((subject) => subject.name), ['综合类', '其他理工科类']);
+  });
+
   test('local app state can be flushed and cleared without wiping memory',
       () async {
     final storage = MemoryAppStateStorage();
@@ -1075,4 +1515,474 @@ void main() {
     expect(restoredExam.remainingSeconds, 45 * 60 - 45);
     expect(restored.examAnsweredStatus().first, isTrue);
   });
+
+  test('remote hydrate drops stale sessions from a different subject',
+      () async {
+    final repository = _HydratedRemoteRepository();
+    final store = AppStore(repository: repository);
+    const staleQuestion = Question(
+      id: 'legacy_question',
+      type: QuestionType.single,
+      stem: '旧题库题目',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '旧解析',
+    );
+
+    store
+      ..selectedSubjectId = 'primary_teacher'
+      ..practiceSession = PracticeSession(
+        title: '电力工程基础',
+        mode: '章节练习',
+        sectionId: 'legacy_section',
+        questions: const [staleQuestion],
+      )
+      ..examSession = ExamSession(
+        title: '旧题库考试',
+        mode: '章节考试',
+        sectionId: 'legacy_exam_section',
+        questions: const [staleQuestion],
+        durationMinutes: 45,
+      );
+
+    await store.hydrateRemote();
+
+    expect(store.selectedSubjectId, 'remote_subject');
+    expect(store.practiceSession, isNull);
+    expect(store.examSession, isNull);
+    expect(store.selectedSubject.name, '综合类');
+  });
+
+  test('remote hydrate restores the last locally selected subject', () async {
+    final repository = _PreferredSubjectRemoteRepository();
+    final store = AppStore(repository: repository)
+      ..selectedSubjectId = 'middle_teacher';
+
+    await store.hydrateRemote();
+
+    expect(store.remoteReady, isTrue);
+    expect(store.selectedSubjectId, 'middle_teacher');
+    expect(store.selectedSubject.name, '中学教师');
+    expect(repository.loadedSubjectIds, ['middle_teacher']);
+  });
+
+  test('remote hydrate retries queued feedback with its question link',
+      () async {
+    final repository = _PreferredSubjectRemoteRepository();
+    final store = AppStore(repository: repository)
+      ..feedbackSubmissions = [
+        FeedbackSubmission(
+          id: 'queued-question-feedback',
+          type: 'analysis_error',
+          content: '历史解析需要修正',
+          payload: const {
+            'source': 'question_feedback',
+            'questionId': 'queued_question_q1',
+          },
+          createdAt: DateTime(2026, 7, 10),
+        ),
+      ];
+
+    await store.hydrateRemote();
+
+    expect(store.feedbackSubmissions, isEmpty);
+    expect(repository.submittedFeedbacks.single, {
+      'content': '历史解析需要修正',
+      'type': 'analysis_error',
+      'questionId': 'queued_question_q1',
+    });
+  });
+
+  test('app state snapshot round trips all supported question types', () {
+    final questions = [
+      const Question(
+        id: 'round_single',
+        type: QuestionType.single,
+        stem: '单选题干',
+        stemHtml: '<p>单选题干</p>',
+        options: ['A项', 'B项'],
+        answerIndexes: {1},
+        answerText: 'B',
+        analysis: '单选解析',
+        analysisHtml: '<p>单选解析</p>',
+      ),
+      const Question(
+        id: 'round_multiple',
+        type: QuestionType.multiple,
+        stem: '多选题干',
+        options: ['A项', 'B项', 'C项'],
+        answerIndexes: {0, 2},
+        answerText: 'A、C',
+        analysis: '多选解析',
+      ),
+      const Question(
+        id: 'round_true_false',
+        type: QuestionType.trueFalse,
+        stem: '判断题干',
+        options: ['正确', '错误'],
+        answerIndexes: {0},
+        answerText: '正确',
+        analysis: '判断解析',
+      ),
+      const Question(
+        id: 'round_fill',
+        type: QuestionType.fillBlank,
+        stem: '填空题干',
+        options: [],
+        answerIndexes: {},
+        answerText: '36',
+        analysis: '填空解析',
+      ),
+      const Question(
+        id: 'round_short',
+        type: QuestionType.shortAnswer,
+        stem: '简答题干',
+        options: [],
+        answerIndexes: {},
+        answerText: '诊断功能、激励功能、调控功能',
+        analysis: '简答解析',
+      ),
+      const Question(
+        id: 'round_material',
+        type: QuestionType.material,
+        stem: '材料题干',
+        stemHtml: '<p>阅读材料</p><img src="https://example.test/material.png">',
+        options: [],
+        answerIndexes: {},
+        answerText: '结合材料分析',
+        analysis: '材料解析',
+        analysisHtml: '<p>材料解析</p>',
+        imageUrls: ['https://example.test/material.png'],
+      ),
+    ];
+    final wrongQuestion = questions.first.copyWith(
+      wrongCount: 3,
+      lastWrongAt: DateTime(2026, 7, 10, 21, 30),
+    );
+
+    final snapshot = AppStateSnapshot(
+      savedAt: DateTime(2026, 7, 10, 22),
+      selectedSubjectId: 'primary_teacher',
+      selectedChapterId: 'chapter_1',
+      selectedExamChapterId: 'exam_chapter_1',
+      practiceChapters: const [],
+      examChapters: const [],
+      practicePapers: const [],
+      examPapers: const [],
+      practiceRecords: const [],
+      examRecords: [
+        StudyRecord(
+          id: 'round_exam_record',
+          title: '题型历史考试',
+          mode: '组卷考试',
+          metric: '50分 · 正确率 50%',
+          time: '刚刚',
+          examDetail: ExamRecordDetail(
+            subjectId: 'primary_teacher',
+            questions: questions,
+            durationMinutes: 90,
+            remainingSeconds: 3000,
+            answers: const {
+              'round_single': {1},
+            },
+            answerResults: const {
+              'round_single': PracticeAnswerResult(
+                isCorrect: true,
+                score: 100,
+                correctAnswerText: 'B',
+                myAnswerText: 'B',
+                analysisText: '历史解析',
+              ),
+            },
+          ),
+        ),
+      ],
+      favoriteQuestions: questions,
+      wrongQuestions: [wrongQuestion],
+      wrongCorrectCounts: const {'round_single': 2},
+      activePracticeSession: PracticeSessionSnapshot(
+        title: '题型回环练习',
+        mode: '章节练习',
+        sectionId: 'section_all_types',
+        questions: questions,
+        currentIndex: 4,
+        finished: false,
+        answers: const {
+          'round_single': {1},
+          'round_multiple': {0, 2},
+          'round_true_false': {0},
+        },
+        textAnswers: const {
+          'round_fill': '36',
+          'round_short': '诊断功能和激励功能',
+          'round_material': '结合材料分析处理思路',
+        },
+        resultQuestionIds: const {'round_single', 'round_short'},
+        answerResults: const {
+          'round_short': PracticeAnswerResult(
+            isCorrect: true,
+            score: 6,
+            correctAnswerText: '诊断功能、激励功能、调控功能',
+            myAnswerText: '诊断功能和激励功能',
+            analysisText: '简答解析',
+            scoreText: '6/10',
+          ),
+        },
+        wrongRemovalThreshold: 2,
+      ),
+      activeExamSession: ExamSessionSnapshot(
+        title: '题型回环考试',
+        mode: '组卷考试',
+        questions: questions,
+        durationMinutes: 90,
+        currentIndex: 5,
+        submitted: false,
+        remainingSeconds: 3200,
+        answers: const {
+          'round_single': {1},
+          'round_multiple': {0, 2},
+        },
+        textAnswers: const {
+          'round_fill': '36',
+          'round_material': '考试材料作答',
+        },
+        answerResults: const {
+          'round_fill': PracticeAnswerResult(
+            isCorrect: true,
+            score: 100,
+            correctAnswerText: '36',
+            myAnswerText: '36',
+            analysisText: '填空解析',
+          ),
+        },
+      ),
+      catalogQuestionCache: {
+        'catalog_all_types': questions,
+      },
+      localSubjectStates: {
+        'primary_teacher': SubjectStateSnapshot(
+          practiceChapters: const [],
+          examChapters: const [],
+          practicePapers: const [],
+          examPapers: const [],
+          practiceRecords: const [],
+          examRecords: const [],
+          favoriteQuestions: questions.take(2).toList(),
+          wrongQuestions: [wrongQuestion],
+          wrongCorrectCounts: const {'round_single': 2},
+          selectedChapterId: 'chapter_1',
+          selectedExamChapterId: 'exam_chapter_1',
+        ),
+      },
+    );
+
+    final restored = AppStateSnapshot.fromJson(
+      jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>,
+    );
+
+    expect(restored.favoriteQuestions.map((item) => item.type), [
+      QuestionType.single,
+      QuestionType.multiple,
+      QuestionType.trueFalse,
+      QuestionType.fillBlank,
+      QuestionType.shortAnswer,
+      QuestionType.material,
+    ]);
+    expect(restored.favoriteQuestions[1].answerIndexes, {0, 2});
+    expect(restored.favoriteQuestions[5].stemHtml, contains('<img'));
+    expect(restored.favoriteQuestions[5].analysisHtml, '<p>材料解析</p>');
+    expect(restored.favoriteQuestions[5].imageUrls,
+        ['https://example.test/material.png']);
+    expect(restored.wrongQuestions.single.wrongCount, 3);
+    expect(
+      restored.wrongQuestions.single.lastWrongAt,
+      DateTime(2026, 7, 10, 21, 30),
+    );
+
+    final practice = restored.activePracticeSession!;
+    expect(practice.currentIndex, 4);
+    expect(practice.answers['round_multiple'], {0, 2});
+    expect(practice.textAnswers['round_short'], '诊断功能和激励功能');
+    expect(practice.resultQuestionIds, {'round_single', 'round_short'});
+    expect(practice.answerResults['round_short']?.scoreText, '6/10');
+    expect(practice.wrongRemovalThreshold, 2);
+
+    final exam = restored.activeExamSession!;
+    expect(exam.durationMinutes, 90);
+    expect(exam.remainingSeconds, 3200);
+    expect(exam.answers['round_multiple'], {0, 2});
+    expect(exam.textAnswers['round_material'], '考试材料作答');
+    expect(exam.answerResults['round_fill']?.isCorrect, isTrue);
+    expect(restored.examRecords.single.examDetail?.questions.length, 6);
+    expect(
+      restored.examRecords.single.examDetail?.answerResults['round_single']
+          ?.isCorrect,
+      isTrue,
+    );
+
+    expect(restored.catalogQuestionCache['catalog_all_types']?.last.type,
+        QuestionType.material);
+    expect(
+      restored.localSubjectStates['primary_teacher']?.favoriteQuestions.length,
+      2,
+    );
+    expect(
+      restored.localSubjectStates['primary_teacher']?.wrongCorrectCounts,
+      {'round_single': 2},
+    );
+  });
+}
+
+class _InteractionRemoteRepository extends RemoteTikuRepository {
+  _InteractionRemoteRepository() : super(baseUrl: 'http://127.0.0.1:1/api');
+
+  bool loadSubjectResult = true;
+  final List<String> loadedSubjectIds = [];
+  Completer<bool>? examSubmission;
+  Completer<PracticeAnswerResult?>? practiceSubmission;
+  int lastWrongRemovalThreshold = 0;
+  bool? favoriteToggleResult;
+
+  @override
+  Future<bool> loadSubject(String subjectId) async {
+    loadedSubjectIds.add(subjectId);
+    if (!loadSubjectResult) return false;
+    selectedSubjectId = subjectId;
+    remoteReady = true;
+    return true;
+  }
+
+  @override
+  Future<List<Question>> fetchCatalogQuestions(String catalogId,
+          {int limit = 20}) async =>
+      const [];
+
+  @override
+  Future<PracticeAnswerResult?> submitPracticeAnswer({
+    required Question question,
+    Set<int> selected = const {},
+    String? text,
+    int wrongRemovalThreshold = 0,
+  }) {
+    lastWrongRemovalThreshold = wrongRemovalThreshold;
+    return practiceSubmission?.future ??
+        Future.value(PracticeAnswerResult(
+          isCorrect: sameAnswer(selected, question.answerIndexes),
+          correctAnswerText: question.answerText,
+          myAnswerText: text ?? '',
+          analysisText: question.analysis,
+        ));
+  }
+
+  @override
+  Future<bool?> toggleFavorite(Question question) async => favoriteToggleResult;
+
+  @override
+  Future<bool> submitExamResult(
+    ExamSession session, {
+    String? subjectId,
+  }) =>
+      examSubmission?.future ?? Future.value(true);
+}
+
+class _HydratedRemoteRepository extends RemoteTikuRepository {
+  _HydratedRemoteRepository() : super(baseUrl: 'http://127.0.0.1:1/api');
+
+  static const _subjects = [
+    Subject(id: 'remote_subject', name: '综合类'),
+  ];
+
+  static const _practiceChapters = [
+    Chapter(
+      id: 'remote_chapter',
+      title: '第1章 定义判断',
+      done: 0,
+      total: 8,
+      correct: 0,
+      wrong: 0,
+      sections: [
+        Section(
+          id: 'remote_section',
+          chapterId: 'remote_chapter',
+          title: '第一节 定义判断',
+          done: 0,
+          total: 8,
+          correct: 0,
+          wrong: 0,
+        ),
+      ],
+    ),
+  ];
+
+  @override
+  Future<bool> warmUp() async {
+    selectedSubjectId = 'remote_subject';
+    remoteReady = true;
+    return true;
+  }
+
+  @override
+  List<Subject> loadSubjects() => _subjects;
+
+  @override
+  List<Chapter> loadPracticeChapters() => _practiceChapters;
+
+  @override
+  List<Chapter> loadExamChapters() => _practiceChapters;
+
+  @override
+  List<Paper> loadPracticePapers() => const [];
+
+  @override
+  List<Paper> loadExamPapers() => const [];
+
+  @override
+  List<StudyRecord> loadPracticeRecords() => const [];
+
+  @override
+  List<StudyRecord> loadExamRecords() => const [];
+}
+
+class _PreferredSubjectRemoteRepository extends RemoteTikuRepository {
+  _PreferredSubjectRemoteRepository()
+      : super(baseUrl: 'http://127.0.0.1:1/api');
+
+  final List<String> loadedSubjectIds = [];
+  final List<Map<String, String?>> submittedFeedbacks = [];
+
+  @override
+  List<Subject> loadSubjects() => const [
+        Subject(id: 'primary_teacher', name: '小学教师', isDefault: true),
+        Subject(id: 'middle_teacher', name: '中学教师'),
+      ];
+
+  @override
+  Future<bool> warmUp() async {
+    selectedSubjectId = 'primary_teacher';
+    remoteReady = true;
+    return true;
+  }
+
+  @override
+  Future<bool> loadSubject(String subjectId) async {
+    loadedSubjectIds.add(subjectId);
+    selectedSubjectId = subjectId;
+    remoteReady = true;
+    return true;
+  }
+
+  @override
+  Future<bool> submitGeneralFeedback({
+    required String content,
+    String type = 'general_feedback',
+    Map<String, Object?> payload = const {},
+    String? questionId,
+  }) async {
+    submittedFeedbacks.add({
+      'content': content,
+      'type': type,
+      'questionId': questionId,
+    });
+    return true;
+  }
 }

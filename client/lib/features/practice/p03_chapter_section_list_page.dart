@@ -175,10 +175,7 @@ class P03ChapterSectionListPage extends StatelessWidget {
                   text: '错题',
                   bgColor: const Color(0xFFFEF2F2),
                   fgColor: AppColors.error,
-                  onTap: () {
-                    mockStore.startWrongPractice();
-                    context.go('/practice/quiz');
-                  },
+                  onTap: () => context.go('/practice/wrong'),
                 ),
               ),
               const SizedBox(width: 8),

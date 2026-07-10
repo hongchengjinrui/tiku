@@ -97,7 +97,7 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
                     ),
                     Expanded(
                       child: questions.isEmpty
-                          ? _buildEmptyState()
+                          ? _buildEmptyState(context)
                           : ListView.separated(
                               padding: const EdgeInsets.only(
                                   left: 20, right: 20, top: 16, bottom: 110),
@@ -204,10 +204,12 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () async {
-                  await mockStore.toggleFavorite(question);
+                  final ok = await mockStore.toggleFavorite(question);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已取消收藏')),
+                    SnackBar(
+                      content: Text(ok ? '已取消收藏' : '操作失败，请稍后重试'),
+                    ),
                   );
                 },
                 child: const SizedBox(
@@ -232,28 +234,63 @@ class _P07FavoritePracticePageState extends State<P07FavoritePracticePage> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
+  Widget _buildEmptyState(BuildContext context) {
+    final hasFavorites = mockStore.favoriteQuestions.isNotEmpty;
+    final title = hasFavorites ? '当前题型暂无收藏题目' : '暂无收藏题目';
+    final subtitle =
+        hasFavorites ? '可以切换到全部收藏，或在刷题时继续收藏该题型。' : '在刷题页点击收藏后，可从这里集中练习。';
+    final actionLabel = hasFavorites ? '查看全部' : '去练习';
+    final actionIcon = hasFavorites ? Icons.filter_alt_off : Icons.menu_book;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_border, size: 64, color: AppColors.warning),
-            SizedBox(height: 14),
-            Text('暂无收藏题目',
-                style: TextStyle(
+            const Icon(Icons.star_border, size: 64, color: AppColors.warning),
+            const SizedBox(height: 14),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
-            SizedBox(height: 8),
-            Text('在刷题页点击收藏后，可从这里集中练习。',
+            const SizedBox(height: 8),
+            Text(subtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     color: AppColors.textMuted)),
+            const SizedBox(height: 16),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasFavorites
+                  ? () => setState(() => _selectedFilter = 0)
+                  : () => context.go('/practice'),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(actionIcon, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(actionLabel,
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

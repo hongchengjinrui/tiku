@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:go_router/go_router.dart';
 
 import '../features/common/static_overlay_page.dart';
+import '../data/mock/mock_app_store.dart';
 
 // Practice flow
 import '../features/practice/p00_splash_page.dart';
@@ -82,8 +85,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/practice/sections/reset-confirm',
-      builder: (context, state) => const StaticDialogPage(
-        child: P03ASectionResetConfirmationModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P03ASectionResetConfirmationModal(
+          onCancel: () => context.go('/practice/sections'),
+          onConfirm: () => context.go('/practice/sections'),
+        ),
       ),
     ),
     GoRoute(
@@ -92,8 +98,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/practice/papers/reset-confirm',
-      builder: (context, state) => const StaticDialogPage(
-        child: P04APaperResetConfirmationModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P04APaperResetConfirmationModal(
+          onCancel: () => context.go('/practice/papers'),
+          onConfirm: () => context.go('/practice/papers'),
+        ),
       ),
     ),
     GoRoute(
@@ -133,8 +142,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/exam/rules',
-      builder: (context, state) => const StaticDialogPage(
-        child: P20AExamRulesModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P20AExamRulesModal(
+          onClose: () => context.go('/exam'),
+          onConfirm: () => context.go('/exam'),
+        ),
       ),
     ),
     GoRoute(
@@ -147,8 +159,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/exam/retake-confirm',
-      builder: (context, state) => const StaticDialogPage(
-        child: P21BRetakeConfirmationModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P21BRetakeConfirmationModal(
+          onCancel: () => context.go('/exam/sections'),
+          onConfirm: () => context.go('/exam/sections'),
+        ),
       ),
     ),
     GoRoute(
@@ -195,14 +210,34 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/exam/submit-confirm',
-      builder: (context, state) => const StaticDialogPage(
-        child: P27SubmitExamConfirmationModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P27SubmitExamConfirmationModal(
+          onCancel: () => context.go('/exam/answer'),
+          onConfirm: () {
+            if (mockStore.examSession == null) {
+              context.go('/exam');
+              return;
+            }
+            unawaited(mockStore.submitExam());
+            context.go('/exam/analysis');
+          },
+        ),
       ),
     ),
     GoRoute(
       path: '/exam/submit-confirm/all-answered',
-      builder: (context, state) => const StaticDialogPage(
-        child: P27ASubmitAllAnsweredModal(),
+      builder: (context, state) => StaticDialogPage(
+        child: P27ASubmitAllAnsweredModal(
+          onCancel: () => context.go('/exam/answer'),
+          onConfirm: () {
+            if (mockStore.examSession == null) {
+              context.go('/exam');
+              return;
+            }
+            unawaited(mockStore.submitExam());
+            context.go('/exam/analysis');
+          },
+        ),
       ),
     ),
     GoRoute(

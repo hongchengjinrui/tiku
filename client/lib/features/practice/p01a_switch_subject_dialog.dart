@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
@@ -38,7 +37,7 @@ class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
         children: [
           // 背景层（点击关闭）
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: _closeSheet,
             behavior: HitTestBehavior.opaque,
             child: const SizedBox.expand(),
           ),
@@ -80,9 +79,7 @@ class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary)),
                           GestureDetector(
-                            onTap: _switching
-                                ? null
-                                : () => Navigator.of(context).pop(),
+                            onTap: _switching ? null : _closeSheet,
                             child: const Icon(Icons.close,
                                 size: 20, color: AppColors.textMuted),
                           ),
@@ -128,19 +125,7 @@ class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
 
   Widget _buildSubjectChip(Subject subject, {required bool selected}) {
     return GestureDetector(
-      onTap: _switching
-          ? null
-          : () {
-              setState(() {
-                _selectedSubjectId = subject.id;
-                _switching = true;
-              });
-              widget.onSubjectSelected?.call(subject.name);
-              unawaited(mockStore.selectSubject(subject.id).whenComplete(() {
-                if (!mounted) return;
-                Navigator.of(context).pop();
-              }));
-            },
+      onTap: _switching ? null : () => _switchSubject(subject),
       child: Container(
         height: 36,
         alignment: Alignment.center,
@@ -171,6 +156,36 @@ class _P01ASwitchSubjectSheetState extends State<P01ASwitchSubjectSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _switchSubject(Subject subject) async {
+    setState(() {
+      _selectedSubjectId = subject.id;
+      _switching = true;
+    });
+    final switched = await mockStore.selectSubject(subject.id);
+    if (!mounted) return;
+    if (switched) {
+      widget.onSubjectSelected?.call(subject.name);
+      _closeSheet();
+      return;
+    }
+    setState(() {
+      _selectedSubjectId = mockStore.selectedSubjectId;
+      _switching = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('科目加载失败，请检查网络后重试')),
+    );
+  }
+
+  void _closeSheet() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    context.go('/practice');
   }
 }
 

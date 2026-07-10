@@ -183,7 +183,7 @@ class P50ProfilePage extends StatelessWidget {
         'items': [
           {
             'icon': Icons.upload_file,
-            'label': '上传题库',
+            'label': '题库维护',
             'route': '/profile/upload'
           },
           {
@@ -336,7 +336,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
                                 color: AppColors.textPrimary)),
                         const SizedBox(height: 10),
                         records.isEmpty
-                            ? _buildEmptyRecordHint('暂无练习记录')
+                            ? _buildEmptyRecordHint(context)
                             : _buildRecordList(records),
                       ],
                     ),
@@ -556,7 +556,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyRecordHint(String text) {
+  Widget _buildEmptyRecordHint(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 36),
@@ -569,12 +569,50 @@ class P51PracticeRecordsPage extends StatelessWidget {
         children: [
           const Icon(Icons.history, size: 36, color: AppColors.textMuted),
           const SizedBox(height: 10),
-          Text(text,
-              style: const TextStyle(
+          const Text('暂无练习记录',
+              style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   color: AppColors.textMuted)),
+          const SizedBox(height: 14),
+          _emptyActionButton(
+            label: '去练习',
+            icon: Icons.menu_book_outlined,
+            onTap: () => context.go('/practice'),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _emptyActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(19),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
       ),
     );
   }
@@ -919,7 +957,7 @@ class P52ExamRecordsPage extends StatelessWidget {
                         _buildExamStatsCard(),
                         const SizedBox(height: 14),
                         records.isEmpty
-                            ? _buildEmptyRecordHint('暂无考试记录')
+                            ? _buildEmptyRecordHint(context)
                             : ListView.separated(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
@@ -1149,7 +1187,7 @@ class P52ExamRecordsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyRecordHint(String text) {
+  Widget _buildEmptyRecordHint(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 36),
@@ -1163,12 +1201,50 @@ class P52ExamRecordsPage extends StatelessWidget {
           const Icon(Icons.assignment_outlined,
               size: 36, color: AppColors.textMuted),
           const SizedBox(height: 10),
-          Text(text,
-              style: const TextStyle(
+          const Text('暂无考试记录',
+              style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   color: AppColors.textMuted)),
+          const SizedBox(height: 14),
+          _emptyActionButton(
+            label: '去考试',
+            icon: Icons.description_outlined,
+            onTap: () => context.go('/exam'),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _emptyActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(19),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
       ),
     );
   }
@@ -1224,22 +1300,17 @@ class P53WrongEntryPage extends StatelessWidget {
                         const SizedBox(height: 24),
                         GestureDetector(
                           onTap: canStart
-                              ? () {
-                                  mockStore.startWrongPractice(count: count);
-                                  context.go('/practice/quiz');
-                                }
-                              : () => context.push('/practice/catalog'),
+                              ? () => context.go('/practice/wrong')
+                              : () => context.go('/practice'),
                           child: Container(
                             width: 200,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: canStart
-                                  ? AppColors.primary
-                                  : AppColors.textMuted,
+                              color: AppColors.primary,
                               borderRadius: BorderRadius.circular(22),
                             ),
                             child: Center(
-                              child: Text(canStart ? '开始错题练习' : '去练习',
+                              child: Text(canStart ? '进入错题练习' : '去练习',
                                   style: const TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 15,

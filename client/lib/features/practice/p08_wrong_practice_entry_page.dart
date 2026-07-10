@@ -64,7 +64,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                         const SizedBox(height: 14),
                         _buildRemoveRuleSection(),
                         const SizedBox(height: 14),
-                        _buildEmptyHint(_filteredWrongQuestions()),
+                        _buildEmptyHint(context, _filteredWrongQuestions()),
                       ],
                     ),
                   ),
@@ -313,8 +313,13 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
     );
   }
 
-  Widget _buildEmptyHint(List<Question> filteredQuestions) {
+  Widget _buildEmptyHint(
+      BuildContext context, List<Question> filteredQuestions) {
     final hasWrongQuestions = mockStore.wrongPracticeCount > 0;
+    final needsAction = !hasWrongQuestions || filteredQuestions.isEmpty;
+    final actionLabel = hasWrongQuestions ? '重置筛选' : '去练习';
+    final actionIcon =
+        hasWrongQuestions ? Icons.filter_alt_off : Icons.menu_book_outlined;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -329,20 +334,62 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
           const Icon(Icons.info_outline, size: 16, color: AppColors.textMuted),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-                hasWrongQuestions
-                    ? filteredQuestions.isEmpty
-                        ? '当前筛选条件下暂无错题，可调整条件或题型后再开始练习。'
-                        : '做对题目达到设定次数后，将自动从错题练习中移出。'
-                    : '暂无错题。完成练习并出现答错题目后，可从这里进入错题练习。',
-                style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppColors.textSecondary)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    hasWrongQuestions
+                        ? filteredQuestions.isEmpty
+                            ? '当前筛选条件下暂无错题，可调整条件或题型后再开始练习。'
+                            : '做对题目达到设定次数后，将自动从错题练习中移出。'
+                        : '暂无错题。完成练习并出现答错题目后，可从这里进入错题练习。',
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.textSecondary)),
+                if (needsAction) ...[
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: hasWrongQuestions
+                        ? _resetFilters
+                        : () => context.go('/practice'),
+                    child: Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(actionIcon, size: 15, color: Colors.white),
+                          const SizedBox(width: 5),
+                          Text(actionLabel,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedFilter = 0;
+      _selectedTypes.clear();
+    });
   }
 
   Widget _buildBottomBar(List<Question> filteredQuestions) {
