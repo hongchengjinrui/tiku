@@ -135,7 +135,7 @@ void main() {
 
     await tester.tap(find.text('资料').last);
     await tester.pumpAndSettle();
-    expect(find.text('2份VIP备考资料 + 1份免费备考资料'), findsOneWidget);
+    expect(find.text('2份VIP备考资料+1份免费备考资料'), findsOneWidget);
 
     await tester.tap(find.text('我的').last);
     await tester.pumpAndSettle();
@@ -170,7 +170,7 @@ void main() {
     expect(find.text('考试入口'), findsOneWidget);
 
     await tapTabCenter(2);
-    expect(find.text('2份VIP备考资料 + 1份免费备考资料'), findsOneWidget);
+    expect(find.text('2份VIP备考资料+1份免费备考资料'), findsOneWidget);
 
     await tapTabCenter(3);
     expect(find.text('本地体验用户'), findsOneWidget);
@@ -244,8 +244,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockStore.selectedSubjectId, 'teacher_recruit');
-    expect(find.text('2份VIP备考资料 + 1份免费备考资料'), findsOneWidget);
-    expect(find.text('当前科目：教师招聘'), findsOneWidget);
+    expect(find.text('2份VIP备考资料+1份免费备考资料'), findsOneWidget);
+    expect(find.text('教师招聘'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });
@@ -317,7 +317,7 @@ void main() {
     await tester.tap(find.text('去资料中心'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2份VIP备考资料 + 1份免费备考资料'), findsOneWidget);
+    expect(find.text('2份VIP备考资料+1份免费备考资料'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
   });
@@ -329,7 +329,7 @@ void main() {
 
     appRouter.go('/profile');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('题库维护'));
+    await tester.tap(find.text('上传题库'));
     await tester.pumpAndSettle();
 
     expect(find.text('题库维护'), findsOneWidget);
@@ -379,13 +379,13 @@ void main() {
     appRouter.go('/resources/free');
     await tester.pumpAndSettle();
     expect(find.text('入门备考规划清单'), findsOneWidget);
-    expect(find.text('免费'), findsOneWidget);
+    expect(find.text('1 / 3'), findsOneWidget);
     expect(find.text('教育基础高频考点速记'), findsNothing);
 
     appRouter.go('/resources/paid');
     await tester.pumpAndSettle();
     expect(find.text('教育基础高频考点速记'), findsOneWidget);
-    expect(find.text('VIP'), findsOneWidget);
+    expect(find.text('1 / 3'), findsOneWidget);
     expect(find.text('入门备考规划清单'), findsNothing);
 
     await tester.tap(find.text('获取下载链接'));
@@ -413,7 +413,7 @@ void main() {
     await tester.tap(find.text('返回资料中心'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2份VIP备考资料 + 1份免费备考资料'), findsOneWidget);
+    expect(find.text('2份VIP备考资料+1份免费备考资料'), findsOneWidget);
 
     appRouter.go('/vip/success');
     await tester.pumpAndSettle();
@@ -523,8 +523,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('答案有误'));
     await tester.enterText(find.byType(TextField), '第12题答案应为B');
-    await tester.ensureVisible(find.text('提交反馈'));
-    await tester.tap(find.text('提交反馈'));
+    await tester.ensureVisible(find.text('提交纠错'));
+    await tester.tap(find.text('提交纠错'));
     await tester.pumpAndSettle();
 
     appRouter.go('/profile/feedback-records');
@@ -697,8 +697,8 @@ void main() {
 
     appRouter.go('/profile');
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('关于我们'));
-    await tester.tap(find.text('关于我们'));
+    await tester.ensureVisible(find.text('关于我们').last);
+    await tester.tap(find.text('关于我们').last);
     await tester.pumpAndSettle();
 
     expect(find.text('题库母版'), findsOneWidget);
@@ -749,9 +749,6 @@ void main() {
 
     appRouter.go('/profile/wrong');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('进入错题练习'));
-    await tester.pumpAndSettle();
-
     expect(find.text('条件筛选'), findsOneWidget);
     expect(find.text('错题练习设置'), findsOneWidget);
     expect(mockStore.practiceSession, previousSession);
@@ -775,7 +772,7 @@ void main() {
     appRouter.go('/profile/wrong');
     await tester.pumpAndSettle();
 
-    expect(find.text('当前有 0 道错题'), findsOneWidget);
+    expect(find.textContaining('暂无错题。'), findsOneWidget);
 
     await tester.tap(find.text('去练习'));
     await tester.pumpAndSettle();
@@ -872,7 +869,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('多次错误'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('做对3次'));
+    await tester.tap(find.text('做对3次移除'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('开始错题练习（1题）'));
     await tester.pumpAndSettle();
@@ -932,7 +929,7 @@ void main() {
     await tester.tap(find.text('多次错误'));
     await tester.pumpAndSettle();
 
-    expect(find.text('当前筛选 1题'), findsOneWidget);
+    expect(find.text('多次错误 1'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.delete_outline).first);
     await tester.pumpAndSettle();
@@ -1458,7 +1455,7 @@ void main() {
 
     appRouter.go('/exam');
     await tester.pumpAndSettle();
-    expect(find.text('今日新增考核：1次      已累计考核：2天'), findsOneWidget);
+    expect(find.text('今日新增进度：1题      已累计考核：2天'), findsOneWidget);
     expect(find.text('题目覆盖'), findsOneWidget);
     expect(find.text('考试次数'), findsOneWidget);
     expect(find.text('总正确率'), findsOneWidget);

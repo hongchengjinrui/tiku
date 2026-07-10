@@ -14,10 +14,16 @@ export type ClientQuestion = {
   choiceMode?: string | null;
   stemHtml: string;
   stemText: string;
+  stemImageUrls: string[];
   options: ClientOption[];
   answer: unknown;
   analysisHtml: string;
   analysisText: string;
+  analysisImageUrls: string[];
+  materialGroupId?: string | null;
+  materialStemHtml?: string;
+  materialStemText?: string;
+  materialImageUrls?: string[];
   scoringRubric?: unknown;
 };
 
@@ -59,10 +65,13 @@ export function clientQuestionFromDb(question: {
   answer: unknown;
   analysis: unknown;
   scoringRubric?: unknown;
+  sourceRef?: unknown;
 }): ClientQuestion {
   const stem = asRecord(question.stem);
   const analysis = asRecord(question.analysis);
   const options = Array.isArray(question.options) ? question.options : [];
+  const sourceRef = asRecord(question.sourceRef);
+  const materialStem = asRecord(sourceRef.material_stem);
 
   return {
     id: question.id,
@@ -71,6 +80,7 @@ export function clientQuestionFromDb(question: {
     choiceMode: question.choiceMode,
     stemHtml: String(stem.html ?? ''),
     stemText: String(stem.text ?? stripHtml(String(stem.html ?? ''))),
+    stemImageUrls: contentImageUrls(stem),
     options: options.map((item) => {
       const option = asRecord(item);
       return {
@@ -81,8 +91,34 @@ export function clientQuestionFromDb(question: {
     answer: question.answer,
     analysisHtml: String(analysis.html ?? ''),
     analysisText: String(analysis.text ?? stripHtml(String(analysis.html ?? ''))),
+    analysisImageUrls: contentImageUrls(analysis),
+    materialGroupId: sourceRef.material_id
+      ? String(sourceRef.material_id)
+      : null,
+    materialStemHtml: String(materialStem.html ?? ''),
+    materialStemText: String(
+      materialStem.text ?? stripHtml(String(materialStem.html ?? '')),
+    ),
+    materialImageUrls: contentImageUrls(materialStem),
     scoringRubric: question.scoringRubric,
   };
+}
+
+function contentImageUrls(content: UnknownRecord): string[] {
+  const values: string[] = [];
+  const images = Array.isArray(content.images) ? content.images : [];
+  for (const item of images) {
+    if (typeof item === 'string') {
+      values.push(item);
+      continue;
+    }
+    const image = asRecord(item);
+    values.push(String(image.url ?? image.src ?? ''));
+  }
+  const html = String(content.html ?? '');
+  const pattern = /<img[^>]+src=["']([^"']+)["']/gi;
+  for (const match of html.matchAll(pattern)) values.push(match[1] ?? '');
+  return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
 }
 
 export function evaluateChoiceAnswer(

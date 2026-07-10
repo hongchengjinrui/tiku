@@ -121,9 +121,9 @@ void main() {
 
     appRouter.go('/profile/practice-records');
     await tester.pumpAndSettle();
-    expect(find.text('记录 1条'), findsOneWidget);
+    expect(find.textContaining('练习进度 '), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.drag(find.byType(Dismissible).first, const Offset(-320, 0));
     await tester.pumpAndSettle();
     expect(find.text('删除这条练习记录？'), findsOneWidget);
 
@@ -131,7 +131,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockStore.practiceRecords, isEmpty);
-    expect(find.text('记录 0条'), findsOneWidget);
     expect(find.text('暂无练习记录'), findsOneWidget);
 
     ScaffoldMessenger.of(tester.element(find.text('全部练习记录'))).clearSnackBars();
@@ -139,9 +138,9 @@ void main() {
 
     appRouter.go('/profile/exam-records');
     await tester.pumpAndSettle();
-    expect(find.text('考试 2次'), findsOneWidget);
+    expect(find.text('2次'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.drag(find.byType(Dismissible).first, const Offset(-320, 0));
     await tester.pumpAndSettle();
     expect(find.text('删除这条考试记录？'), findsOneWidget);
 
@@ -149,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockStore.examRecords.length, 1);
-    expect(find.text('考试 1次'), findsOneWidget);
+    expect(find.text('1次'), findsNWidgets(2));
     expect(find.text('第一节：教育理论'), findsNothing);
     expect(find.text('第二节：教育心理'), findsOneWidget);
   });

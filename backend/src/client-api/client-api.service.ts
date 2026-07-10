@@ -34,6 +34,7 @@ export type CatalogTreeItem = {
     done: number;
     correct: number;
     wrong: number;
+    minutes: number;
     total: number;
     accuracy: number;
   };
@@ -475,6 +476,44 @@ export class ClientApiService {
       },
     });
 
+    const progressCatalogId = input.sectionId ?? input.paperId;
+    const durationSeconds = Math.max(0, (input.durationMinutes ?? 0) * 60);
+    const remainingSeconds = Math.max(
+      0,
+      Math.min(input.remainingSeconds ?? durationSeconds, durationSeconds),
+    );
+    const elapsedMinutes = Math.ceil(
+      Math.max(0, durationSeconds - remainingSeconds) / 60,
+    );
+    if (progressCatalogId) {
+      const catalog = await this.prisma.catalogNode.findUnique({
+        where: { id: progressCatalogId },
+        select: { id: true },
+      });
+      if (catalog) {
+        await this.prisma.userProgress.upsert({
+          where: {
+            userId_catalogId_mode: {
+              userId,
+              catalogId: progressCatalogId,
+              mode: StudyMode.exam,
+            },
+          },
+          update: {
+            minutes: elapsedMinutes,
+            lastStudiedAt: new Date(),
+          },
+          create: {
+            userId,
+            catalogId: progressCatalogId,
+            mode: StudyMode.exam,
+            minutes: elapsedMinutes,
+            lastStudiedAt: new Date(),
+          },
+        });
+      }
+    }
+
     return {
       record,
       score,
@@ -837,7 +876,7 @@ export class ClientApiService {
     node: CatalogNodeWithChildren,
     progressByCatalog: Map<
       string,
-      { done: number; correct: number; wrong: number }
+      { done: number; correct: number; wrong: number; minutes: number }
     >,
   ): CatalogTreeItem {
     const children = node.children ?? [];
@@ -856,10 +895,15 @@ export class ClientApiService {
       (sum, child) => sum + child.progress.wrong,
       0,
     );
+    const childMinutes = childTrees.reduce(
+      (sum, child) => sum + child.progress.minutes,
+      0,
+    );
     const self = progressByCatalog.get(node.id);
     const done = self?.done ?? childDone;
     const correct = self?.correct ?? childCorrect;
     const wrong = self?.wrong ?? childWrong;
+    const minutes = self?.minutes ?? childMinutes;
 
     return {
       id: node.id,
@@ -872,6 +916,7 @@ export class ClientApiService {
         done,
         correct,
         wrong,
+        minutes,
         total: node.questionCount,
         accuracy: rate(correct, done),
       },

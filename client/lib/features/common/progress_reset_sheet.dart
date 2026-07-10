@@ -65,7 +65,7 @@ class _ProgressResetSheetState extends State<ProgressResetSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedIds = _allIds.toSet();
+    _selectedIds = <String>{};
   }
 
   @override

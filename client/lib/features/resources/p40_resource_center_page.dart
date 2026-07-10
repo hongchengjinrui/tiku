@@ -61,9 +61,10 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 14),
-                    CacheStatusBanner(store: mockStore),
-                    const SizedBox(height: 14),
+                    CacheStatusBanner(
+                      store: mockStore,
+                      margin: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                     _buildRightsCard(),
                     const SizedBox(height: 14),
                     _buildResourceList(),
@@ -116,22 +117,18 @@ class _P40ResourceCenterPageState extends State<P40ResourceCenterPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          height: 20,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(summary,
-                                maxLines: 1,
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white)),
-                          ),
-                        ),
+                        Text(subjectName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                         const SizedBox(height: 6),
-                        Text('当前科目：$subjectName',
+                        Text(summary.replaceAll(' + ', '+'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
@@ -568,21 +565,36 @@ class P40AFreeResourceDetailPage extends StatelessWidget {
       const _ResourceDocumentScaffold(preferFree: true);
 }
 
-class _ResourceDocumentScaffold extends StatelessWidget {
+class _ResourceDocumentScaffold extends StatefulWidget {
   final bool preferFree;
 
   const _ResourceDocumentScaffold({required this.preferFree});
 
+  @override
+  State<_ResourceDocumentScaffold> createState() =>
+      _ResourceDocumentScaffoldState();
+}
+
+class _ResourceDocumentScaffoldState extends State<_ResourceDocumentScaffold> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   _ResourceItem get _defaultResource {
     return _fallbackResources.firstWhere(
-      (resource) => resource.isFree == preferFree,
+      (resource) => resource.isFree == widget.preferFree,
       orElse: () => _fallbackResources.first,
     );
   }
 
   _ResourceItem get _resolvedResource {
     final active = _activeResource;
-    if (active != null && active.isFree == preferFree) return active;
+    if (active != null && active.isFree == widget.preferFree) return active;
     return _defaultResource;
   }
 
@@ -596,6 +608,7 @@ class _ResourceDocumentScaffold extends StatelessWidget {
             ? ['${resource.title}\n\n${resource.description ?? '资料内容待同步。'}']
             : resource.pages;
         final claimCount = mockStore.resourceClaimCount(resource.trackingId);
+        final safePage = _currentPage.clamp(0, pages.length - 1);
         return Scaffold(
           body: SizedBox(
             width: 390,
@@ -604,27 +617,25 @@ class _ResourceDocumentScaffold extends StatelessWidget {
                 const StatusBar(),
                 NavBar(title: resource.title),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-                        _ResourceMetaBar(
-                          resource: resource,
-                          totalPages: pages.length,
-                          claimCount: claimCount,
-                        ),
-                        const SizedBox(height: 10),
-                        for (var index = 0; index < pages.length; index++) ...[
-                          _DocumentPage(
-                            text: pages[index],
-                            page: index + 1,
-                            total: pages.length,
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ],
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: pages.length,
+                    onPageChanged: (value) =>
+                        setState(() => _currentPage = value),
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                      child: _DocumentPage(
+                        text: pages[index],
+                      ),
                     ),
+                  ),
+                ),
+                Text(
+                  '${safePage + 1} / ${pages.length}',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: AppColors.textMuted,
                   ),
                 ),
                 Padding(
@@ -679,86 +690,11 @@ class _ResourceDocumentScaffold extends StatelessWidget {
   }
 }
 
-class _ResourceMetaBar extends StatelessWidget {
-  final _ResourceItem resource;
-  final int totalPages;
-  final int claimCount;
-
-  const _ResourceMetaBar({
-    required this.resource,
-    required this.totalPages,
-    required this.claimCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: resource.isFree
-                  ? AppColors.successBg
-                  : const Color(0xFFFFF9DF),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              resource.isFree ? '免费' : 'VIP',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: resource.isFree
-                    ? AppColors.success
-                    : const Color(0xFF8A5B16),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${resource.fileType} · $totalPages页${resource.subjectName == null ? '' : ' · ${resource.subjectName}'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          Text(
-            claimCount > 0 ? '已领取$claimCount次' : '完整开放',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: claimCount > 0 ? AppColors.success : AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DocumentPage extends StatelessWidget {
   final String text;
-  final int page;
-  final int total;
 
   const _DocumentPage({
     required this.text,
-    required this.page,
-    required this.total,
   });
 
   @override
@@ -779,31 +715,21 @@ class _DocumentPage extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '$page/$total',
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              text,
               style: const TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textMuted,
+                fontSize: 14,
+                height: 1.8,
+                color: AppColors.textPrimary,
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            text,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              height: 1.8,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

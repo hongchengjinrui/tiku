@@ -27,11 +27,7 @@ void main() {
     expect(find.text('章节练习（共2章）'), findsOneWidget);
     expect(find.text('第一章：教育基础'), findsOneWidget);
 
-    await tester.tap(find.text('第二章：安全规范'));
-    await tester.pump();
-    await tester.tap(find.text('章节练习（共2章）'));
-    await tester.pump();
-    await tester.tap(find.text('章节练习（共2章）'));
+    await tester.tap(find.text('模拟卷一'));
     await tester.pump();
 
     await tester.tap(find.text('确认重置'));
@@ -66,8 +62,6 @@ void main() {
     await tester.tap(find.text('打开重置'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('全部目录'));
-    await tester.pump();
     await tester.tap(find.text('确认重置'));
     await tester.pump();
 

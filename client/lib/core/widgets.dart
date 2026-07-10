@@ -242,10 +242,12 @@ class HintBox extends StatelessWidget {
 
 class CacheStatusBanner extends StatelessWidget {
   final MockAppStore store;
+  final EdgeInsetsGeometry margin;
 
   const CacheStatusBanner({
     super.key,
     required this.store,
+    this.margin = EdgeInsets.zero,
   });
 
   @override
@@ -254,67 +256,54 @@ class CacheStatusBanner extends StatelessWidget {
       animation: store,
       builder: (context, _) {
         final online = store.remoteReady;
+        if (online) return const SizedBox.shrink();
         final hasLocalCache = store.stateStorage != null;
-        final color = online
-            ? AppColors.success
-            : hasLocalCache
-                ? AppColors.warning
-                : AppColors.textMuted;
-        final title = online
-            ? '在线同步'
-            : hasLocalCache
-                ? '正在使用本地缓存'
-                : '本地示例数据';
-        final subtitle = online
-            ? '题库数据已连接服务端'
-            : hasLocalCache
-                ? '答题进度会继续保存在本机'
-                : '当前设备未启用持久缓存';
-        final icon = online
-            ? Icons.cloud_done_outlined
-            : hasLocalCache
-                ? Icons.sd_storage_outlined
-                : Icons.info_outline;
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+        final color = hasLocalCache ? AppColors.warning : AppColors.textMuted;
+        final title = hasLocalCache ? '正在使用本地缓存' : '本地示例数据';
+        final subtitle = hasLocalCache ? '答题进度会继续保存在本机' : '当前设备未启用持久缓存';
+        final icon =
+            hasLocalCache ? Icons.sd_storage_outlined : Icons.info_outline;
+        return Padding(
+          padding: margin,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 17, color: color),
                 ),
-                child: Icon(icon, size: 17, color: color),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 11,
-                            color: AppColors.textMuted)),
-                  ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary)),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 11,
+                              color: AppColors.textMuted)),
+                    ],
+                  ),
                 ),
-              ),
-              if (!online)
                 IconButton(
                   onPressed: () => unawaited(store.hydrateRemote()),
                   tooltip: '重新连接',
@@ -322,7 +311,8 @@ class CacheStatusBanner extends StatelessWidget {
                   color: AppColors.primary,
                   visualDensity: VisualDensity.compact,
                 ),
-            ],
+              ],
+            ),
           ),
         );
       },

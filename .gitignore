@@ -14,6 +14,7 @@ dist/
 **/dist/
 coverage/
 **/coverage/
+client/test/failures/
 *.tsbuildinfo
 
 # Environment files

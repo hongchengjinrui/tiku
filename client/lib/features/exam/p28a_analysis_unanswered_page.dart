@@ -5,6 +5,8 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import '../common/material_question_context.dart';
+import '../common/question_media_image.dart';
 
 enum _AnalysisKind { unanswered, wrong, correct }
 
@@ -71,6 +73,7 @@ class _AnalysisDetailPage extends StatelessWidget {
           }
           final question = session.questions[targetIndex];
           final status = _status(question, session);
+          final materialIndexes = _materialGroupIndexes(session, question);
           return Container(
             color: AppColors.surface,
             width: 390,
@@ -85,6 +88,24 @@ class _AnalysisDetailPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (materialIndexes.isNotEmpty) ...[
+                          MaterialQuestionContext(
+                            question: question,
+                            groupQuestions: materialIndexes
+                                .map((index) => session.questions[index])
+                                .toList(),
+                            groupIndexes: materialIndexes,
+                            currentIndex: targetIndex,
+                            collapsed: false,
+                            onSelectQuestion: mockStore.jumpExamQuestion,
+                            onReportImageFailure: (url) => _reportImageFailure(
+                              question,
+                              url,
+                              '公共材料',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         Text(
                           _cleanDisplayText(question.stem),
                           style: const TextStyle(
@@ -94,6 +115,22 @@ class _AnalysisDetailPage extends StatelessWidget {
                             color: AppColors.textPrimary,
                           ),
                         ),
+                        if (question.imageUrls.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          ...question.imageUrls.map(
+                            (url) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: QuestionMediaImage(
+                                url: url,
+                                onReportFailure: () => _reportImageFailure(
+                                  question,
+                                  url,
+                                  '题干',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         if (question.options.isEmpty)
                           _textAnswerBlock(question, session)
@@ -326,6 +363,19 @@ class _AnalysisDetailPage extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
+          if (question.analysisImageUrls.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...question.analysisImageUrls.map(
+              (url) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: QuestionMediaImage(
+                  url: url,
+                  onReportFailure: () =>
+                      _reportImageFailure(question, url, '解析'),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -483,6 +533,38 @@ class _AnalysisDetailPage extends StatelessWidget {
     final text = session.textAnswers[question.id]?.trim();
     if (text == null || text.isEmpty) return null;
     return evaluateTextAnswer(question, text).scoreText;
+  }
+
+  Future<bool> _reportImageFailure(
+    Question question,
+    String url,
+    String location,
+  ) {
+    return mockStore.submitFeedback(
+      type: 'image_error',
+      content: '本题图片未能加载',
+      payload: {
+        'source': 'exam_analysis_image',
+        'questionId': question.id,
+        'location': location,
+        'url': url,
+        'label': '图片问题',
+      },
+    );
+  }
+
+  List<int> _materialGroupIndexes(
+    ExamSession session,
+    Question question,
+  ) {
+    final groupId = question.materialGroupId;
+    if (groupId == null || groupId.isEmpty) return const [];
+    return [
+      for (var index = 0; index < session.questions.length; index++)
+        if (session.questions[index].materialGroupId == groupId &&
+            _matches(session, index))
+          index,
+    ];
   }
 
   String _correctAnswer(Question question) {

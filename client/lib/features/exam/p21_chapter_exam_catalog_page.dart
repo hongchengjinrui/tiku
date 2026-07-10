@@ -312,39 +312,58 @@ class _P21ChapterExamCatalogPageState extends State<P21ChapterExamCatalogPage> {
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                chapter.title,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppColors.textPrimary,
+        padding: const EdgeInsets.only(top: 6),
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: chapter.progress.clamp(0, 1),
+                  child: const ColoredBox(color: Color(0xFFEAF3FF)),
                 ),
               ),
-            ),
-            Text(
-              '${chapter.done}/${chapter.total}',
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textSecondary,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        chapter.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${chapter.done}/${chapter.total}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.chevron_right,
+                        size: 16, color: AppColors.textMuted),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right,
-                size: 16, color: AppColors.textMuted),
-          ],
+            ],
+          ),
         ),
       ),
     );

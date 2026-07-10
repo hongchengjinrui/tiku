@@ -7,6 +7,8 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import '../common/material_question_context.dart';
+import '../common/question_media_image.dart';
 import 'p27_submit_exam_confirmation_modal.dart';
 import 'p27a_submit_all_answered_modal.dart';
 
@@ -20,6 +22,7 @@ class P25ExamAnsweringPage extends StatefulWidget {
 
 class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   final _textControllers = <String, TextEditingController>{};
+  final _collapsedMaterialGroups = <String>{};
   Timer? _examTimer;
 
   @override
@@ -80,6 +83,8 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
             );
           }
           final question = session.currentQuestion;
+          final materialIndexes =
+              _materialGroupIndexes(session.questions, question);
           final selected = session.answers[question.id];
           final textAnswer = session.textAnswers[question.id] ?? '';
           final isLast = session.currentIndex == session.questions.length - 1;
@@ -98,6 +103,31 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (materialIndexes.isNotEmpty) ...[
+                          MaterialQuestionContext(
+                            question: question,
+                            groupQuestions: materialIndexes
+                                .map((index) => session.questions[index])
+                                .toList(),
+                            groupIndexes: materialIndexes,
+                            currentIndex: session.currentIndex,
+                            collapsed: _collapsedMaterialGroups
+                                .contains(question.materialGroupId),
+                            onToggle: () => setState(() {
+                              final id = question.materialGroupId!;
+                              if (!_collapsedMaterialGroups.add(id)) {
+                                _collapsedMaterialGroups.remove(id);
+                              }
+                            }),
+                            onSelectQuestion: mockStore.jumpExamQuestion,
+                            onReportImageFailure: (url) => _reportImageFailure(
+                              question,
+                              url,
+                              '公共材料',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         _buildQuestionStem(question),
                         const SizedBox(height: 16),
                         _buildAnswerArea(
@@ -137,74 +167,14 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
           ...question.imageUrls.map(
             (url) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _buildQuestionImage(url),
+              child: QuestionMediaImage(
+                url: url,
+                onReportFailure: () => _reportImageFailure(question, url, '题干'),
+              ),
             ),
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildQuestionImage(String url) {
-    final canLoad = url.startsWith('http://') || url.startsWith('https://');
-    if (!canLoad) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.primaryBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.image_outlined,
-                size: 18, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '图片：$url',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Image.network(
-        url,
-        width: double.infinity,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildQuestionImageFallback(url),
-      ),
-    );
-  }
-
-  Widget _buildQuestionImageFallback(String url) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        '图片加载失败：$url',
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13,
-          color: AppColors.textMuted,
-        ),
-      ),
     );
   }
 
@@ -263,6 +233,10 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
   }
 
   Widget _buildProgressArea(ExamSession session, Question question) {
+    final materialIndexes = _materialGroupIndexes(session.questions, question);
+    final progressText = materialIndexes.isEmpty
+        ? '第 ${session.currentIndex + 1} / ${session.questions.length} 题'
+        : '第 ${materialIndexes.first + 1}-${materialIndexes.last + 1} / ${session.questions.length} 题';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
@@ -270,7 +244,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
           Row(
             children: [
               Text(
-                '第 ${session.currentIndex + 1} / ${session.questions.length} 题',
+                progressText,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
@@ -279,6 +253,18 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
                 ),
               ),
               const Spacer(),
+              Text(
+                session.submitted
+                    ? '已交卷'
+                    : '剩余 ${_formatRemaining(session.remainingSeconds)}',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 width: 64,
                 height: 22,
@@ -288,7 +274,7 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
                 ),
                 child: Center(
                   child: Text(
-                    question.type.label,
+                    materialIndexes.isEmpty ? question.type.label : '材料题',
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
@@ -309,18 +295,6 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            session.submitted
-                ? '已交卷'
-                : '剩余 ${_formatRemaining(session.remainingSeconds)}',
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -577,6 +551,36 @@ class _P25ExamAnsweringPageState extends State<P25ExamAnsweringPage> {
         ),
       ),
     );
+  }
+
+  Future<bool> _reportImageFailure(
+    Question question,
+    String url,
+    String location,
+  ) {
+    return mockStore.submitFeedback(
+      type: 'image_error',
+      content: '本题图片未能加载',
+      payload: {
+        'source': 'exam_question_image',
+        'questionId': question.id,
+        'location': location,
+        'url': url,
+        'label': '图片问题',
+      },
+    );
+  }
+
+  List<int> _materialGroupIndexes(
+    List<Question> questions,
+    Question question,
+  ) {
+    final groupId = question.materialGroupId;
+    if (groupId == null || groupId.isEmpty) return const [];
+    return [
+      for (var index = 0; index < questions.length; index++)
+        if (questions[index].materialGroupId == groupId) index,
+    ];
   }
 
   String _formatRemaining(int seconds) {

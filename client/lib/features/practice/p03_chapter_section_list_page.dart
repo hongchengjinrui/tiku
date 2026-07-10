@@ -122,6 +122,7 @@ class P03ChapterSectionListPage extends StatelessWidget {
   }
 
   Widget _buildSectionCard(BuildContext context, Section section) {
+    final canResume = mockStore.canResumePracticeSection(section.id);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -185,7 +186,10 @@ class P03ChapterSectionListPage extends StatelessWidget {
                   bgColor: AppColors.successBg,
                   fgColor: AppColors.success,
                   onTap: () {
-                    mockStore.startPracticeFromSection(section.id);
+                    mockStore.startPracticeFromSection(
+                      section.id,
+                      recitation: true,
+                    );
                     context.go('/practice/quiz');
                   },
                 ),
@@ -193,11 +197,13 @@ class P03ChapterSectionListPage extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildActionButton(
-                  text: section.done == 0 ? '开始' : '继续',
+                  text: canResume ? '继续' : '开始',
                   bgColor: AppColors.primary,
                   fgColor: Colors.white,
                   onTap: () {
-                    mockStore.startPracticeFromSection(section.id);
+                    if (!canResume) {
+                      mockStore.startPracticeFromSection(section.id);
+                    }
                     context.go('/practice/quiz');
                   },
                 ),

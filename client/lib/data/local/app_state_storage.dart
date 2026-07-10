@@ -67,7 +67,7 @@ class MemoryAppStateStorage implements AppStateStorage {
 }
 
 class AppStateSnapshot {
-  static const currentVersion = 6;
+  static const currentVersion = 7;
 
   final int version;
   final DateTime savedAt;
@@ -84,6 +84,7 @@ class AppStateSnapshot {
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
   final Map<String, int> wrongCorrectCounts;
+  final int removedWrongCount;
   final List<FeedbackSubmission> feedbackSubmissions;
   final List<ResourceClaim> resourceClaims;
   final PracticeSessionSnapshot? activePracticeSession;
@@ -107,6 +108,7 @@ class AppStateSnapshot {
     required this.favoriteQuestions,
     required this.wrongQuestions,
     this.wrongCorrectCounts = const {},
+    this.removedWrongCount = 0,
     this.feedbackSubmissions = const [],
     this.resourceClaims = const [],
     this.activePracticeSession,
@@ -133,6 +135,7 @@ class AppStateSnapshot {
       favoriteQuestions: _mapList(json['favoriteQuestions'], _questionFromJson),
       wrongQuestions: _mapList(json['wrongQuestions'], _questionFromJson),
       wrongCorrectCounts: _intMap(json['wrongCorrectCounts']),
+      removedWrongCount: _int(json['removedWrongCount']),
       feedbackSubmissions:
           _mapList(json['feedbackSubmissions'], _feedbackFromJson),
       resourceClaims: _mapList(json['resourceClaims'], _resourceClaimFromJson),
@@ -164,6 +167,7 @@ class AppStateSnapshot {
       'favoriteQuestions': favoriteQuestions.map(_questionToJson).toList(),
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
       'wrongCorrectCounts': wrongCorrectCounts,
+      'removedWrongCount': removedWrongCount,
       'feedbackSubmissions': feedbackSubmissions.map(_feedbackToJson).toList(),
       'resourceClaims': resourceClaims.map(_resourceClaimToJson).toList(),
       'activePracticeSession': activePracticeSession?.toJson(),
@@ -191,6 +195,7 @@ class PracticeSessionSnapshot {
   final Set<String> resultQuestionIds;
   final Map<String, PracticeAnswerResult> answerResults;
   final int wrongRemovalThreshold;
+  final bool reviewOnly;
 
   const PracticeSessionSnapshot({
     required this.title,
@@ -205,6 +210,7 @@ class PracticeSessionSnapshot {
     this.resultQuestionIds = const {},
     this.answerResults = const {},
     this.wrongRemovalThreshold = 0,
+    this.reviewOnly = false,
   });
 
   factory PracticeSessionSnapshot.fromJson(Map<String, dynamic> json) {
@@ -221,6 +227,7 @@ class PracticeSessionSnapshot {
       resultQuestionIds: _stringSet(json['resultQuestionIds']),
       answerResults: _answerResultMap(json['answerResults']),
       wrongRemovalThreshold: _int(json['wrongRemovalThreshold']),
+      reviewOnly: json['reviewOnly'] == true,
     );
   }
 
@@ -238,6 +245,7 @@ class PracticeSessionSnapshot {
       'resultQuestionIds': resultQuestionIds.toList()..sort(),
       'answerResults': _answerResultMapToJson(answerResults),
       'wrongRemovalThreshold': wrongRemovalThreshold,
+      'reviewOnly': reviewOnly,
     };
   }
 }
@@ -320,6 +328,7 @@ class SubjectStateSnapshot {
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
   final Map<String, int> wrongCorrectCounts;
+  final int removedWrongCount;
   final String selectedChapterId;
   final String selectedExamChapterId;
 
@@ -333,6 +342,7 @@ class SubjectStateSnapshot {
     required this.favoriteQuestions,
     required this.wrongQuestions,
     this.wrongCorrectCounts = const {},
+    this.removedWrongCount = 0,
     required this.selectedChapterId,
     required this.selectedExamChapterId,
   });
@@ -348,6 +358,7 @@ class SubjectStateSnapshot {
       favoriteQuestions: _mapList(json['favoriteQuestions'], _questionFromJson),
       wrongQuestions: _mapList(json['wrongQuestions'], _questionFromJson),
       wrongCorrectCounts: _intMap(json['wrongCorrectCounts']),
+      removedWrongCount: _int(json['removedWrongCount']),
       selectedChapterId: json['selectedChapterId']?.toString() ?? '',
       selectedExamChapterId: json['selectedExamChapterId']?.toString() ?? '',
     );
@@ -364,6 +375,7 @@ class SubjectStateSnapshot {
       'favoriteQuestions': favoriteQuestions.map(_questionToJson).toList(),
       'wrongQuestions': wrongQuestions.map(_questionToJson).toList(),
       'wrongCorrectCounts': wrongCorrectCounts,
+      'removedWrongCount': removedWrongCount,
       'selectedChapterId': selectedChapterId,
       'selectedExamChapterId': selectedExamChapterId,
     };
@@ -516,6 +528,7 @@ Map<String, Object?> _sectionToJson(Section section) {
     'total': section.total,
     'correct': section.correct,
     'wrong': section.wrong,
+    'minutes': section.minutes,
     'children': section.children.map(_sectionToJson).toList(),
   };
 }
@@ -529,6 +542,7 @@ Section _sectionFromJson(Map<String, dynamic> json) {
     total: _int(json['total']),
     correct: _int(json['correct']),
     wrong: _int(json['wrong']),
+    minutes: _int(json['minutes']),
     children: _mapList(json['children'], _sectionFromJson),
   );
 }
@@ -564,8 +578,42 @@ Map<String, Object?> _recordToJson(StudyRecord record) {
     'mode': record.mode,
     'metric': record.metric,
     'time': record.time,
+    'practiceDetail': _practiceRecordDetailToJson(record.practiceDetail),
     'examDetail': _examRecordDetailToJson(record.examDetail),
   };
+}
+
+Map<String, Object?>? _practiceRecordDetailToJson(
+  PracticeRecordDetail? detail,
+) {
+  if (detail == null) return null;
+  return {
+    'subjectId': detail.subjectId,
+    'sectionId': detail.sectionId,
+    'paperId': detail.paperId,
+    'questions': detail.questions.map(_questionToJson).toList(),
+    'currentIndex': detail.currentIndex,
+    'answers': _answerMapToJson(detail.answers),
+    'textAnswers': detail.textAnswers,
+    'answerResults': _answerResultMapToJson(detail.answerResults),
+  };
+}
+
+PracticeRecordDetail? _practiceRecordDetailFromJson(Object? value) {
+  if (value is! Map) return null;
+  final json = Map<String, dynamic>.from(value);
+  final questions = _mapList(json['questions'], _questionFromJson);
+  if (questions.isEmpty) return null;
+  return PracticeRecordDetail(
+    subjectId: json['subjectId']?.toString(),
+    sectionId: json['sectionId']?.toString(),
+    paperId: json['paperId']?.toString(),
+    questions: questions,
+    currentIndex: _int(json['currentIndex']),
+    answers: _answerMap(json['answers']),
+    textAnswers: _stringMap(json['textAnswers']),
+    answerResults: _answerResultMap(json['answerResults']),
+  );
 }
 
 Map<String, Object?>? _examRecordDetailToJson(ExamRecordDetail? detail) {
@@ -658,6 +706,7 @@ StudyRecord _recordFromJson(Map<String, dynamic> json) {
     mode: json['mode']?.toString() ?? '',
     metric: json['metric']?.toString() ?? '',
     time: json['time']?.toString() ?? '',
+    practiceDetail: _practiceRecordDetailFromJson(json['practiceDetail']),
     examDetail: _examRecordDetailFromJson(json['examDetail']),
   );
 }
@@ -726,6 +775,11 @@ Map<String, Object?> _questionToJson(Question question) {
     'analysis': question.analysis,
     'analysisHtml': question.analysisHtml,
     'imageUrls': question.imageUrls,
+    'analysisImageUrls': question.analysisImageUrls,
+    'materialGroupId': question.materialGroupId,
+    'materialStem': question.materialStem,
+    'materialStemHtml': question.materialStemHtml,
+    'materialImageUrls': question.materialImageUrls,
     'wrongCount': question.wrongCount,
     'lastWrongAt': question.lastWrongAt?.toIso8601String(),
   };
@@ -743,6 +797,11 @@ Question _questionFromJson(Map<String, dynamic> json) {
     analysis: json['analysis']?.toString() ?? '',
     analysisHtml: json['analysisHtml']?.toString() ?? '',
     imageUrls: _stringList(json['imageUrls']),
+    analysisImageUrls: _stringList(json['analysisImageUrls']),
+    materialGroupId: _optionalString(json['materialGroupId']),
+    materialStem: json['materialStem']?.toString() ?? '',
+    materialStemHtml: json['materialStemHtml']?.toString() ?? '',
+    materialImageUrls: _stringList(json['materialImageUrls']),
     wrongCount: _int(json['wrongCount']),
     lastWrongAt: DateTime.tryParse(json['lastWrongAt']?.toString() ?? ''),
   );

@@ -511,6 +511,87 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('material questions keep shared context and switch child items',
+      (tester) async {
+    mockStore.practiceSession = PracticeSession(
+      title: '材料题练习',
+      mode: '章节练习',
+      questions: const [
+        Question(
+          id: 'material_child_1',
+          type: QuestionType.single,
+          stem: '材料子题一',
+          options: ['A', 'B'],
+          answerIndexes: {0},
+          analysis: '解析一',
+          materialGroupId: 'material_group_1',
+          materialStem: '这是两道子题共用的材料。',
+        ),
+        Question(
+          id: 'material_child_2',
+          type: QuestionType.multiple,
+          stem: '材料子题二',
+          options: ['A', 'B', 'C'],
+          answerIndexes: {0, 1},
+          analysis: '解析二',
+          materialGroupId: 'material_group_1',
+          materialStem: '这是两道子题共用的材料。',
+        ),
+      ],
+    );
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const MaterialApp(home: P05QuestionPracticePage()));
+    await tester.pump();
+
+    expect(find.text('公共材料题干'), findsOneWidget);
+    expect(find.text('第 1-2 / 2 题'), findsOneWidget);
+    expect(find.text('子题1 单选题'), findsOneWidget);
+    expect(find.text('子题2 多选题'), findsOneWidget);
+
+    await tester.tap(find.text('子题2 多选题'));
+    await tester.pump();
+    expect(mockStore.practiceSession?.currentIndex, 1);
+    expect(find.text('材料子题二'), findsOneWidget);
+
+    await tester.tap(find.text('收起材料'));
+    await tester.pump();
+    expect(find.text('这是两道子题共用的材料。'), findsNothing);
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('failed question image can be reported once', (tester) async {
+    mockStore.practiceSession = PracticeSession(
+      title: '图片题练习',
+      mode: '章节练习',
+      questions: const [
+        Question(
+          id: 'broken_image_question',
+          type: QuestionType.single,
+          stem: '包含失效图片的题目',
+          options: ['A', 'B'],
+          answerIndexes: {0},
+          analysis: '解析',
+          imageUrls: ['invalid://broken-image'],
+        ),
+      ],
+    );
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.pumpWidget(const MaterialApp(home: P05QuestionPracticePage()));
+    await tester.pump();
+
+    expect(find.text('图片加载失败，'), findsOneWidget);
+    await tester.tap(find.text('点击反馈'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已静默提交：本题图片未能加载'), findsOneWidget);
+    expect(mockStore.feedbackSubmissions.single.type, 'image_error');
+
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('empty practice quiz state returns to practice home',
       (tester) async {
     const question = Question(

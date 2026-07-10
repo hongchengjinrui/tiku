@@ -127,7 +127,8 @@ class P04RealExamPaperListPage extends StatelessWidget {
   }
 
   Widget _buildPaperCard(BuildContext context, Paper paper) {
-    final actionText = paper.done == 0 ? '开始' : '继续';
+    final canResume = mockStore.canResumePracticePaper(paper.id);
+    final actionText = canResume ? '继续' : '开始';
     final info = paper.done == 0
         ? '未开始 · ${paper.total}题 · 支持六类题型'
         : '已练 ${paper.done}/${paper.total} · 正确率 ${paper.accuracy}% · 错题 ${paper.wrong}';
@@ -195,7 +196,10 @@ class P04RealExamPaperListPage extends StatelessWidget {
                   bgColor: AppColors.successBg,
                   fgColor: AppColors.success,
                   onTap: () {
-                    mockStore.startPracticeFromPaper(paper.id);
+                    mockStore.startPracticeFromPaper(
+                      paper.id,
+                      recitation: true,
+                    );
                     context.go('/practice/quiz');
                   },
                 ),
@@ -207,7 +211,9 @@ class P04RealExamPaperListPage extends StatelessWidget {
                   bgColor: AppColors.primary,
                   fgColor: Colors.white,
                   onTap: () {
-                    mockStore.startPracticeFromPaper(paper.id);
+                    if (!canResume) {
+                      mockStore.startPracticeFromPaper(paper.id);
+                    }
                     context.go('/practice/quiz');
                   },
                 ),

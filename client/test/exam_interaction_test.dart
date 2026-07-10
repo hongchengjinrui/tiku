@@ -300,6 +300,38 @@ void main() {
     expect(find.text('对题详情题'), findsOneWidget);
   });
 
+  testWidgets('analysis overview displays elapsed exam minutes',
+      (tester) async {
+    mockStore.examSession = ExamSession(
+      title: '用时展示考试',
+      mode: '章节考试',
+      durationMinutes: 45,
+      remainingSeconds: 45 * 60 - 125,
+      submitted: true,
+      questions: const [
+        Question(
+          id: 'elapsed_q1',
+          type: QuestionType.single,
+          stem: '用时展示题',
+          options: ['A', 'B'],
+          answerIndexes: {0},
+          analysis: '解析',
+        ),
+      ],
+      answers: const {
+        'elapsed_q1': {0},
+      },
+    );
+
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(const MaterialApp(home: P28ExamAnalysisPage()));
+    await tester.pump();
+
+    expect(find.text('3分钟'), findsOneWidget);
+    expect(find.text('耗时'), findsOneWidget);
+  });
+
   testWidgets('analysis overview number cells open matching category detail',
       (tester) async {
     final router = _analysisRouter();

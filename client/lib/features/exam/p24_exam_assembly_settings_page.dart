@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
-import '../../core/app_scaffold.dart';
+import '../../theme/app_radius.dart';
+import '../common/catalog_selection_tree.dart';
 
-/// P24 组卷设置页 - Exam assembly settings
+/// P24 组卷设置页
 class P24ExamAssemblySettingsPage extends StatefulWidget {
-  const P24ExamAssemblySettingsPage({super.key});
+  final String initialScope;
+
+  const P24ExamAssemblySettingsPage({
+    super.key,
+    this.initialScope = 'custom',
+  });
 
   @override
   State<P24ExamAssemblySettingsPage> createState() =>
@@ -16,444 +24,245 @@ class P24ExamAssemblySettingsPage extends StatefulWidget {
 
 class _P24ExamAssemblySettingsPageState
     extends State<P24ExamAssemblySettingsPage> {
-  String _scope = 'custom';
-  int _questionCount = 100;
-  int _duration = 120;
-  final Set<String> _expandedChapterIds = {};
-  final Set<String> _selectedSectionIds = {};
+  late String _scope;
+  Set<String> _expandedIds = {};
+  Set<String> _selectedSectionIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _scope = widget.initialScope == 'all' ? 'all' : 'custom';
+    if (_scope == 'custom') _selectFirstChapter();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        color: AppColors.surface,
+      backgroundColor: AppColors.surface,
+      body: SizedBox(
         width: 390,
         child: Column(
           children: [
             const StatusBar(),
             const NavBar(title: '组卷设置'),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Scope Section
-                            const Text('组卷范围',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
-                                )),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                _scopeOption('all', '全部章节'),
-                                const SizedBox(width: 10),
-                                _scopeOption('custom', '自定义选择'),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            if (_scope == 'custom') ...[
-                              _buildChapterSelector(),
-                              const SizedBox(height: 16),
-                            ],
-                            // Exam settings
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('考试设置',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    )),
-                                Container(
-                                  height: 44,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.tune,
-                                          size: 16, color: Colors.white),
-                                      SizedBox(width: 6),
-                                      Text('标准考试组卷',
-                                          style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          )),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            _settingRow('题目数量', '$_questionCount 题'),
-                            const SizedBox(height: 10),
-                            _settingRow('考试时长', '$_duration 分钟'),
-                            const SizedBox(height: 10),
-                            _settingRow('及格分数', '60 分'),
-                          ],
-                        ),
+                    _sectionTitle('组卷范围'),
+                    const SizedBox(height: 12),
+                    _scopeSelector(),
+                    const SizedBox(height: 18),
+                    if (_scope == 'custom') ...[
+                      _sectionTitle('选择章节'),
+                      const SizedBox(height: 12),
+                      CatalogSelectionTree(
+                        chapters: mockStore.examChapters,
+                        selectedLeafIds: _selectedSectionIds,
+                        expandedIds: _expandedIds,
+                        onSelectionChanged: (value) =>
+                            setState(() => _selectedSectionIds = value),
+                        onExpansionChanged: (value) =>
+                            setState(() => _expandedIds = value),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Start exam button
-                    GestureDetector(
-                      onTap: () {
-                        if (_scope == 'custom' && _selectedSectionIds.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('请选择至少一个章节')),
-                          );
-                          return;
-                        }
-                        mockStore.startAssemblyExam(
-                          scope: _scope == 'all' ? 'all' : 'custom',
-                          questionCount: _questionCount,
-                          duration: _duration,
-                          catalogIds: _scope == 'custom'
-                              ? _selectedSectionIds.toList()
-                              : const [],
-                        );
-                        context.go('/exam/answer');
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        width: double.infinity,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Text('开始考试',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              )),
-                        ),
-                      ),
-                    ),
+                      const SizedBox(height: 18),
+                    ] else ...[
+                      _allChapterSummary(),
+                      const SizedBox(height: 18),
+                    ],
+                    _sectionTitle('组卷设置'),
+                    const SizedBox(height: 12),
+                    _standardPreset(),
                   ],
                 ),
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                child: _startButton(),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  Widget _scopeSelector() {
+    return Row(
+      children: [
+        Expanded(child: _scopeOption('all', '全部章节')),
+        const SizedBox(width: 10),
+        Expanded(child: _scopeOption('custom', '自选章节')),
+      ],
     );
   }
 
   Widget _scopeOption(String value, String label) {
     final selected = _scope == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _scope = value;
-            if (_scope == 'custom' && _selectedSectionIds.isEmpty) {
-              _selectFirstChapter();
-            }
-          });
-        },
-        child: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primaryBg : AppColors.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
-              width: 1,
-            ),
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _scope = value;
+          if (value == 'custom' && _selectedSectionIds.isEmpty) {
+            _selectFirstChapter();
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                size: 16,
-                color: selected ? AppColors.primary : AppColors.textMuted,
-              ),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        selected ? AppColors.primary : AppColors.textSecondary,
-                  )),
-            ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : AppColors.textSecondary,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildChapterSelector() {
+  Widget _allChapterSummary() {
     final chapters = mockStore.examChapters;
-    if (chapters.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border, width: 1),
-        ),
-        child: const Text(
-          '暂无可选章节',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      );
-    }
-    if (_expandedChapterIds.isEmpty) {
-      _expandedChapterIds.add(chapters.first.id);
-      _selectedSectionIds.addAll(_leafSectionIds(chapters.first.sections));
-    }
+    final leaves = _leafSections(
+      chapters.expand((chapter) => chapter.sections).toList(),
+    );
+    final totalQuestions =
+        leaves.fold<int>(0, (sum, section) => sum + section.total);
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 1),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var index = 0; index < chapters.length; index++) ...[
-            _chapterSelectRow(chapters[index]),
-            if (_expandedChapterIds.contains(chapters[index].id))
-              ..._sectionRows(chapters[index].sections, depth: 0),
-            if (index != chapters.length - 1)
-              const Divider(height: 1, color: AppColors.borderLight),
-          ],
+          const Row(
+            children: [
+              Icon(Icons.check_circle, size: 18, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                '已选择全部章节',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '覆盖 ${chapters.length} 章 ${leaves.length} 节，共 $totalQuestions 道题',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '系统将从当前科目全部章节中进行标准考试组卷。',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _chapterSelectRow(Chapter chapter) {
-    final sectionIds = _leafSectionIds(chapter.sections).toSet();
-    final selectedCount = sectionIds.where(_selectedSectionIds.contains).length;
-    final allSelected =
-        sectionIds.isNotEmpty && selectedCount == sectionIds.length;
-    final partialSelected = selectedCount > 0 && !allSelected;
-    final expanded = _expandedChapterIds.contains(chapter.id);
-    return InkWell(
-      onTap: () {
-        setState(() {
-          if (expanded) {
-            _expandedChapterIds.remove(chapter.id);
-          } else {
-            _expandedChapterIds.add(chapter.id);
-          }
-        });
-      },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        child: Row(
-          children: [
-            Icon(
-              expanded ? Icons.expand_less : Icons.expand_more,
-              size: 20,
-              color: AppColors.textMuted,
+  Widget _standardPreset() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.tune, size: 17, color: Colors.white),
+          SizedBox(width: 7),
+          Text(
+            '标准考试组卷',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chapter.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${sectionIds.length}节 · ${chapter.total}题',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            _selectionIcon(
-              checked: allSelected,
-              partial: partialSelected,
-              onTap: () => _toggleChapter(chapter),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  List<Widget> _sectionRows(List<Section> sections, {required int depth}) {
-    return [
-      for (final section in sections) ...[
-        _sectionSelectRow(section, depth: depth),
-        if (section.children.isNotEmpty &&
-            _expandedChapterIds.contains(section.id))
-          ..._sectionRows(section.children, depth: depth + 1),
-      ],
-    ];
-  }
-
-  Widget _sectionSelectRow(Section section, {required int depth}) {
-    final leafIds = _leafSectionIds([section]).toSet();
-    final selectedCount = leafIds.where(_selectedSectionIds.contains).length;
-    final selected = leafIds.isNotEmpty && selectedCount == leafIds.length;
-    final partial = selectedCount > 0 && !selected;
-    final expandable = section.children.isNotEmpty;
-    final expanded = _expandedChapterIds.contains(section.id);
-    return InkWell(
-      onTap: () {
-        if (expandable) {
-          setState(() {
-            if (expanded) {
-              _expandedChapterIds.remove(section.id);
-            } else {
-              _expandedChapterIds.add(section.id);
-            }
-          });
-        } else {
-          _toggleSection(section);
-        }
-      },
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(40 + depth * 18, 9, 12, 9),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              child: expandable
-                  ? Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 18,
-                      color: AppColors.textMuted,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                section.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              '${section.total}题',
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(width: 10),
-            _selectionIcon(
-              checked: selected,
-              partial: partial,
-              onTap: () => _toggleSection(section),
-            ),
-          ],
+  Widget _startButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: _startExam,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+        ),
+        child: const Text(
+          '开始考试',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
-  }
-
-  Widget _selectionIcon({
-    required bool checked,
-    required bool partial,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: Icon(
-          checked
-              ? Icons.check_circle
-              : partial
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-          size: 20,
-          color: checked || partial ? AppColors.primary : AppColors.textMuted,
-        ),
-      ),
-    );
-  }
-
-  void _toggleChapter(Chapter chapter) {
-    setState(() {
-      final ids = _leafSectionIds(chapter.sections);
-      final allSelected = ids.every(_selectedSectionIds.contains);
-      if (allSelected) {
-        _selectedSectionIds.removeAll(ids);
-      } else {
-        _selectedSectionIds.addAll(ids);
-        _expandedChapterIds.add(chapter.id);
-      }
-    });
-  }
-
-  void _toggleSection(Section section) {
-    setState(() {
-      final ids = _leafSectionIds([section]);
-      final allSelected = ids.every(_selectedSectionIds.contains);
-      if (allSelected) {
-        _selectedSectionIds.removeAll(ids);
-      } else {
-        _selectedSectionIds.addAll(ids);
-        if (section.children.isNotEmpty) {
-          _expandedChapterIds.add(section.id);
-        }
-      }
-    });
   }
 
   void _selectFirstChapter() {
     final chapters = mockStore.examChapters;
     if (chapters.isEmpty) return;
-    _expandedChapterIds.add(chapters.first.id);
-    _selectedSectionIds.addAll(_leafSectionIds(chapters.first.sections));
+    _expandedIds = {chapters.first.id};
+    _selectedSectionIds = _leafSectionIds(chapters.first.sections).toSet();
   }
 
   List<String> _leafSectionIds(List<Section> sections) {
@@ -464,39 +273,27 @@ class _P24ExamAssemblySettingsPageState
         .toList();
   }
 
-  Widget _settingRow(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: AppColors.textPrimary,
-              )),
-          Row(
-            children: [
-              Text(value,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  )),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  size: 16, color: AppColors.textMuted),
-            ],
-          ),
-        ],
-      ),
+  List<Section> _leafSections(List<Section> sections) {
+    return sections
+        .expand((section) => section.children.isEmpty
+            ? [section]
+            : _leafSections(section.children))
+        .toList();
+  }
+
+  void _startExam() {
+    if (_scope == 'custom' && _selectedSectionIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请选择至少一个小节')),
+      );
+      return;
+    }
+    mockStore.startAssemblyExam(
+      scope: _scope,
+      questionCount: 100,
+      duration: 120,
+      catalogIds: _scope == 'custom' ? _selectedSectionIds.toList() : const [],
     );
+    context.go('/exam/answer');
   }
 }

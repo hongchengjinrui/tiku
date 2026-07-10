@@ -17,7 +17,6 @@ import '../features/practice/p05_question_practice_page.dart';
 import '../features/practice/p06_random_practice_page.dart';
 import '../features/practice/p07_favorite_practice_page.dart';
 import '../features/practice/p08_wrong_practice_entry_page.dart';
-import '../features/practice/p08b_wrong_practice_page.dart';
 
 // Exam flow
 import '../features/exam/exam_pages.dart';
@@ -132,7 +131,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/practice/wrong/quiz',
-      builder: (context, state) => const P08BWrongPracticePage(),
+      builder: (context, state) => const P05QuestionPracticePage(),
     ),
 
     // ===== 考试链路 =====

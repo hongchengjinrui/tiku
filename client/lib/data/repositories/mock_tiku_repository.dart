@@ -158,6 +158,7 @@ class MockTikuRepository implements TikuRepository {
             total: 28,
             correct: 14,
             wrong: 4,
+            minutes: 36,
           ),
           Section(
             id: 'exam_section_1_2',
@@ -167,6 +168,7 @@ class MockTikuRepository implements TikuRepository {
             total: 32,
             correct: 9,
             wrong: 3,
+            minutes: 18,
           ),
           Section(
             id: 'exam_section_1_3',
@@ -176,6 +178,7 @@ class MockTikuRepository implements TikuRepository {
             total: 24,
             correct: 9,
             wrong: 3,
+            minutes: 22,
           ),
         ],
       ),
@@ -195,6 +198,7 @@ class MockTikuRepository implements TikuRepository {
             total: 26,
             correct: 7,
             wrong: 3,
+            minutes: 15,
           ),
           Section(
             id: 'exam_section_2_2',
@@ -204,6 +208,7 @@ class MockTikuRepository implements TikuRepository {
             total: 46,
             correct: 10,
             wrong: 4,
+            minutes: 24,
           ),
         ],
       ),
@@ -223,6 +228,7 @@ class MockTikuRepository implements TikuRepository {
             total: 48,
             correct: 24,
             wrong: 6,
+            minutes: 38,
           ),
           Section(
             id: 'exam_section_3_2',
@@ -232,6 +238,7 @@ class MockTikuRepository implements TikuRepository {
             total: 48,
             correct: 21,
             wrong: 9,
+            minutes: 41,
           ),
         ],
       ),
@@ -251,6 +258,7 @@ class MockTikuRepository implements TikuRepository {
             total: 40,
             correct: 21,
             wrong: 7,
+            minutes: 32,
           ),
           Section(
             id: 'exam_section_4_2',
@@ -260,6 +268,7 @@ class MockTikuRepository implements TikuRepository {
             total: 40,
             correct: 17,
             wrong: 7,
+            minutes: 27,
           ),
         ],
       ),

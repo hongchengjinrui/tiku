@@ -25,6 +25,7 @@ class _LocalSubjectState {
   final List<Question> favoriteQuestions;
   final List<Question> wrongQuestions;
   final Map<String, int> wrongCorrectCounts;
+  final int removedWrongCount;
   final String selectedChapterId;
   final String selectedExamChapterId;
 
@@ -38,6 +39,7 @@ class _LocalSubjectState {
     required this.favoriteQuestions,
     required this.wrongQuestions,
     required this.wrongCorrectCounts,
+    required this.removedWrongCount,
     required this.selectedChapterId,
     required this.selectedExamChapterId,
   });
@@ -82,6 +84,7 @@ class AppStore extends ChangeNotifier {
   List<Question> favoriteQuestions = const [];
   List<Question> wrongQuestions = const [];
   Map<String, int> wrongCorrectCounts = {};
+  int removedWrongCount = 0;
   List<FeedbackSubmission> feedbackSubmissions = const [];
   List<ResourceClaim> resourceClaims = const [];
 
@@ -192,6 +195,7 @@ class AppStore extends ChangeNotifier {
     favoriteQuestions = snapshot.favoriteQuestions;
     wrongQuestions = snapshot.wrongQuestions;
     wrongCorrectCounts = Map<String, int>.from(snapshot.wrongCorrectCounts);
+    removedWrongCount = snapshot.removedWrongCount;
     feedbackSubmissions = snapshot.feedbackSubmissions;
     resourceClaims = snapshot.resourceClaims
         .where((claim) => claim.resourceId.isNotEmpty)
@@ -231,6 +235,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: favoriteQuestions,
       wrongQuestions: wrongQuestions,
       wrongCorrectCounts: wrongCorrectCounts,
+      removedWrongCount: removedWrongCount,
       feedbackSubmissions: feedbackSubmissions,
       resourceClaims: resourceClaims,
       activePracticeSession: _practiceSessionSnapshot(practiceSession),
@@ -267,6 +272,7 @@ class AppStore extends ChangeNotifier {
       answerResults:
           Map<String, PracticeAnswerResult>.from(session.answerResults),
       wrongRemovalThreshold: session.wrongRemovalThreshold,
+      reviewOnly: session.reviewOnly,
     );
   }
 
@@ -306,6 +312,7 @@ class AppStore extends ChangeNotifier {
       textAnswers: textAnswers,
       answerResults: answerResults,
       wrongRemovalThreshold: snapshot.wrongRemovalThreshold,
+      reviewOnly: snapshot.reviewOnly,
     );
   }
 
@@ -389,6 +396,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: List<Question>.of(favoriteQuestions),
       wrongQuestions: List<Question>.of(wrongQuestions),
       wrongCorrectCounts: Map<String, int>.from(wrongCorrectCounts),
+      removedWrongCount: removedWrongCount,
       selectedChapterId: selectedChapterId,
       selectedExamChapterId: selectedExamChapterId,
     );
@@ -407,6 +415,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: snapshot.favoriteQuestions,
       wrongQuestions: snapshot.wrongQuestions,
       wrongCorrectCounts: snapshot.wrongCorrectCounts,
+      removedWrongCount: snapshot.removedWrongCount,
       selectedChapterId: snapshot.selectedChapterId,
       selectedExamChapterId: snapshot.selectedExamChapterId,
     );
@@ -425,6 +434,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: state.favoriteQuestions,
       wrongQuestions: state.wrongQuestions,
       wrongCorrectCounts: state.wrongCorrectCounts,
+      removedWrongCount: state.removedWrongCount,
       selectedChapterId: state.selectedChapterId,
       selectedExamChapterId: state.selectedExamChapterId,
     );
@@ -444,6 +454,7 @@ class AppStore extends ChangeNotifier {
     favoriteQuestions = List<Question>.of(state.favoriteQuestions);
     wrongQuestions = List<Question>.of(state.wrongQuestions);
     wrongCorrectCounts = Map<String, int>.from(state.wrongCorrectCounts);
+    removedWrongCount = state.removedWrongCount;
     selectedChapterId = _validChapterId(
       state.selectedChapterId,
       chapters,
@@ -487,6 +498,7 @@ class AppStore extends ChangeNotifier {
       favoriteQuestions: const [],
       wrongQuestions: _seedWrongQuestionsForStat(stat),
       wrongCorrectCounts: const {},
+      removedWrongCount: 0,
       selectedChapterId:
           nextChapters.isNotEmpty ? nextChapters.first.id : selectedChapterId,
       selectedExamChapterId: nextExamChapters.isNotEmpty
@@ -553,6 +565,7 @@ class AppStore extends ChangeNotifier {
       done: done,
       correct: _scaledBoundedValue(section.correct, done, ratio),
       wrong: _scaledBoundedValue(section.wrong, done, ratio),
+      minutes: (section.minutes * ratio).round(),
     );
   }
 
@@ -888,7 +901,11 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startPracticeFromSection(String sectionId, {bool notify = true}) {
+  void startPracticeFromSection(
+    String sectionId, {
+    bool recitation = false,
+    bool notify = true,
+  }) {
     final sections = _allSections(chapters).toList();
     final section = _firstWhereOrNull(sections, (item) => item.id == sectionId);
     if (section == null) {
@@ -897,7 +914,7 @@ class AppStore extends ChangeNotifier {
     }
     practiceSession = PracticeSession(
       title: section.title,
-      mode: '章节练习',
+      mode: recitation ? '章节背题' : '章节练习',
       sectionId: section.id,
       questions: repository.buildPracticeSectionQuestions(section),
     );
@@ -906,7 +923,11 @@ class AppStore extends ChangeNotifier {
     _hydratePracticeQuestionsFromRemote(section);
   }
 
-  void startPracticeFromPaper(String paperId, {bool notify = true}) {
+  void startPracticeFromPaper(
+    String paperId, {
+    bool recitation = false,
+    bool notify = true,
+  }) {
     final paper =
         _firstWhereOrNull(practicePapers, (item) => item.id == paperId);
     if (paper == null) {
@@ -915,7 +936,7 @@ class AppStore extends ChangeNotifier {
     }
     practiceSession = PracticeSession(
       title: paper.title,
-      mode: '真题练习',
+      mode: recitation ? '真题背题' : '真题练习',
       paperId: paper.id,
       questions: repository.buildPracticePaperQuestions(paper),
     );
@@ -925,6 +946,33 @@ class AppStore extends ChangeNotifier {
   }
 
   void startPracticeFromRecord(StudyRecord record, {required bool restart}) {
+    final detail = record.practiceDetail;
+    if (detail != null && detail.questions.isNotEmpty) {
+      practiceSession = PracticeSession(
+        title: record.title,
+        mode: record.mode,
+        sectionId: detail.sectionId,
+        paperId: detail.paperId,
+        questions: List<Question>.of(detail.questions),
+        currentIndex: restart
+            ? 0
+            : detail.currentIndex.clamp(0, detail.questions.length - 1).toInt(),
+        answers: restart
+            ? null
+            : detail.answers.map(
+                (questionId, selected) =>
+                    MapEntry(questionId, Set<int>.of(selected)),
+              ),
+        textAnswers:
+            restart ? null : Map<String, String>.from(detail.textAnswers),
+        answerResults: restart
+            ? null
+            : Map<String, PracticeAnswerResult>.from(detail.answerResults),
+      );
+      _markLocalStateDirty();
+      notifyListeners();
+      return;
+    }
     if (record.mode.contains('随机')) {
       startRandomPractice();
       if (!restart) _movePracticeIndexToProgress(record.metric);
@@ -959,6 +1007,46 @@ class AppStore extends ChangeNotifier {
       startPracticeFromSection(section.id);
     }
     if (!restart) _movePracticeIndexToProgress(record.metric);
+  }
+
+  bool openPracticeRecordAnalysis(StudyRecord record) {
+    final detail = record.practiceDetail;
+    if (detail == null || detail.questions.isEmpty) return false;
+    practiceSession = PracticeSession(
+      title: record.title,
+      mode: record.mode,
+      sectionId: detail.sectionId,
+      paperId: detail.paperId,
+      questions: List<Question>.of(detail.questions),
+      currentIndex: 0,
+      finished: true,
+      answers: detail.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(detail.textAnswers),
+      answerResults:
+          Map<String, PracticeAnswerResult>.from(detail.answerResults),
+      reviewOnly: true,
+    );
+    _markLocalStateDirty();
+    notifyListeners();
+    return true;
+  }
+
+  bool canResumePracticeSection(String sectionId) {
+    final session = practiceSession;
+    return session != null &&
+        !session.finished &&
+        !session.mode.contains('背题') &&
+        session.sectionId == sectionId;
+  }
+
+  bool canResumePracticePaper(String paperId) {
+    final session = practiceSession;
+    return session != null &&
+        !session.finished &&
+        !session.mode.contains('背题') &&
+        session.paperId == paperId;
   }
 
   void startRandomPractice({
@@ -1026,7 +1114,7 @@ class AppStore extends ChangeNotifier {
       title: '错题练习',
       mode: '错题练习',
       questions: sourceQuestions,
-      wrongRemovalThreshold: removeAfterCorrect.clamp(1, 99).toInt(),
+      wrongRemovalThreshold: removeAfterCorrect.clamp(0, 99).toInt(),
     );
     _markLocalStateDirty();
     if (notify) notifyListeners();
@@ -1388,6 +1476,7 @@ class AppStore extends ChangeNotifier {
       answerResults: session.answerResults,
       submittingQuestionIds: session.submittingQuestionIds,
       wrongRemovalThreshold: session.wrongRemovalThreshold,
+      reviewOnly: session.reviewOnly,
     );
   }
 
@@ -1416,13 +1505,18 @@ class AppStore extends ChangeNotifier {
       answerResults: session.answerResults,
       submittingQuestionIds: session.submittingQuestionIds,
       wrongRemovalThreshold: session.wrongRemovalThreshold,
+      reviewOnly: session.reviewOnly,
     );
   }
 
   void _dropWrongQuestionsFromState(Set<String> questionIds) {
+    final removed = wrongQuestions
+        .where((question) => questionIds.contains(question.id))
+        .length;
     wrongQuestions = wrongQuestions
         .where((question) => !questionIds.contains(question.id))
         .toList();
+    removedWrongCount += removed;
     wrongCorrectCounts = Map<String, int>.from(wrongCorrectCounts)
       ..removeWhere((id, _) => questionIds.contains(id));
   }
@@ -1432,6 +1526,7 @@ class AppStore extends ChangeNotifier {
     if (session == null || session.mode != '错题练习' || isCorrect == null) {
       return;
     }
+    if (session.wrongRemovalThreshold <= 0) return;
     if (!isCorrect) {
       _setWrongCorrectCount(question.id, 0);
       _markLocalStateDirty();
@@ -1439,8 +1534,7 @@ class AppStore extends ChangeNotifier {
     }
 
     final nextCount = (wrongCorrectCounts[question.id] ?? 0) + 1;
-    final threshold =
-        session.wrongRemovalThreshold <= 0 ? 2 : session.wrongRemovalThreshold;
+    final threshold = session.wrongRemovalThreshold;
     if (nextCount >= threshold) {
       _dropWrongQuestionsFromState({question.id});
     } else {
@@ -1543,6 +1637,13 @@ class AppStore extends ChangeNotifier {
     final session = practiceSession;
     if (session == null || session.finished) return;
 
+    if (session.mode.contains('背题')) {
+      session.finished = true;
+      _markLocalStateDirty();
+      notifyListeners();
+      return;
+    }
+
     final correct = session.correctCount;
     final wrong = session.wrongCount;
 
@@ -1570,6 +1671,10 @@ class AppStore extends ChangeNotifier {
         metric:
             '${session.answeredCount}/${session.questions.length}题 · 正确率 ${_rate(correct, session.answeredCount)}%',
         time: '刚刚',
+        practiceDetail: _practiceRecordDetailFromSession(
+          session,
+          subjectId: selectedSubjectId,
+        ),
       ),
       ...practiceRecords.take(7),
     ];
@@ -1577,6 +1682,25 @@ class AppStore extends ChangeNotifier {
     _markLocalStateDirty();
     unawaited(_refreshRemoteRecords(expectedSubjectId: selectedSubjectId));
     notifyListeners();
+  }
+
+  PracticeRecordDetail _practiceRecordDetailFromSession(
+    PracticeSession session, {
+    required String subjectId,
+  }) {
+    return PracticeRecordDetail(
+      subjectId: subjectId,
+      sectionId: session.sectionId,
+      paperId: session.paperId,
+      questions: List<Question>.of(session.questions),
+      currentIndex: session.currentIndex,
+      answers: session.answers.map(
+        (questionId, selected) => MapEntry(questionId, Set<int>.of(selected)),
+      ),
+      textAnswers: Map<String, String>.from(session.textAnswers),
+      answerResults:
+          Map<String, PracticeAnswerResult>.from(session.answerResults),
+    );
   }
 
   void startExamFromSection(String sectionId, {bool notify = true}) {
@@ -1603,6 +1727,13 @@ class AppStore extends ChangeNotifier {
     _hydrateExamQuestionsFromRemote(section);
   }
 
+  bool canResumeExamSection(String sectionId) {
+    final session = examSession;
+    return session != null &&
+        !session.submitted &&
+        session.sectionId == sectionId;
+  }
+
   void startExamFromPaper(String paperId, {bool notify = true}) {
     final paper = _firstWhereOrNull(examPapers, (item) => item.id == paperId);
     if (paper == null) {
@@ -1624,6 +1755,11 @@ class AppStore extends ChangeNotifier {
     _markLocalStateDirty();
     if (notify) notifyListeners();
     _hydrateExamQuestionsFromRemote(paper);
+  }
+
+  bool canResumeExamPaper(String paperId) {
+    final session = examSession;
+    return session != null && !session.submitted && session.paperId == paperId;
   }
 
   void openExamRecordAnalysis(StudyRecord record) {
@@ -1801,6 +1937,11 @@ class AppStore extends ChangeNotifier {
     if (session == null) return false;
     if (session.submitted) return true;
     final subjectId = selectedSubjectId;
+    final elapsedMinutes =
+        ((session.durationMinutes * 60 - session.remainingSeconds)
+                    .clamp(0, session.durationMinutes * 60) /
+                60)
+            .ceil();
     session.submitted = true;
     if (session.sectionId != null) {
       _updateExamSectionProgress(
@@ -1808,6 +1949,7 @@ class AppStore extends ChangeNotifier {
         session.answeredCount,
         session.correctCount,
         session.wrongCount,
+        elapsedMinutes,
       );
     } else if (session.paperId != null) {
       _updateExamPaperProgress(
@@ -1815,7 +1957,7 @@ class AppStore extends ChangeNotifier {
         session.answeredCount,
         session.correctCount,
         session.wrongCount,
-        session.durationMinutes,
+        elapsedMinutes,
       );
     }
     examRecords = [
@@ -2161,8 +2303,9 @@ class AppStore extends ChangeNotifier {
     String sectionId,
     int answered,
     int correct,
-    int wrong,
-  ) {
+    int wrong, {
+    int? minutes,
+  }) {
     if (section.id == sectionId) {
       final next = _boundedProgress(
         done: section.done,
@@ -2177,12 +2320,19 @@ class AppStore extends ChangeNotifier {
         done: next.done,
         correct: next.correct,
         wrong: next.wrong,
+        minutes: minutes,
       );
     }
     if (section.children.isEmpty) return section;
     final nextChildren = section.children
         .map((child) => _updateSectionProgressNode(
-            child, sectionId, answered, correct, wrong))
+              child,
+              sectionId,
+              answered,
+              correct,
+              wrong,
+              minutes: minutes,
+            ))
         .toList();
     return _rollupSectionChildren(section, nextChildren);
   }
@@ -2200,6 +2350,7 @@ class AppStore extends ChangeNotifier {
       done: shouldReset ? 0 : section.done,
       correct: shouldReset ? 0 : section.correct,
       wrong: shouldReset ? 0 : section.wrong,
+      minutes: shouldReset ? 0 : section.minutes,
       children: nextChildren,
     );
     return nextChildren.isEmpty
@@ -2213,6 +2364,7 @@ class AppStore extends ChangeNotifier {
       done: children.fold<int>(0, (sum, item) => sum + item.done),
       correct: children.fold<int>(0, (sum, item) => sum + item.correct),
       wrong: children.fold<int>(0, (sum, item) => sum + item.wrong),
+      minutes: children.fold<int>(0, (sum, item) => sum + item.minutes),
       children: children,
     );
   }
@@ -2272,6 +2424,7 @@ class AppStore extends ChangeNotifier {
     int answered,
     int correct,
     int wrong,
+    int minutes,
   ) {
     examChapters = examChapters.map((chapter) {
       final nextSections = chapter.sections
@@ -2281,6 +2434,7 @@ class AppStore extends ChangeNotifier {
                 answered,
                 correct,
                 wrong,
+                minutes: minutes,
               ))
           .toList();
       return chapter.copyWith(

@@ -17,7 +17,7 @@ class P08WrongPracticeEntryPage extends StatefulWidget {
 
 class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
   int _selectedFilter = 0;
-  final _filters = ['全部', '近7日', '多次错误', '未掌握'];
+  final _filters = ['全部', '近7日', '近30日', '多次错误'];
   final _questionTypes = ['单选', '多选', '判断', '填空', '简答', '材料'];
   final _selectedTypes = <int>{};
   int _removeRule = 2;
@@ -80,14 +80,9 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
 
   /// 错题练习范围卡 - 渐变面板
   Widget _buildRangeCard(List<Question> filteredQuestions) {
-    final todayAdded = mockStore.wrongQuestions.where((question) {
-      final lastWrongAt = question.lastWrongAt;
-      if (lastWrongAt == null) return false;
-      final now = DateTime.now();
-      return lastWrongAt.year == now.year &&
-          lastWrongAt.month == now.month &&
-          lastWrongAt.day == now.day;
-    }).length;
+    final repeatedCount = mockStore.wrongQuestions
+        .where((question) => question.wrongCount >= 2)
+        .length;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -115,7 +110,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                     size: 18, color: Colors.white),
               ),
               const SizedBox(width: 10),
-              const Text('错题范围：全部章节',
+              const Text('错题练习范围',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 15,
@@ -131,7 +126,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('错题总数 ${mockStore.wrongPracticeCount}题',
+                  child: Text('总错题量 ${mockStore.wrongPracticeCount}',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -143,7 +138,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('今日新增 $todayAdded题',
+                  child: Text('已移除量 ${mockStore.removedWrongCount}',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -155,7 +150,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Text('当前筛选 ${filteredQuestions.length}题',
+                  child: Text('多次错误 $repeatedCount',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -280,10 +275,10 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [1, 2, 3, 5].map((n) {
-                  final selected = n == _removeRule;
+                children: const [0, 1, 2, 3].map((rule) {
+                  final selected = rule == _removeRule;
                   return GestureDetector(
-                    onTap: () => setState(() => _removeRule = n),
+                    onTap: () => setState(() => _removeRule = rule),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
@@ -295,7 +290,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                                 ? AppColors.primary
                                 : AppColors.border),
                       ),
-                      child: Text('做对$n次',
+                      child: Text(rule == 0 ? '手动移除' : '做对${rule}次移除',
                           style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 12,
@@ -433,7 +428,7 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
                         questions: filteredQuestions,
                         removeAfterCorrect: _removeRule,
                       );
-                      context.go('/practice/quiz');
+                      context.go('/practice/wrong/quiz');
                     }
                   : null,
               behavior: HitTestBehavior.opaque,
@@ -473,8 +468,9 @@ class _P08WrongPracticeEntryPageState extends State<P08WrongPracticeEntryPage> {
       final filterMatched = switch (_filters[_selectedFilter]) {
         '近7日' => question.lastWrongAt != null &&
             now.difference(question.lastWrongAt!).inDays <= 7,
+        '近30日' => question.lastWrongAt != null &&
+            now.difference(question.lastWrongAt!).inDays <= 30,
         '多次错误' => question.wrongCount >= 2,
-        '未掌握' => question.wrongCount > 0,
         _ => true,
       };
       final typeMatched = _selectedTypes.isEmpty ||

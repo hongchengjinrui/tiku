@@ -60,11 +60,6 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
                           _buildMockExamRow(mockStore),
                         ],
                       ),
-
-                      const SizedBox(height: 12),
-
-                      // ===== 跳转说明 =====
-                      _buildHintBox(),
                     ],
                   ),
                 );
@@ -509,41 +504,6 @@ class _P02PracticeCatalogPageState extends State<P02PracticeCatalogPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 跳转说明
-  Widget _buildHintBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.info_outline,
-            size: 16,
-            color: AppColors.textMuted,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '点击任一三级目录进入 P04 四级目录页。',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                height: 1.5,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

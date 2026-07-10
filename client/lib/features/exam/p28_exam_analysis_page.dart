@@ -136,7 +136,11 @@ class P28ExamAnalysisPage extends StatelessWidget {
                 const Color(0xFFECFDF5),
               ),
               const SizedBox(width: 8),
-              _statBox('${session.score}分', '成绩', const Color(0xFFEFF6FF)),
+              _statBox(
+                '${_elapsedMinutes(session)}分钟',
+                '耗时',
+                const Color(0xFFEFF6FF),
+              ),
             ],
           ),
         ],
@@ -176,6 +180,13 @@ class P28ExamAnalysisPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  int _elapsedMinutes(ExamSession session) {
+    final elapsedSeconds =
+        (session.durationMinutes * 60 - session.remainingSeconds)
+            .clamp(0, session.durationMinutes * 60);
+    return (elapsedSeconds / 60).ceil();
   }
 
   Widget _buildNumberSection({

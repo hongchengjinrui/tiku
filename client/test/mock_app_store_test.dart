@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tiku_muban/data/local/app_state_storage.dart';
@@ -971,6 +972,90 @@ void main() {
     expect(store.examRecords, isEmpty);
   });
 
+  test('remote catalog keeps paper minutes and material media fields',
+      () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      Object body;
+      if (request.uri.path.endsWith('/catalog')) {
+        body = {
+          'nodes': [
+            {
+              'id': 'paper_category',
+              'name': '模拟真题',
+              'children': [
+                {
+                  'id': 'paper_group',
+                  'name': '历年真题',
+                  'children': [
+                    {
+                      'id': 'remote_paper_1',
+                      'name': '远程试卷',
+                      'progress': {
+                        'done': 12,
+                        'total': 100,
+                        'correct': 9,
+                        'wrong': 3,
+                        'minutes': 27,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+      } else if (request.uri.path.endsWith('/questions')) {
+        body = {
+          'questions': [
+            {
+              'id': 'remote_material_child',
+              'type': 'single_choice',
+              'stemText': '材料子题',
+              'stemHtml': '<p>材料子题</p>',
+              'stemImageUrls': ['/media/stem.png'],
+              'options': [
+                {'key': 'A', 'text': '选项A'},
+                {'key': 'B', 'text': '选项B'},
+              ],
+              'answer': {
+                'values': ['A'],
+              },
+              'analysisText': '材料解析',
+              'analysisHtml': '<p>材料解析</p>',
+              'analysisImageUrls': ['/media/analysis.png'],
+              'materialGroupId': 'remote_material_group',
+              'materialStemText': '公共材料',
+              'materialStemHtml': '<p>公共材料</p>',
+              'materialImageUrls': ['/media/material.png'],
+            },
+          ],
+        };
+      } else {
+        body = <Object>[];
+      }
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode(body));
+      await request.response.close();
+    });
+    final repository = RemoteTikuRepository(
+      baseUrl: 'http://${server.address.host}:${server.port}/api',
+    );
+
+    expect(await repository.loadSubject('remote_subject'), isTrue);
+    expect(repository.loadExamPapers().single.minutes, 27);
+
+    final questions = await repository.fetchCatalogQuestions('remote_paper_1');
+    final question = questions.single;
+    final origin = 'http://${server.address.host}:${server.port}';
+    expect(question.materialGroupId, 'remote_material_group');
+    expect(question.materialStem, '公共材料');
+    expect(question.imageUrls, ['$origin/media/stem.png']);
+    expect(question.analysisImageUrls, ['$origin/media/analysis.png']);
+    expect(question.materialImageUrls, ['$origin/media/material.png']);
+  });
+
   test('failed remote subject switch keeps the current catalogs and sessions',
       () async {
     final repository = _InteractionRemoteRepository()
@@ -1340,6 +1425,37 @@ void main() {
     expect(restored.wrongQuestions.single.wrongCount, 2);
   });
 
+  test('exam section elapsed minutes update and survive local restore',
+      () async {
+    final storage = MemoryAppStateStorage();
+    final store = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    final section = store.examChapters.first.sections.first;
+
+    store.startExamFromSection(section.id, notify: false);
+    store.tickExamSecond(seconds: 125);
+    await store.submitExam();
+    await store.flushLocalState();
+
+    final submittedSection = store.examChapters
+        .expand((chapter) => chapter.sections)
+        .firstWhere((item) => item.id == section.id);
+    expect(submittedSection.minutes, 3);
+
+    final restored = AppStore(
+      repository: MockTikuRepository(),
+      stateStorage: storage,
+    );
+    await restored.restoreLocalState();
+    final restoredSection = restored.examChapters
+        .expand((chapter) => chapter.sections)
+        .firstWhere((item) => item.id == section.id);
+
+    expect(restoredSection.minutes, 3);
+  });
+
   test('local snapshot restores remote catalog question cache', () async {
     final storage = MemoryAppStateStorage();
     final repository = RemoteTikuRepository(baseUrl: 'http://127.0.0.1:1/api');
@@ -1653,6 +1769,11 @@ void main() {
         analysis: '材料解析',
         analysisHtml: '<p>材料解析</p>',
         imageUrls: ['https://example.test/material.png'],
+        analysisImageUrls: ['https://example.test/analysis.png'],
+        materialGroupId: 'round_material_group',
+        materialStem: '公共材料正文',
+        materialStemHtml: '<p>公共材料正文</p>',
+        materialImageUrls: ['https://example.test/common-material.png'],
       ),
     ];
     final wrongQuestion = questions.first.copyWith(
@@ -1793,6 +1914,14 @@ void main() {
     expect(restored.favoriteQuestions[5].analysisHtml, '<p>材料解析</p>');
     expect(restored.favoriteQuestions[5].imageUrls,
         ['https://example.test/material.png']);
+    expect(restored.favoriteQuestions[5].analysisImageUrls,
+        ['https://example.test/analysis.png']);
+    expect(
+        restored.favoriteQuestions[5].materialGroupId, 'round_material_group');
+    expect(restored.favoriteQuestions[5].materialStem, '公共材料正文');
+    expect(restored.favoriteQuestions[5].materialStemHtml, '<p>公共材料正文</p>');
+    expect(restored.favoriteQuestions[5].materialImageUrls,
+        ['https://example.test/common-material.png']);
     expect(restored.wrongQuestions.single.wrongCount, 3);
     expect(
       restored.wrongQuestions.single.lastWrongAt,
@@ -1830,6 +1959,76 @@ void main() {
       restored.localSubjectStates['primary_teacher']?.wrongCorrectCounts,
       {'round_single': 2},
     );
+  });
+
+  test('recitation mode reveals without changing practice progress', () {
+    final store = AppStore(repository: MockTikuRepository());
+    final section = store.chapters.first.sections.first;
+    final beforeDone = section.done;
+    final beforeRecords = store.practiceRecords.length;
+
+    store.startPracticeFromSection(section.id, recitation: true);
+    expect(store.practiceSession?.mode, '章节背题');
+    store.finishPracticeSession();
+
+    final updated = store.chapters
+        .expand((chapter) => chapter.sections)
+        .firstWhere((item) => item.id == section.id);
+    expect(updated.done, beforeDone);
+    expect(store.practiceRecords.length, beforeRecords);
+    expect(store.practiceSession?.finished, isTrue);
+  });
+
+  test('matching catalog sessions remain resumable without replacement', () {
+    final store = AppStore(repository: MockTikuRepository());
+    final section = store.chapters.first.sections.first;
+    store.startPracticeFromSection(section.id);
+    final session = store.practiceSession!;
+    store.answerPractice(session.currentQuestion.answerIndexes);
+
+    expect(store.canResumePracticeSection(section.id), isTrue);
+    expect(store.practiceSession, same(session));
+    expect(store.practiceSession?.answeredCount, 1);
+  });
+
+  test('completed practice records retain a reviewable answer snapshot', () {
+    final store = AppStore(repository: MockTikuRepository());
+    final section = store.chapters.first.sections.first;
+    store.startPracticeFromSection(section.id);
+    final question = store.practiceSession!.currentQuestion;
+    store.answerPractice(question.answerIndexes);
+    store.finishPracticeSession();
+
+    final record = store.practiceRecords.first;
+    expect(record.practiceDetail?.answers[question.id], question.answerIndexes);
+    expect(store.openPracticeRecordAnalysis(record), isTrue);
+    expect(store.practiceSession?.reviewOnly, isTrue);
+    expect(
+        store.practiceSession?.answerResults[question.id]?.isCorrect, isTrue);
+  });
+
+  test('manual wrong removal mode never auto-removes a correct answer', () {
+    final store = AppStore(repository: MockTikuRepository());
+    const question = Question(
+      id: 'manual_wrong_q1',
+      type: QuestionType.single,
+      stem: '手动移除错题',
+      options: ['A', 'B'],
+      answerIndexes: {0},
+      analysis: '解析',
+      wrongCount: 2,
+    );
+    store.wrongQuestions = const [question];
+    store.startWrongPractice(
+      questions: const [question],
+      removeAfterCorrect: 0,
+    );
+
+    store.answerPractice(const {0});
+
+    expect(store.practiceSession?.wrongRemovalThreshold, 0);
+    expect(store.wrongQuestions, contains(question));
+    expect(store.removedWrongCount, 0);
   });
 }
 

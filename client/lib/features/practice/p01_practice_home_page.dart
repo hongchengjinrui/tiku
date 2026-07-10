@@ -5,6 +5,7 @@ import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
 import '../../core/widgets.dart';
 import '../../core/app_scaffold.dart';
+import '../common/subject_progress_panel.dart';
 
 /// P01 练习模式首页 - 含状态栏、渐变数据面板、四类练习入口、最近练习列表、底部TabBar
 class P01PracticeHomePage extends StatelessWidget {
@@ -28,15 +29,16 @@ class P01PracticeHomePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                        child: CacheStatusBanner(store: mockStore),
+                      CacheStatusBanner(
+                        store: mockStore,
+                        margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                       ),
 
-                      const SizedBox(height: 10),
-
                       // ===== 练习进度面板 - 渐变背景 =====
-                      _buildProgressPanel(context, mockStore),
+                      PracticeProgressPanel(
+                        store: mockStore,
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                      ),
 
                       if (_hasActivePracticeSession(mockStore)) ...[
                         const SizedBox(height: 10),
@@ -281,157 +283,6 @@ class P01PracticeHomePage extends StatelessWidget {
     );
   }
 
-  /// 练习进度面板 - 渐变背景
-  Widget _buildProgressPanel(BuildContext context, MockAppStore store) {
-    final stat = store.practiceStat;
-    final todayDone = _todayQuestionCount(store.practiceRecords);
-    final activeDays = _activeDayCount(store.practiceRecords);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: AppGradients.primaryGradient,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题行 - 学科名称 + 切换科目
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // 学科名称
-              Text(
-                store.selectedSubject.name,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              // 今日进度提示
-              Text(
-                '',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  color: AppColors.textBlueHint,
-                ),
-              ),
-              // 切换科目入口
-              GestureDetector(
-                onTap: () => context.push('/practice/switch-subject'),
-                child: Container(
-                  height: 26,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '切换科目',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 14,
-                        color: AppColors.textBlueHint,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 今日新增进度描述
-          Text(
-            '今日新增进度：$todayDone题      已累计练习：$activeDays天',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13,
-              color: AppColors.textBlueHint,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 总进度统计行
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '练习进度 ${stat.done}/${stat.total}',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    '正确率 ${stat.accuracy}%',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '错题量 ${stat.wrong}',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 总进度条背景
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: stat.progress,
-              minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 练习入口卡片
   Widget _buildEntryCard({
     required IconData icon,
@@ -479,6 +330,7 @@ class P01PracticeHomePage extends StatelessWidget {
   }
 
   Widget _buildRecentRecordCard(BuildContext context, StudyRecord record) {
+    final canReview = record.practiceDetail != null;
     return _buildRecentCard(
       title: record.title,
       accuracy: _accuracyText(record.metric),
@@ -487,7 +339,7 @@ class P01PracticeHomePage extends StatelessWidget {
       action1Text: '重新练习',
       action1Bg: AppColors.primaryBg,
       action1Fg: AppColors.primary,
-      action2Text: '继续练习',
+      action2Text: canReview ? '查看解析' : '继续练习',
       action2Bg: AppColors.primaryBg,
       action2Fg: AppColors.primary,
       progress: _recordProgress(record.metric),
@@ -496,7 +348,11 @@ class P01PracticeHomePage extends StatelessWidget {
         context.go('/practice/quiz');
       },
       onContinue: () {
-        mockStore.startPracticeFromRecord(record, restart: false);
+        if (canReview) {
+          mockStore.openPracticeRecordAnalysis(record);
+        } else {
+          mockStore.startPracticeFromRecord(record, restart: false);
+        }
         context.go('/practice/quiz');
       },
     );
@@ -587,35 +443,6 @@ class P01PracticeHomePage extends StatelessWidget {
     final done = int.tryParse(match.group(1) ?? '') ?? 0;
     final total = int.tryParse(match.group(2) ?? '') ?? 1;
     return total == 0 ? 0 : done / total;
-  }
-
-  int _todayQuestionCount(List<StudyRecord> records) {
-    return records.where((record) => _isTodayRecord(record.time)).fold<int>(
-        0, (sum, record) => sum + _answeredQuestionCount(record.metric));
-  }
-
-  int _activeDayCount(List<StudyRecord> records) {
-    if (records.isEmpty) return 0;
-    return records.map((record) => _dayKey(record.time)).toSet().length;
-  }
-
-  bool _isTodayRecord(String time) {
-    return time == '刚刚' ||
-        time.contains('分钟前') ||
-        time.contains('小时前') ||
-        time.startsWith('今天');
-  }
-
-  String _dayKey(String time) {
-    if (time == '刚刚' || time.contains('分钟前') || time.contains('小时前')) {
-      return '今天';
-    }
-    return time.split(' ').first;
-  }
-
-  int _answeredQuestionCount(String metric) {
-    final match = RegExp(r'(\d+)/(\d+)题').firstMatch(metric);
-    return int.tryParse(match?.group(1) ?? '') ?? 0;
   }
 
   /// 最近练习卡片

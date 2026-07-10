@@ -17,13 +17,13 @@ class P54FeedbackPage extends StatefulWidget {
 
 class _P54FeedbackPageState extends State<P54FeedbackPage> {
   int _selectedType = 0;
-  final _types = ['题目有误', '答案有误', '解析有误', '图片问题', '其他'];
+  final _types = ['题干有误', '选项有误', '答案有误', '解析有误', '整题逻辑有误'];
   final _typeValues = [
     'stem_error',
+    'option_error',
     'answer_error',
     'analysis_error',
-    'image_error',
-    'other',
+    'logic_error',
   ];
   final _controller = TextEditingController();
   bool _submitting = false;
@@ -60,6 +60,7 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 8,
                       children: List.generate(_types.length, (i) {
                         final selected = i == _selectedType;
                         return GestureDetector(
@@ -68,9 +69,8 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.primaryBg
-                                  : AppColors.card,
+                              color:
+                                  selected ? AppColors.primary : AppColors.card,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                   color: selected
@@ -82,8 +82,8 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     color: selected
-                                        ? AppColors.primary
-                                        : AppColors.textPrimary)),
+                                        ? Colors.white
+                                        : AppColors.textSecondary)),
                           ),
                         );
                       }),
@@ -100,18 +100,27 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('详细描述',
+                          const Text('反馈内容',
                               style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary)),
                           const SizedBox(height: 8),
+                          const Text(
+                            '请说明具体错误位置和你认为正确的内容，便于核对修正。',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           TextField(
                             controller: _controller,
                             maxLines: 4,
                             decoration: const InputDecoration(
-                              hintText: '请描述具体的错误内容...',
+                              hintText: '请描述题干、选项、答案或解析中的具体问题...',
                               border: InputBorder.none,
                             ),
                           ),
@@ -119,27 +128,12 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    // 提示卡
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryBg,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.lightbulb_outline,
-                              size: 16, color: AppColors.primary),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text('提交后我们将在1-3个工作日内审核处理',
-                                style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    color: AppColors.primary)),
-                          ),
-                        ],
+                    const Text(
+                      '提交后会进入题目纠错队列，处理结果将在后续版本中同步。',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -164,7 +158,7 @@ class _P54FeedbackPageState extends State<P54FeedbackPage> {
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                         child: Center(
-                          child: Text(_submitting ? '提交中...' : '提交反馈',
+                          child: Text(_submitting ? '提交中...' : '提交纠错',
                               style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 16,
@@ -847,9 +841,11 @@ class P56AFeedbackRecordsPage extends StatelessWidget {
     final label = feedback.payload['label']?.toString();
     if (label != null && label.trim().isNotEmpty) return label.trim();
     return switch (feedback.type) {
-      'stem_error' => '题目有误',
+      'stem_error' => '题干有误',
+      'option_error' => '选项有误',
       'answer_error' => '答案有误',
       'analysis_error' => '解析有误',
+      'logic_error' => '整题逻辑有误',
       'image_error' => '图片问题',
       'app_feedback' => '意见反馈',
       'question_feedback' => '题目纠错',

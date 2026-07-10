@@ -18,13 +18,12 @@ void main() {
   for (final entry in previews.entries) {
     testWidgets('preview ${entry.key}', (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
-      await tester.pumpWidget(const TikuApp());
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       appRouter.go(entry.key);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpWidget(const TikuApp());
+      await tester.pumpAndSettle();
 
       await expectLater(find.byType(TikuApp), matchesGoldenFile(entry.value));
-      await tester.binding.setSurfaceSize(null);
     });
   }
 }

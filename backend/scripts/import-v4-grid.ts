@@ -241,9 +241,9 @@ function flattenQuestions(items: RawQuestion[]) {
         output.push({
           ...child,
           id: child.id ?? `${item.id ?? 'material'}_child_${childIndex + 1}`,
-          stem: mergeMaterialStem(materialStem, child.stem),
           source_ref: {
             material_id: item.id,
+            material_stem: materialStem,
             child_index: childIndex,
             child_source_ref: child.source_ref,
           },
@@ -336,25 +336,6 @@ function resolveQuestionTypeByChoiceMode(choiceMode: string): QuestionType | nul
   if (choiceMode === 'true_false') return QuestionType.true_false;
   if (choiceMode === 'single') return QuestionType.single_choice;
   return null;
-}
-
-function mergeMaterialStem(materialStem: unknown, childStem: unknown) {
-  const material = asRecord(materialStem);
-  const child = asRecord(childStem);
-  const materialHtml = String(material.html ?? '');
-  const childHtml = String(child.html ?? '');
-  const materialText = String(material.text ?? '');
-  const childText = String(child.text ?? '');
-  return {
-    html: materialHtml
-      ? `<div class="material-stem">${materialHtml}</div><hr/>${childHtml}`
-      : childHtml,
-    text: materialText ? `${materialText}\n${childText}` : childText,
-    images: [
-      ...toArray(material.images),
-      ...toArray(child.images),
-    ],
-  };
 }
 
 async function flushQuestions(batch: Prisma.QuestionCreateManyInput[]) {
@@ -563,10 +544,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
-}
-
-function toArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 async function printImportReport(

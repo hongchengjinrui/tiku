@@ -52,12 +52,12 @@ void main() {
     appRouter.go('/practice/random/custom');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check_circle).first);
+    await tester.tap(find.byIcon(Icons.check).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('开始随机练习'));
     await tester.pump();
 
-    expect(find.text('请选择至少一个章节'), findsOneWidget);
+    expect(find.text('请选择至少一个小节'), findsOneWidget);
     expect(mockStore.practiceSession, isNull);
 
     ScaffoldMessenger.of(tester.element(find.text('随机练习'))).clearSnackBars();
@@ -82,15 +82,16 @@ void main() {
     appRouter.go('/exam/assemble');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check_circle).first);
+    await tester.tap(find.byIcon(Icons.check).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('开始考试'));
     await tester.pump();
 
-    expect(find.text('请选择至少一个章节'), findsOneWidget);
+    expect(find.text('请选择至少一个小节'), findsOneWidget);
     expect(mockStore.examSession, isNull);
 
-    ScaffoldMessenger.of(tester.element(find.text('组卷设置'))).clearSnackBars();
+    ScaffoldMessenger.of(tester.element(find.text('组卷设置').first))
+        .clearSnackBars();
     await tester.pumpAndSettle();
     await tester.tap(find.text('第一节：教育理论'));
     await tester.pumpAndSettle();

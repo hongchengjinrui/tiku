@@ -130,6 +130,7 @@ class P22RealExamPaperListPage extends StatelessWidget {
   }
 
   Widget _buildPaperCard(BuildContext context, Paper paper) {
+    final canResume = mockStore.canResumeExamPaper(paper.id);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -176,11 +177,13 @@ class P22RealExamPaperListPage extends StatelessWidget {
               Expanded(
                 child: _actionButton(
                   icon: Icons.play_arrow,
-                  label: paper.done == 0 ? '开始考试' : '继续考试',
+                  label: canResume ? '继续考试' : '开始考试',
                   bgColor: AppColors.primary,
                   fgColor: Colors.white,
                   onTap: () {
-                    mockStore.startExamFromPaper(paper.id);
+                    if (!canResume) {
+                      mockStore.startExamFromPaper(paper.id);
+                    }
                     context.go('/exam/answer');
                   },
                 ),

@@ -132,6 +132,7 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
   }
 
   Widget _buildSectionCard(BuildContext context, Section section) {
+    final canResume = mockStore.canResumeExamSection(section.id);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -154,7 +155,7 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '已考 ${section.done}/${section.total} · 已用时 ${section.done == 0 ? 0 : 36}分',
+            '已考 ${section.done}/${section.total} · 已用时 ${section.minutes}分',
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
@@ -178,11 +179,13 @@ class P21AChapterExamSectionListPage extends StatelessWidget {
               Expanded(
                 child: _actionButton(
                   icon: Icons.play_arrow,
-                  label: section.done == 0 ? '开始考试' : '继续考试',
+                  label: canResume ? '继续考试' : '开始考试',
                   bgColor: AppColors.primary,
                   fgColor: Colors.white,
                   onTap: () {
-                    mockStore.startExamFromSection(section.id);
+                    if (!canResume) {
+                      mockStore.startExamFromSection(section.id);
+                    }
                     context.go('/exam/answer');
                   },
                 ),

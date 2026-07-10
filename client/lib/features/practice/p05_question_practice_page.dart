@@ -7,6 +7,8 @@ import '../../core/app_scaffold.dart';
 import '../../data/mock/mock_app_store.dart';
 import '../../data/mock/models.dart';
 import '../../theme/app_colors.dart';
+import '../common/material_question_context.dart';
+import '../common/question_media_image.dart';
 
 /// P05 刷题页 - 含状态栏、导航栏、题目进度区、选项区、操作区、解析区和底部操作栏
 class P05QuestionPracticePage extends StatefulWidget {
@@ -19,6 +21,7 @@ class P05QuestionPracticePage extends StatefulWidget {
 
 class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
   final _textControllers = <String, TextEditingController>{};
+  final _collapsedMaterialGroups = <String>{};
 
   @override
   void initState() {
@@ -64,6 +67,8 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           }
 
           final question = session.currentQuestion;
+          final materialIndexes =
+              _materialGroupIndexes(session.questions, question);
           final selected = session.answers[question.id];
           final result = session.answerResults[question.id];
           final textAnswer = session.textAnswers[question.id] ?? '';
@@ -93,6 +98,32 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (session.mode == '错题练习') ...[
+                        _buildWrongQuestionMeta(question),
+                        const SizedBox(height: 14),
+                      ],
+                      if (materialIndexes.isNotEmpty) ...[
+                        MaterialQuestionContext(
+                          question: question,
+                          groupQuestions: materialIndexes
+                              .map((index) => session.questions[index])
+                              .toList(),
+                          groupIndexes: materialIndexes,
+                          currentIndex: session.currentIndex,
+                          collapsed: _collapsedMaterialGroups
+                              .contains(question.materialGroupId),
+                          onToggle: () => setState(() {
+                            final id = question.materialGroupId!;
+                            if (!_collapsedMaterialGroups.add(id)) {
+                              _collapsedMaterialGroups.remove(id);
+                            }
+                          }),
+                          onSelectQuestion: mockStore.jumpPracticeQuestion,
+                          onReportImageFailure: (url) =>
+                              _reportImageFailure(question, url, '公共材料'),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       _buildQuestionStem(question),
                       const SizedBox(height: 16),
                       _buildAnswerArea(
@@ -144,6 +175,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                           textAnswer: textAnswer,
                           result: result,
                           submitting: submitting,
+                          recitation: session.mode.contains('背题'),
                         ),
                       ],
                     ],
@@ -176,7 +208,10 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
           ...question.imageUrls.map(
             (url) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _buildQuestionImage(url),
+              child: QuestionMediaImage(
+                url: url,
+                onReportFailure: () => _reportImageFailure(question, url, '题干'),
+              ),
             ),
           ),
         ],
@@ -184,65 +219,44 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     );
   }
 
-  Widget _buildQuestionImage(String url) {
-    final canLoad = url.startsWith('http://') || url.startsWith('https://');
-    if (!canLoad) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.primaryBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.image_outlined,
-                size: 18, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '图片：$url',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Image.network(
-        url,
-        width: double.infinity,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildQuestionImageFallback(url),
-      ),
-    );
-  }
-
-  Widget _buildQuestionImageFallback(String url) {
+  Widget _buildWrongQuestionMeta(Question question) {
+    final lastWrongAt = question.lastWrongAt;
+    final date = lastWrongAt == null
+        ? '暂无记录'
+        : '${lastWrongAt.year}-${lastWrongAt.month.toString().padLeft(2, '0')}-${lastWrongAt.day.toString().padLeft(2, '0')}';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 43),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.errorBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.error),
       ),
-      child: Text(
-        '图片加载失败：$url',
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13,
-          color: AppColors.textMuted,
-        ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        runAlignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          Text(
+            '错误次数：${question.wrongCount} 次',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.error,
+            ),
+          ),
+          Text(
+            '最近错误：$date',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: Color(0xFF991B1B),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -376,6 +390,10 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
   }
 
   Widget _buildProgressArea(PracticeSession session, Question question) {
+    final materialIndexes = _materialGroupIndexes(session.questions, question);
+    final progressText = materialIndexes.isEmpty
+        ? '第 ${session.currentIndex + 1} / ${session.questions.length} 题'
+        : '第 ${materialIndexes.first + 1}-${materialIndexes.last + 1} / ${session.questions.length} 题';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
@@ -384,7 +402,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '第 ${session.currentIndex + 1} / ${session.questions.length} 题',
+                progressText,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
@@ -399,7 +417,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  question.type.label,
+                  materialIndexes.isEmpty ? question.type.label : '材料题',
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -579,16 +597,19 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     required String textAnswer,
     required PracticeAnswerResult? result,
     required bool submitting,
+    required bool recitation,
   }) {
     final correct =
         result?.isCorrect ?? sameAnswer(selected, question.answerIndexes);
-    final title = submitting
-        ? '正在判分'
-        : result?.isCorrect == null
-            ? '已提交'
-            : correct
-                ? '回答正确'
-                : '回答错误';
+    final title = recitation
+        ? '答案解析'
+        : submitting
+            ? '正在判分'
+            : result?.isCorrect == null
+                ? '已提交'
+                : correct
+                    ? '回答正确'
+                    : '回答错误';
     final correctAnswer = result?.correctAnswerText.isNotEmpty == true
         ? result!.correctAnswerText
         : question.answerText;
@@ -656,12 +677,14 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
                 : correctAnswer,
             AppColors.success,
           ),
-          const SizedBox(height: 6),
-          _buildAnswerLine(
-            '我的答案',
-            myAnswer,
-            correct ? AppColors.success : AppColors.error,
-          ),
+          if (!recitation) ...[
+            const SizedBox(height: 6),
+            _buildAnswerLine(
+              '我的答案',
+              myAnswer,
+              correct ? AppColors.success : AppColors.error,
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             '解析结果：${_cleanDisplayText(analysis)}',
@@ -672,6 +695,19 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
               color: AppColors.textSecondary,
             ),
           ),
+          if (question.analysisImageUrls.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...question.analysisImageUrls.map(
+              (url) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: QuestionMediaImage(
+                  url: url,
+                  onReportFailure: () =>
+                      _reportImageFailure(question, url, '解析'),
+                ),
+              ),
+            ),
+          ],
           if (result?.matchedPoints.isNotEmpty == true) ...[
             const SizedBox(height: 10),
             Text(
@@ -772,6 +808,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     PracticeSession session,
     bool isLast,
   ) {
+    final reviewing = session.reviewOnly;
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -803,18 +840,33 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
             onTap: () => _showAnswerCard(context, session),
           ),
           _buildBottomButton(
-            icon: isLast ? Icons.check : Icons.chevron_right,
-            text: isLast ? '完成练习' : '下一题',
+            icon: isLast
+                ? reviewing
+                    ? Icons.list_alt_outlined
+                    : Icons.check
+                : Icons.chevron_right,
+            text: isLast
+                ? reviewing
+                    ? '返回记录'
+                    : '完成练习'
+                : '下一题',
             bgColor: AppColors.primary,
             fgColor: Colors.white,
             iconAfter: true,
             onTap: () {
               if (isLast) {
+                if (reviewing) {
+                  context.go('/profile/practice-records');
+                  return;
+                }
                 final exitRoute = _practiceExitRoute(session);
+                final recitation = session.mode.contains('背题');
                 mockStore.finishPracticeSession();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('练习记录已生成')),
-                );
+                if (!recitation) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('练习记录已生成')),
+                  );
+                }
                 context.go(exitRoute);
               } else {
                 mockStore.nextPracticeQuestion();
@@ -827,7 +879,10 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
   }
 
   String _practiceExitRoute(PracticeSession session) {
-    if (session.mode.contains('真题')) return '/practice/papers';
+    if (session.reviewOnly) return '/profile/practice-records';
+    if (session.paperId != null || session.mode.contains('真题')) {
+      return '/practice/papers';
+    }
     if (session.mode.contains('随机')) return '/practice/random';
     if (session.mode.contains('收藏')) return '/practice/favorite';
     if (session.mode.contains('错题')) return '/practice/wrong';
@@ -868,15 +923,45 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
     }
   }
 
+  Future<bool> _reportImageFailure(
+    Question question,
+    String url,
+    String location,
+  ) {
+    return mockStore.submitFeedback(
+      type: 'image_error',
+      content: '本题图片未能加载',
+      payload: {
+        'source': 'question_image',
+        'questionId': question.id,
+        'location': location,
+        'url': url,
+        'label': '图片问题',
+      },
+    );
+  }
+
+  List<int> _materialGroupIndexes(
+    List<Question> questions,
+    Question question,
+  ) {
+    final groupId = question.materialGroupId;
+    if (groupId == null || groupId.isEmpty) return const [];
+    return [
+      for (var index = 0; index < questions.length; index++)
+        if (questions[index].materialGroupId == groupId) index,
+    ];
+  }
+
   void _showQuestionFeedbackSheet(Question question) {
     final controller = TextEditingController();
-    final labels = ['题目有误', '答案有误', '解析有误', '图片问题', '其他'];
+    final labels = ['题干有误', '选项有误', '答案有误', '解析有误', '整题逻辑有误'];
     final values = [
       'stem_error',
+      'option_error',
       'answer_error',
       'analysis_error',
-      'image_error',
-      'other',
+      'logic_error',
     ];
     var selectedIndex = 0;
     showModalBottomSheet<void>(
@@ -1360,6 +1445,7 @@ class _P05QuestionPracticePageState extends State<P05QuestionPracticePage> {
   }
 
   bool _isAnswerRevealed(PracticeSession session, Question question) {
+    if (session.mode.contains('背题')) return true;
     if (session.answerResults.containsKey(question.id)) return true;
     return question.type != QuestionType.multiple &&
         session.hasAnswered(question.id);

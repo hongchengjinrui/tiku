@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../core/app_scaffold.dart';
 import '../../core/widgets.dart';
 import '../common/progress_reset_sheet.dart';
+import '../common/subject_progress_panel.dart';
 
 /// P20 考试模式首页 - Exam mode home page
 class P20ExamHomePage extends StatefulWidget {
@@ -34,14 +35,13 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                          child: CacheStatusBanner(store: mockStore),
+                        CacheStatusBanner(
+                          store: mockStore,
+                          margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                         ),
-                        const SizedBox(height: 10),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: _ExamProgressPanel(store: mockStore),
+                          child: ExamProgressPanel(store: mockStore),
                         ),
                         if (_hasActiveExamSession(mockStore)) ...[
                           const SizedBox(height: 10),
@@ -192,140 +192,6 @@ class _P20ExamHomePageState extends State<P20ExamHomePage> {
     final minutes = safeSeconds ~/ 60;
     final second = safeSeconds % 60;
     return '$minutes:${second.toString().padLeft(2, '0')}';
-  }
-}
-
-class _ExamProgressPanel extends StatelessWidget {
-  final MockAppStore store;
-
-  const _ExamProgressPanel({required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    final stat = store.examStat;
-    final todayExamCount =
-        store.examRecords.where((record) => _isTodayRecord(record.time)).length;
-    final activeDays = _activeDayCount(store.examRecords);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF60A5FA), Color(0xFF3B82F6)],
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(store.selectedSubject.name,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  )),
-              GestureDetector(
-                onTap: () => context.push('/practice/switch-subject'),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: 26,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.swap_horiz, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text('切换科目',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            color: Colors.white,
-                          )),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text('今日新增考核：$todayExamCount次      已累计考核：$activeDays天',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppColors.textBlueHint,
-              )),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _ruleItem('${stat.total}', '题目覆盖')),
-              Expanded(child: _ruleItem('${store.examRecords.length}', '考试次数')),
-              Expanded(child: _ruleItem('1', '通过次数')),
-              Expanded(child: _ruleItem('${stat.accuracy}%', '总正确率')),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: stat.progress,
-              minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _ruleItem(String value, String label) {
-    return Column(
-      children: [
-        Text(value,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            )),
-        const SizedBox(height: 4),
-        Text(label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.8),
-            )),
-      ],
-    );
-  }
-
-  int _activeDayCount(List<StudyRecord> records) {
-    if (records.isEmpty) return 0;
-    return records.map((record) => _dayKey(record.time)).toSet().length;
-  }
-
-  bool _isTodayRecord(String time) {
-    return time == '刚刚' ||
-        time.contains('分钟前') ||
-        time.contains('小时前') ||
-        time.startsWith('今天');
-  }
-
-  String _dayKey(String time) {
-    if (time == '刚刚' || time.contains('分钟前') || time.contains('小时前')) {
-      return '今天';
-    }
-    return time.split(' ').first;
   }
 }
 

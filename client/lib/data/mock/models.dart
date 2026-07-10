@@ -148,6 +148,7 @@ class Section {
   final int total;
   final int correct;
   final int wrong;
+  final int minutes;
   final List<Section> children;
 
   const Section({
@@ -158,6 +159,7 @@ class Section {
     required this.total,
     required this.correct,
     required this.wrong,
+    this.minutes = 0,
     this.children = const [],
   });
 
@@ -169,6 +171,7 @@ class Section {
     int? done,
     int? correct,
     int? wrong,
+    int? minutes,
     List<Section>? children,
   }) {
     return Section(
@@ -179,6 +182,7 @@ class Section {
       total: total,
       correct: correct ?? this.correct,
       wrong: wrong ?? this.wrong,
+      minutes: minutes ?? this.minutes,
       children: children ?? this.children,
     );
   }
@@ -230,6 +234,11 @@ class Question {
   final String analysis;
   final String analysisHtml;
   final List<String> imageUrls;
+  final List<String> analysisImageUrls;
+  final String? materialGroupId;
+  final String materialStem;
+  final String materialStemHtml;
+  final List<String> materialImageUrls;
   final int wrongCount;
   final DateTime? lastWrongAt;
 
@@ -244,6 +253,11 @@ class Question {
     required this.analysis,
     this.analysisHtml = '',
     this.imageUrls = const [],
+    this.analysisImageUrls = const [],
+    this.materialGroupId,
+    this.materialStem = '',
+    this.materialStemHtml = '',
+    this.materialImageUrls = const [],
     this.wrongCount = 0,
     this.lastWrongAt,
   });
@@ -263,6 +277,11 @@ class Question {
       analysis: analysis,
       analysisHtml: analysisHtml,
       imageUrls: imageUrls,
+      analysisImageUrls: analysisImageUrls,
+      materialGroupId: materialGroupId,
+      materialStem: materialStem,
+      materialStemHtml: materialStemHtml,
+      materialImageUrls: materialImageUrls,
       wrongCount: wrongCount ?? this.wrongCount,
       lastWrongAt: lastWrongAt ?? this.lastWrongAt,
     );
@@ -384,6 +403,7 @@ class PracticeSession {
   final Map<String, PracticeAnswerResult> answerResults;
   final Set<String> submittingQuestionIds;
   final int wrongRemovalThreshold;
+  final bool reviewOnly;
 
   PracticeSession({
     required this.title,
@@ -398,6 +418,7 @@ class PracticeSession {
     Map<String, PracticeAnswerResult>? answerResults,
     Set<String>? submittingQuestionIds,
     this.wrongRemovalThreshold = 0,
+    this.reviewOnly = false,
   })  : answers = answers ?? {},
         textAnswers = textAnswers ?? {},
         answerResults = answerResults ?? {},
@@ -426,6 +447,28 @@ class PracticeSession {
       }).length;
   int get accuracy =>
       answeredCount == 0 ? 0 : (correctCount * 100 / answeredCount).round();
+}
+
+class PracticeRecordDetail {
+  final String? subjectId;
+  final String? sectionId;
+  final String? paperId;
+  final List<Question> questions;
+  final int currentIndex;
+  final Map<String, Set<int>> answers;
+  final Map<String, String> textAnswers;
+  final Map<String, PracticeAnswerResult> answerResults;
+
+  const PracticeRecordDetail({
+    this.subjectId,
+    this.sectionId,
+    this.paperId,
+    required this.questions,
+    required this.currentIndex,
+    this.answers = const {},
+    this.textAnswers = const {},
+    this.answerResults = const {},
+  });
 }
 
 class ExamSession {
@@ -620,6 +663,7 @@ class StudyRecord {
   final String mode;
   final String metric;
   final String time;
+  final PracticeRecordDetail? practiceDetail;
   final ExamRecordDetail? examDetail;
 
   const StudyRecord({
@@ -628,6 +672,7 @@ class StudyRecord {
     required this.mode,
     required this.metric,
     required this.time,
+    this.practiceDetail,
     this.examDetail,
   });
 }

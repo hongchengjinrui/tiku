@@ -652,7 +652,7 @@ class RemoteTikuRepository extends MockTikuRepository {
           total: progress.total,
           correct: progress.correct,
           wrong: progress.wrong,
-          minutes: 0,
+          minutes: progress.minutes,
         );
       });
     }).toList();
@@ -672,6 +672,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       total: progress.total,
       correct: progress.correct,
       wrong: progress.wrong,
+      minutes: progress.minutes,
       children: children,
     );
   }
@@ -693,7 +694,17 @@ class RemoteTikuRepository extends MockTikuRepository {
       answerText: _answerDisplay(item['answer'], options.length),
       analysis: (item['analysisText'] ?? item['analysisHtml'] ?? '').toString(),
       analysisHtml: analysisHtml,
-      imageUrls: _imageUrls(stemHtml),
+      imageUrls: _contentImageUrls(item['stemImageUrls'], stemHtml),
+      analysisImageUrls:
+          _contentImageUrls(item['analysisImageUrls'], analysisHtml),
+      materialGroupId: _nullableString(item['materialGroupId']),
+      materialStem: (item['materialStemText'] ?? item['materialStemHtml'] ?? '')
+          .toString(),
+      materialStemHtml: (item['materialStemHtml'] ?? '').toString(),
+      materialImageUrls: _contentImageUrls(
+        item['materialImageUrls'],
+        (item['materialStemHtml'] ?? '').toString(),
+      ),
     );
   }
 
@@ -850,6 +861,7 @@ class RemoteTikuRepository extends MockTikuRepository {
       total: _int(progress['total'] ?? item['questionCount']),
       correct: _int(progress['correct']),
       wrong: _int(progress['wrong']),
+      minutes: _int(progress['minutes']),
     );
   }
 
@@ -937,7 +949,34 @@ class RemoteTikuRepository extends MockTikuRepository {
         .allMatches(html)
         .map((match) => match.group(1)?.trim() ?? '')
         .where((url) => url.isNotEmpty)
+        .map(_resolveMediaUrl)
         .toList();
+  }
+
+  List<String> _contentImageUrls(dynamic raw, String html) {
+    final direct = raw is List
+        ? raw
+            .map((item) {
+              if (item is Map) return item['url'] ?? item['src'] ?? '';
+              return item;
+            })
+            .map((item) => item.toString().trim())
+            .where((url) => url.isNotEmpty)
+            .map(_resolveMediaUrl)
+        : const Iterable<String>.empty();
+    return {...direct, ..._imageUrls(html)}.toList();
+  }
+
+  String _resolveMediaUrl(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme) return value;
+    final base = Uri.parse(
+      _dio.options.baseUrl.endsWith('/')
+          ? _dio.options.baseUrl
+          : '${_dio.options.baseUrl}/',
+    );
+    if (value.startsWith('//')) return '${base.scheme}:$value';
+    return base.resolve(value).toString();
   }
 
   String _optionKey(int index) => String.fromCharCode(65 + index);
@@ -973,11 +1012,13 @@ class _Progress {
   final int total;
   final int correct;
   final int wrong;
+  final int minutes;
 
   const _Progress({
     required this.done,
     required this.total,
     required this.correct,
     required this.wrong,
+    required this.minutes,
   });
 }

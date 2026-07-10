@@ -7,6 +7,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../core/app_scaffold.dart';
 import '../../core/widgets.dart';
+import '../common/subject_progress_panel.dart';
+import '../practice/p08_wrong_practice_entry_page.dart';
 
 /// P50 我的页面
 class P50ProfilePage extends StatelessWidget {
@@ -28,9 +30,10 @@ class P50ProfilePage extends StatelessWidget {
                   children: [
                     const SizedBox(height: 16),
                     _buildAccountCard(),
-                    const SizedBox(height: 12),
-                    CacheStatusBanner(store: mockStore),
-                    const SizedBox(height: 16),
+                    CacheStatusBanner(
+                      store: mockStore,
+                      margin: const EdgeInsets.only(top: 12, bottom: 16),
+                    ),
                     _buildOpenExperienceBanner(context),
                     const SizedBox(height: 16),
                     _buildQuickFunctions(context),
@@ -154,7 +157,7 @@ class P50ProfilePage extends StatelessWidget {
   Widget _buildQuickFunctions(BuildContext context) {
     final groups = [
       {
-        'title': '学习记录',
+        'title': '学习功能',
         'items': [
           {
             'icon': Icons.history,
@@ -167,29 +170,24 @@ class P50ProfilePage extends StatelessWidget {
             'route': '/profile/exam-records'
           },
           {
-            'icon': Icons.folder_copy_outlined,
-            'label': '资料领取',
-            'route': '/profile/resource-claims'
+            'icon': Icons.error_outline,
+            'label': '错题练习',
+            'route': '/profile/wrong'
           },
           {
-            'icon': Icons.error_outline,
-            'label': '错题入口',
-            'route': '/profile/wrong'
+            'icon': Icons.upload_file,
+            'label': '上传题库',
+            'route': '/profile/upload'
           },
         ],
       },
       {
-        'title': '学习工具',
+        'title': '本地记录',
         'items': [
           {
-            'icon': Icons.upload_file,
-            'label': '题库维护',
-            'route': '/profile/upload'
-          },
-          {
-            'icon': Icons.feedback_outlined,
-            'label': '意见反馈',
-            'route': '/profile/feedback'
+            'icon': Icons.folder_copy_outlined,
+            'label': '资料领取',
+            'route': '/profile/resource-claims'
           },
           {
             'icon': Icons.rate_review_outlined,
@@ -204,13 +202,8 @@ class P50ProfilePage extends StatelessWidget {
         ],
       },
       {
-        'title': '关于',
+        'title': '关于我们',
         'items': [
-          {
-            'icon': Icons.info_outline,
-            'label': '关于我们',
-            'route': '/profile/about'
-          },
           {
             'icon': Icons.description,
             'label': '用户协议',
@@ -220,6 +213,16 @@ class P50ProfilePage extends StatelessWidget {
             'icon': Icons.privacy_tip,
             'label': '隐私协议',
             'route': '/agreement/privacy'
+          },
+          {
+            'icon': Icons.feedback_outlined,
+            'label': '意见反馈',
+            'route': '/profile/feedback'
+          },
+          {
+            'icon': Icons.info_outline,
+            'label': '关于我们',
+            'route': '/profile/about'
           },
         ],
       },
@@ -300,20 +303,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
         child: Column(
           children: [
             const StatusBar(),
-            NavBar(
-              title: '全部练习记录',
-              trailing: GestureDetector(
-                onTap: () => context.go('/profile/practice-records/delete-all'),
-                child: const Text(
-                  '删除全部记录',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
+            const NavBar(title: '练习记录'),
             Expanded(
               child: AnimatedBuilder(
                 animation: mockStore,
@@ -328,12 +318,26 @@ class P51PracticeRecordsPage extends StatelessWidget {
                         const SizedBox(height: 14),
                         _buildStatsCard(),
                         const SizedBox(height: 14),
-                        const Text('练习记录',
-                            style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('全部练习记录',
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary)),
+                            GestureDetector(
+                              onTap: () => context
+                                  .go('/profile/practice-records/delete-all'),
+                              child: const Text('删除全部记录',
+                                  style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      color: AppColors.error)),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 10),
                         records.isEmpty
                             ? _buildEmptyRecordHint(context)
@@ -351,151 +355,149 @@ class P51PracticeRecordsPage extends StatelessWidget {
   }
 
   Widget _buildStatsCard() {
-    final stat = mockStore.practiceStat;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primaryLight, AppColors.primary],
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(mockStore.selectedSubject.name,
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('累计练习 ${stat.done}题',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('正确率 ${stat.accuracy}%',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('记录 ${mockStore.practiceRecords.length}条',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-            ],
-          ),
-        ],
-      ),
-    );
+    return PracticeProgressPanel(store: mockStore);
   }
 
   Widget _buildRecordList(List<StudyRecord> records) {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: records.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, i) {
-        final record = records[i];
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(record.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(record.time,
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: AppColors.textMuted)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(record.mode,
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          color: AppColors.textSecondary)),
-                  Text(record.metric,
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          color: AppColors.textSecondary)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _recordAction(
-                    '重新练习',
-                    Icons.replay,
-                    () {
-                      mockStore.startPracticeFromRecord(record, restart: true);
-                      context.go('/practice/quiz');
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _recordAction(
-                    '继续练习',
-                    Icons.play_arrow,
-                    () {
-                      mockStore.startPracticeFromRecord(record, restart: false);
-                      context.go('/practice/quiz');
-                    },
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _confirmDeletePracticeRecord(context, record),
-                    child: const SizedBox(
-                      width: 36,
-                      height: 32,
-                      child: Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: AppColors.error,
-                      ),
+    return Column(
+      children: [
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: records.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, i) {
+            final record = records[i];
+            final canReview = record.practiceDetail != null;
+            return Dismissible(
+              key: ValueKey(
+                  'practice-${record.id}-${record.title}-${record.time}-$i'),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) =>
+                  _confirmDeletePracticeRecord(context, record),
+              onDismissed: (_) => _deletePracticeRecord(context, record),
+              background: _deleteBackground(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(record.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary)),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(record.time,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppColors.textMuted)),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(record.mode,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 13,
+                                color: AppColors.textSecondary)),
+                        Flexible(
+                          child: Text(record.metric,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _recordAction(
+                          '重新练习',
+                          Icons.replay,
+                          () {
+                            mockStore.startPracticeFromRecord(record,
+                                restart: true);
+                            context.go('/practice/quiz');
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _recordAction(
+                          canReview ? '查看解析' : '继续练习',
+                          canReview
+                              ? Icons.visibility_outlined
+                              : Icons.play_arrow,
+                          () {
+                            if (canReview) {
+                              mockStore.openPracticeRecordAnalysis(record);
+                            } else {
+                              mockStore.startPracticeFromRecord(
+                                record,
+                                restart: false,
+                              );
+                            }
+                            context.go('/practice/quiz');
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          '向左滑动卡片可删除记录',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: Color(0xFF991B1B),
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _deleteBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Text(
+        '删除',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 
@@ -527,7 +529,7 @@ class P51PracticeRecordsPage extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeletePracticeRecord(
+  Future<bool> _confirmDeletePracticeRecord(
     BuildContext context,
     StudyRecord record,
   ) async {
@@ -548,7 +550,13 @@ class P51PracticeRecordsPage extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    return confirmed == true;
+  }
+
+  Future<void> _deletePracticeRecord(
+    BuildContext context,
+    StudyRecord record,
+  ) async {
     final ok = await mockStore.deletePracticeRecord(record);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -931,20 +939,7 @@ class P52ExamRecordsPage extends StatelessWidget {
         child: Column(
           children: [
             const StatusBar(),
-            NavBar(
-              title: '全部考试记录',
-              trailing: GestureDetector(
-                onTap: () => context.go('/profile/exam-records/delete-all'),
-                child: const Text(
-                  '删除全部记录',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
+            const NavBar(title: '考试记录'),
             Expanded(
               child: AnimatedBuilder(
                 animation: mockStore,
@@ -953,19 +948,56 @@ class P52ExamRecordsPage extends StatelessWidget {
                   return SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildExamStatsCard(),
                         const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('全部考试记录',
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary)),
+                            GestureDetector(
+                              onTap: () => context
+                                  .go('/profile/exam-records/delete-all'),
+                              child: const Text('删除全部记录',
+                                  style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      color: AppColors.error)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         records.isEmpty
                             ? _buildEmptyRecordHint(context)
-                            : ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: records.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (context, i) =>
-                                    _buildExamRecordCard(context, records[i]),
+                            : Column(
+                                children: [
+                                  ListView.separated(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: records.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 10),
+                                    itemBuilder: (context, i) =>
+                                        _buildExamRecordCard(
+                                            context, records[i], i),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    '向左滑动卡片可删除记录',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      color: Color(0xFF991B1B),
+                                    ),
+                                  ),
+                                ],
                               ),
                       ],
                     ),
@@ -980,152 +1012,130 @@ class P52ExamRecordsPage extends StatelessWidget {
   }
 
   Widget _buildExamStatsCard() {
-    final stat = mockStore.examStat;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primaryLight, AppColors.primary],
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(mockStore.selectedSubject.name,
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('考试 ${mockStore.examRecords.length}次',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('已考 ${stat.done}题',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              Text('正确率 ${stat.accuracy}%',
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-            ],
-          ),
-        ],
-      ),
-    );
+    return ExamProgressPanel(store: mockStore);
   }
 
-  Widget _buildExamRecordCard(BuildContext context, StudyRecord record) {
+  Widget _buildExamRecordCard(
+      BuildContext context, StudyRecord record, int index) {
     final submitted = !record.metric.contains('未交卷');
     final parts = record.metric.split(' · ');
     final scoreText = parts.isNotEmpty ? parts.first : record.metric;
     final badgeText =
         submitted ? (parts.length > 1 ? parts.last : record.metric) : '未交卷';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(record.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: submitted ? AppColors.successBg : AppColors.surface,
-                  borderRadius: BorderRadius.circular(4),
+    return Dismissible(
+      key: ValueKey('exam-${record.id}-${record.title}-${record.time}-$index'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDeleteExamRecord(context, record),
+      onDismissed: (_) => _deleteExamRecord(context, record),
+      background: _deleteBackground(),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(record.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary)),
                 ),
-                child: Text(badgeText,
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: submitted ? AppColors.successBg : AppColors.surface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(badgeText,
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: submitted
+                              ? AppColors.success
+                              : AppColors.textMuted)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(submitted ? scoreText : '答题中',
                     style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 11,
-                        color: submitted
-                            ? AppColors.success
-                            : AppColors.textMuted)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(submitted ? scoreText : '答题中',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color:
-                          submitted ? AppColors.success : AppColors.primary)),
-              Text(record.time,
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: AppColors.textMuted)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _examRecordAction(
-                submitted ? '查看解析' : '继续考试',
-                submitted ? Icons.visibility_outlined : Icons.play_arrow,
-                () {
-                  if (submitted) {
-                    mockStore.openExamRecordAnalysis(record);
-                    context.go('/exam/analysis');
-                  } else {
-                    mockStore.startExamFromRecord(record, restart: false);
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color:
+                            submitted ? AppColors.success : AppColors.primary)),
+                Text(record.time,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        color: AppColors.textMuted)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _examRecordAction(
+                  '重新考试',
+                  Icons.replay,
+                  () {
+                    mockStore.startExamFromRecord(record, restart: true);
                     context.go('/exam/answer');
-                  }
-                },
-              ),
-              const Spacer(),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _confirmDeleteExamRecord(context, record),
-                child: const SizedBox(
-                  width: 36,
-                  height: 32,
-                  child: Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: AppColors.error,
-                  ),
+                  },
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 8),
+                _examRecordAction(
+                  submitted ? '查看解析' : '继续考试',
+                  submitted ? Icons.visibility_outlined : Icons.play_arrow,
+                  () {
+                    if (submitted) {
+                      mockStore.openExamRecordAnalysis(record);
+                      context.go('/exam/analysis');
+                    } else {
+                      mockStore.startExamFromRecord(record, restart: false);
+                      context.go('/exam/answer');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _deleteBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Text(
+        '删除',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
       ),
     );
   }
@@ -1158,7 +1168,7 @@ class P52ExamRecordsPage extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteExamRecord(
+  Future<bool> _confirmDeleteExamRecord(
     BuildContext context,
     StudyRecord record,
   ) async {
@@ -1179,7 +1189,13 @@ class P52ExamRecordsPage extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    return confirmed == true;
+  }
+
+  Future<void> _deleteExamRecord(
+    BuildContext context,
+    StudyRecord record,
+  ) async {
     final ok = await mockStore.deleteExamRecord(record);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1255,79 +1271,5 @@ class P53WrongEntryPage extends StatelessWidget {
   const P53WrongEntryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SizedBox(
-        width: 390,
-        child: Column(
-          children: [
-            const StatusBar(),
-            const NavBar(title: '错题'),
-            Expanded(
-              child: AnimatedBuilder(
-                animation: mockStore,
-                builder: (context, _) {
-                  final count = mockStore.wrongPracticeCount;
-                  final canStart = count > 0;
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorBg,
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          child: const Icon(Icons.error_outline,
-                              size: 40, color: AppColors.error),
-                        ),
-                        const SizedBox(height: 16),
-                        Text('当前有 $count 道错题',
-                            style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary)),
-                        const SizedBox(height: 8),
-                        Text(canStart ? '快来消灭它们吧！' : '暂无错题，继续练习即可积累错题本。',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                color: AppColors.textMuted)),
-                        const SizedBox(height: 24),
-                        GestureDetector(
-                          onTap: canStart
-                              ? () => context.go('/practice/wrong')
-                              : () => context.go('/practice'),
-                          child: Container(
-                            width: 200,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                            child: Center(
-                              child: Text(canStart ? '进入错题练习' : '去练习',
-                                  style: const TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const P08WrongPracticeEntryPage();
 }
